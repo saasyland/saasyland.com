@@ -19,7 +19,7 @@ import type { NavigationEntry } from "~/src/data/navigation.constants"
 import { COMMAND_SEARCHES } from "~/src/presentation/components/custom/admin/admin-command-palette"
 import { USER_TABS } from "~/src/presentation/components/custom/admin/users/user-tabs"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 import { routeTree } from "~/src/routeTree.gen"
 
 const ADMIN_ITEMS = ADMIN_NAVIGATION.flatMap(({ items }) => items)

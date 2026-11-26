@@ -56,7 +56,7 @@ import { DragHandle } from "~/src/presentation/components/custom/admin/courses/d
 import { LessonDialog } from "~/src/presentation/components/custom/admin/courses/lesson-dialog"
 import { RowMenu } from "~/src/presentation/components/custom/row-menu"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ROW_CLASSNAME =
   "outline-none data-allows-dragging:cursor-grab data-dragging:opacity-50 data-focus-visible:outline-2 data-focus-visible:-outline-offset-2 data-focus-visible:outline-ring data-focus-visible:outline-solid"
@@ -228,7 +228,7 @@ const LessonRow = ({ courseId, lesson, number }: LessonRowProps): JSX.Element =>
         </div>
         <div className="ml-auto flex items-center">
           <RowMenu label={t("curriculum.menu", { name: title })}>
-            <DropdownMenuItem href={`${ROUTES.ADMIN_COURSES}/${courseId}/lessons/${lesson.id}`} textValue={t("curriculum.edit")}>
+            <DropdownMenuItem href={`${ROUTES.ADMIN.COURSES.INDEX}/${courseId}/lessons/${lesson.id}`} textValue={t("curriculum.edit")}>
               <Pencil aria-hidden />
               {t("curriculum.edit")}
             </DropdownMenuItem>

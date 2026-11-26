@@ -33,7 +33,7 @@ import { PostShare } from "~/src/presentation/components/custom/blog/post-share"
 import { PostToc } from "~/src/presentation/components/custom/blog/post-toc"
 
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const toPostData = ({ locale, post, posts }: { locale: SupportedLocale; post: BlogPost; posts: BlogIndex }) => {
   const { author, description, faq, image, path, toc, updated } = post
@@ -144,7 +144,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
     ])
-    const post = posts.find(({ url }) => url === `${ROUTES.BLOG}/${params._splat ?? ""}`)
+    const post = posts.find(({ url }) => url === `${ROUTES.BLOG.INDEX}/${params._splat ?? ""}`)
     if (post === undefined) {
       throw notFound()
     }
@@ -167,7 +167,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/$")({
       dates: loaderData?.post,
       description: loaderData?.post.description ?? loaderData?.post.summary,
       locale: loaderData?.locale,
-      pathname: loaderData?.post.url ?? ROUTES.BLOG,
+      pathname: loaderData?.post.url ?? ROUTES.BLOG.INDEX,
       section: loaderData?.section,
       title: loaderData?.post.title,
       type: "article",

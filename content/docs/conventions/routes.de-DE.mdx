@@ -32,7 +32,7 @@ const CoursesPage = (): JSX.Element => {
           <>
             <ImportCoursesDialog />
             <ExportCoursesButton />
-            <LinkButton className="h-9 gap-2" to={ROUTES.ADMIN_COURSES_CREATE} size="sm">
+            <LinkButton className="h-9 gap-2" to={ROUTES.ADMIN.COURSES.CREATE} size="sm">
               <PlusCircle aria-hidden className="size-4" />
               {t("actions.create")}
             </LinkButton>
@@ -72,7 +72,7 @@ export const Route = createFileRoute("/admin/courses/")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_COURSES),
+  head: pageHead(ROUTES.ADMIN.COURSES.INDEX),
   pendingComponent: AdminCoursesPending,
   staticData: { namespaces: [NAMESPACE] },
 })
@@ -92,9 +92,9 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
-    return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
+    return { locale, pathname: `${ROUTES.ADMIN.COURSES.INDEX}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
-  head: recordHead(ROUTES.ADMIN_COURSES),
+  head: recordHead(ROUTES.ADMIN.COURSES.INDEX),
   pendingComponent: AdminCourseEditorPending,
 })
 ```
@@ -171,14 +171,14 @@ Jeder Pfad und jeder Menüeintrag steht genau einmal in einer Liste, und ein Fea
 
 | Was                                             | Deklariert in                                                                                                                                                                                                                           | Gelesen aus                                                                                                     |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Pfade                                           | `src/routes.ts`: ein `export const` pro Pfad                                                                                                                                                                                            | `import * as ROUTES from "~/src/routes"`                                                                        |
+| Pfade                                           | `src/routes.ts`: ein `ROUTES`-Objekt mit Schlüsseln nach der URL                                                                                                                                                                        | `import { ROUTES } from "~/src/routes"`                                                                         |
 | Bei jedem Request gerenderte Pfade              | `REQUEST_RENDERED_ROUTES` in `src/routes.ts`                                                                                                                                                                                            | `isRequestRenderedRoute` in `src/routes.ts`                                                                     |
 | Menüeinträge                                    | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` und `FOOTER_NAVIGATION` in `src/data/navigation.ts`, in der Reihenfolge, in der sie erscheinen | Die Sidebars, der Header, der Footer, die Befehlspalette und das Dashboard                                      |
 | Layout-Namespaces                               | `NAMESPACES` in der Layout-Route                                                                                                                                                                                                        | Loader und `staticData` des Layouts                                                                             |
 | Listen der Admin-Konsole und des Kundenbereichs | `DASHBOARD_STATS`, `DASHBOARD_PANELS`, `COMMAND_SEARCHES`, `USER_TABS`, `USER_PROFILE_SECTIONS` und `ACCOUNT_DELETION_NOTICES`, jeweils in der Komponente, die sie rendert                                                              | Diese Komponente, ihr Skeleton und die Route, die ihre Daten lädt                                               |
 | Live-Checks                                     | `LIVE_SITE_CHECKS` in `src/lib/deployment.ts`                                                                                                                                                                                           | `verifyDeployment` ([Plattform und Tests](/docs/architecture/platform-layer#what-the-worker-and-the-build-run)) |
 
-`src/routes.ts` deklariert jeden Pfad und importiert nichts, weil jede Laufzeit die Datei lädt: der Browser, der Worker bei jedem Kaltstart, Bun-Skripte, Playwright, `vite.config.ts` und das Remotion-Projekt. Jede Datei importiert sie als einen Namespace, `import * as ROUTES from "~/src/routes"`, sodass jeder Pfad seinen Literaltyp behält und `<Link to={ROUTES.COURSES}>` weiterhin gegen den Routenbaum geprüft wird. Ein Pfad, der aus einem anderen gebildet wird, etwa `BLOG_FEED` aus `BLOG`, steht hinter diesem.
+`src/routes.ts` deklariert jeden Pfad in einem Objekt, `ROUTES`, und importiert nichts, weil jede Laufzeit die Datei lädt: der Browser, der Worker bei jedem Kaltstart, Bun-Skripte, Playwright, `vite.config.ts` und das Remotion-Projekt. Seine Schlüssel folgen der URL, `ROUTES.ADMIN.USERS.ALL` ist also `/admin/users/all`; `INDEX` benennt einen Pfad, der zugleich Seite und Elternpfad anderer ist, etwa `ROUTES.BLOG.INDEX`, und `BASE` einen Elternpfad ohne eigene Seite, etwa `ROUTES.AUTH.BASE`. Jede Datei importiert es als `import { ROUTES } from "~/src/routes"`, und das Objekt ist mit `as const` deklariert, sodass jeder Pfad seinen Literaltyp behält und `<Link to={ROUTES.COURSES}>` weiterhin gegen den Routenbaum geprüft wird. Ein Segment, das mehrere Pfade teilen, etwa `const BLOG = "/blog"`, ist eine nicht exportierte Konstante der Datei, sodass jedes Segment nur einmal geschrieben wird.
 
 Der Worker und der Build führen ihre Listen genauso: `REQUEST_HANDLERS` und `DOCUMENT_REWRITES` in `src/server.ts` sowie `VITE_PLUGINS` in `vite.config.ts` sind ebenfalls literale Listen, in denen ein optionales Feature ein Element ist.
 
@@ -188,9 +188,9 @@ Der Worker und der Build führen ihre Listen genauso: `REQUEST_HANDLERS` und `DO
 export const HEADER_NAVIGATION: readonly SiteEntry[] = [
   { hash: MARKETING_SECTION_IDS.PRICING, label: "navigation.core.header.pricing", to: ROUTES.HOME },
   { label: "navigation.courses.header.courses", to: ROUTES.COURSES },
-  { label: "navigation.content.header.blog", to: ROUTES.BLOG },
-  { label: "navigation.content.header.docs", to: ROUTES.DOCS },
-  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.SIGN_IN },
+  { label: "navigation.content.header.blog", to: ROUTES.BLOG.INDEX },
+  { label: "navigation.content.header.docs", to: ROUTES.DOCS.INDEX },
+  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.AUTH.SIGN_IN },
 ]
 ```
 

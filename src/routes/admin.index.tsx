@@ -25,7 +25,7 @@ import { TimeSeriesBars } from "~/src/presentation/components/custom/admin/dashb
 import { DASHBOARD_USER_GRID_ID, useDashboardUserColumns } from "~/src/presentation/components/custom/admin/dashboard/user-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const DashboardPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.dashboard")
@@ -56,7 +56,7 @@ const DashboardPage = (): JSX.Element => {
         />
 
         <div className="flex justify-end">
-          <LinkButton className="h-7 px-2.5" size="sm" to={ROUTES.ADMIN_USERS} variant="outline">
+          <LinkButton className="h-7 px-2.5" size="sm" to={ROUTES.ADMIN.USERS.INDEX} variant="outline">
             {t("users.table.pagination.viewAll")}
           </LinkButton>
         </div>
@@ -81,7 +81,7 @@ export const Route = createFileRoute("/admin/")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN),
+  head: pageHead(ROUTES.ADMIN.INDEX),
   pendingComponent: AdminDashboardPending,
   staticData: { namespaces: [NAMESPACE] },
 })

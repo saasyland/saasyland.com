@@ -17,7 +17,7 @@ description: "Плагін Polar для Better Auth, оплата будь-як�
         before: [
           {
             handler: requireVerifiedEmail,
-            matcher: ({ path }) => path?.startsWith(ROUTES.API_AUTH_POLAR.CUSTOMER) === true,
+            matcher: ({ path }) => path?.startsWith(ROUTES.API.AUTH.POLAR.CUSTOMER) === true,
           },
         ],
       },
@@ -25,11 +25,11 @@ description: "Плагін Polar для Better Auth, оплата будь-як�
     },
 ```
 
-Плагін додає портал клієнта й вебхуки, які `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` у `rateLimit.customRules` звільняє від обмежувача частоти запитів Better Auth, але не оплату: його `checkout()` створював би сеанс оплати лише з ID облікового запису, тож Polar знову питав би в покупця, який уже ввійшов, адресу електронної пошти. Better Auth не закриває жодного шляху для HTTP, тож `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` перевіряє, що шлях оплати плагіна відповідає 404, і падає, щойно до плагіна додають `checkout()`. Натомість сеанси оплати створює модуль замовлень через SDK Polar (див. [Оплата](#checkout)).
+Плагін додає портал клієнта й вебхуки, які `[ROUTES.API.AUTH.POLAR.WEBHOOKS]: false` у `rateLimit.customRules` звільняє від обмежувача частоти запитів Better Auth, але не оплату: його `checkout()` створював би сеанс оплати лише з ID облікового запису, тож Polar знову питав би в покупця, який уже ввійшов, адресу електронної пошти. Better Auth не закриває жодного шляху для HTTP, тож `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` перевіряє, що шлях оплати плагіна відповідає 404, і падає, щойно до плагіна додають `checkout()`. Натомість сеанси оплати створює модуль замовлень через SDK Polar (див. [Оплата](#checkout)).
 
 Другий елемент, `polar-verified-customer`, — окремий плагін, який запускає `requireVerifiedEmail` (`auth.hooks.ts`) перед кожним ендпоінтом під `/customer/`, тож портал клієнта відповідає `403 EMAIL_NOT_VERIFIED`, доки адресу облікового запису не підтверджено ([Підтвердження електронної пошти](/docs/features/email-verification)).
 
-`src/integrations/polar/polar.config.ts` створює з `POLAR_ACCESS_TOKEN` і `POLAR_SERVER` клієнт `polarCore`, який використовує плагін, і `polar` — побудовані на ньому сервіси сеансів оплати, ліцензійних ключів, замовлень і продуктів. `POLAR_ORGANIZATION_ID` обмежує організацією кожен виклик Polar, що називає організацію; їх перелічує сторінка [Середовище та прив'язки](/docs/reference/environment). `src/integrations/polar/polar.constants.ts` містить власні значення Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` і `POLAR_WEBHOOK_EVENT`, кожне з яких звірено з типами SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` і `POLAR_ID_MAX_LENGTH` — довжину кожного стовпця, що зберігає ідентифікатор Polar. Цей файл не читає змінних середовища, тож його імпортують також браузер і набір браузерних тестів. Шляхи Polar, `API_AUTH_POLAR` і `API_AUTH_CUSTOMER_PORTAL`, лежать у `src/routes.ts`. [Налаштування Polar](/docs/getting-started/polar-setup) описує продукти, ліцензійні ключі, прапорець згоди, режим оподаткування, вебхук і токен, на які цей код розраховує в Polar, а `bun run polar:verify:<environment>` їх перевіряє.
+`src/integrations/polar/polar.config.ts` створює з `POLAR_ACCESS_TOKEN` і `POLAR_SERVER` клієнт `polarCore`, який використовує плагін, і `polar` — побудовані на ньому сервіси сеансів оплати, ліцензійних ключів, замовлень і продуктів. `POLAR_ORGANIZATION_ID` обмежує організацією кожен виклик Polar, що називає організацію; їх перелічує сторінка [Середовище та прив'язки](/docs/reference/environment). `src/integrations/polar/polar.constants.ts` містить власні значення Polar: `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` і `POLAR_WEBHOOK_EVENT`, кожне з яких звірено з типами SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM` і `POLAR_ID_MAX_LENGTH` — довжину кожного стовпця, що зберігає ідентифікатор Polar. Цей файл не читає змінних середовища, тож його імпортують також браузер і набір браузерних тестів. Шляхи Polar, `API.AUTH.POLAR` і `API.AUTH.CUSTOMER_PORTAL`, лежать у `src/routes.ts`. [Налаштування Polar](/docs/getting-started/polar-setup) описує продукти, ліцензійні ключі, прапорець згоди, режим оподаткування, вебхук і токен, на які цей код розраховує в Polar, а `bun run polar:verify:<environment>` їх перевіряє.
 
 ## Оплата [#checkout]
 
@@ -123,7 +123,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## Портал клієнта [#customer-portal]
 
-`ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) створює клієнтську сесію Polar для облікового запису, який увійшов, і відповідає адресою його порталу, де клієнт оновлює спосіб оплати й платіжні дані, завантажує рахунки та змінює або скасовує підписку. Ендпоінт відповідає у форматі JSON, тож звичайне посилання показало б цей JSON замість порталу: **Керувати платежами** на сторінці платежів викликає його через клієнт Better Auth (`authClient.$fetch`), чий плагін переспрямування відправляє браузер за цією адресою. Картка ліцензії на `/app/license` містить посилання на сторінку платежів.
+`ROUTES.API.AUTH.CUSTOMER_PORTAL` (`/api/auth/customer/portal`) створює клієнтську сесію Polar для облікового запису, який увійшов, і відповідає адресою його порталу, де клієнт оновлює спосіб оплати й платіжні дані, завантажує рахунки та змінює або скасовує підписку. Ендпоінт відповідає у форматі JSON, тож звичайне посилання показало б цей JSON замість порталу: **Керувати платежами** на сторінці платежів викликає його через клієнт Better Auth (`authClient.$fetch`), чий плагін переспрямування відправляє браузер за цією адресою. Картка ліцензії на `/app/license` містить посилання на сторінку платежів.
 
 ## Дохід на панелі адміністратора [#revenue-on-the-dashboard]
 

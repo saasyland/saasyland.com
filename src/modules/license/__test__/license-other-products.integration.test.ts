@@ -33,9 +33,9 @@ import { startCheckoutMutation } from "~/src/modules/order/use-cases/start-check
 
 import { TIER_PRICES } from "~/src/data/license"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
-const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
+const WEBHOOKS_URL = new URL(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.POLAR.WEBHOOKS}`, TEST_APP_URL)
 const CONSENT = { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true }
 
 const STARTER_KIT: PolarProduct = {
@@ -74,7 +74,7 @@ const buyStarterKit = async (buyer: Buyer): Promise<models.Order> => {
     locale: "en-US",
     productId: STARTER_KIT.id,
     returnPath: RETURN_PATH,
-    successPath: ROUTES.APP_BILLING,
+    successPath: ROUTES.APP.BILLING,
   })
   return payPolarCheckout(checkoutId)
 }

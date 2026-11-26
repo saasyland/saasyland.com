@@ -23,7 +23,7 @@ import { ROBOTS, buildTitle } from "~/src/lib/seo"
 import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const load = async (path: string) => {
   const router = getRouter()

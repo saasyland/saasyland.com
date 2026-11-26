@@ -16,9 +16,9 @@ import authErrorsMessages from "~/messages/en-US/auth.errors.json"
 import pagesAuthSignInMessages from "~/messages/en-US/pages.auth.sign-in.json"
 import plAuthErrorsMessages from "~/messages/pl-PL/auth.errors.json"
 import plPagesAuthSignInMessages from "~/messages/pl-PL/pages.auth.sign-in.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
-const SIGN_IN_SEGMENT = ROUTES.SIGN_IN.slice(ROUTES.AUTH.length)
+const SIGN_IN_SEGMENT = ROUTES.AUTH.SIGN_IN.slice(ROUTES.AUTH.BASE.length)
 
 const sessionRequest = vi.hoisted(() => vi.fn())
 
@@ -29,14 +29,14 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
 
 const renderSignIn = async (search: string, title = pagesAuthSignInMessages.form.title) => {
   Reflect.deleteProperty(RootRoute.options, "shellComponent")
-  Object.assign(AuthRoute.options, { getParentRoute: () => RootRoute, id: ROUTES.AUTH, path: ROUTES.AUTH })
+  Object.assign(AuthRoute.options, { getParentRoute: () => RootRoute, id: ROUTES.AUTH.BASE, path: ROUTES.AUTH.BASE })
   Object.assign(SignInRoute.options, { getParentRoute: () => AuthRoute, id: SIGN_IN_SEGMENT, path: SIGN_IN_SEGMENT })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const router = createRouter({
     InnerWrap: TranslationsProvider,
     context: { queryClient },
     defaultPendingMinMs: 0,
-    history: createMemoryHistory({ initialEntries: [`${ROUTES.SIGN_IN}${search}`] }),
+    history: createMemoryHistory({ initialEntries: [`${ROUTES.AUTH.SIGN_IN}${search}`] }),
     routeTree: RootRoute.addChildren([AuthRoute.addChildren([SignInRoute])]),
   })
   render(
@@ -98,7 +98,7 @@ describe("sign-in redirect errors", () => {
   })
 
   it("uses the visitor's locale", async () => {
-    vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000/pl-PL${ROUTES.SIGN_IN}`))
+    vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000/pl-PL${ROUTES.AUTH.SIGN_IN}`))
     await renderSignIn("?error=access_denied", plPagesAuthSignInMessages.form.title)
 
     expect(screen.getByRole("alert")).toHaveTextContent(plAuthErrorsMessages.signInCancelled)

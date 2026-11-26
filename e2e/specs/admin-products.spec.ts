@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test"
 
 import { POLAR_ORGANIZATION_SLUG } from "../../src/integrations/polar/polar.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_CATALOGUE, TEST_CATALOGUE_SEARCH, TEST_CATALOGUE_SHOWN } from "../data/products"
 import { expect, test } from "../fixtures/auth"
@@ -16,7 +16,7 @@ const { headers, statusLabels } = productsMessages.table
 const openProducts = async ({ appPage, authPage, page }: { appPage: BasePage; authPage: AuthPage; page: Page }): Promise<Locator> => {
   await authPage.signIn(admin.email)
   await expect(page).toHaveURL(/\/admin\/?$/u)
-  await page.goto(ROUTES.ADMIN_PRODUCTS, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.PRODUCTS, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   return gridOf(page, productsMessages.title)
 }

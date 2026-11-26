@@ -2,7 +2,7 @@ import { AUTH_PROVIDER } from "../../src/integrations/better-auth/auth.constants
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { SOCIAL_IMAGE } from "../../src/lib/seo"
 import { APP_URL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import type { APIRequestContext, Page } from "@playwright/test"
 import authErrorMessages from "../../messages/en-US/auth.errors.json" with { type: "json" }
 import resetPasswordMessages from "../../messages/en-US/pages.auth.reset-password.json" with { type: "json" }
@@ -70,7 +70,7 @@ const submitNewPassword = async (authPage: AuthPage, page: Page, password: strin
 
 const expectNewLinkOffer = async (authPage: AuthPage, page: Page): Promise<void> => {
   await expect(page.getByText(resetPasswordMessages.form.invalidToken, { exact: true })).toBeVisible()
-  await expect(authPage.requestNewResetLink()).toHaveAttribute("href", ROUTES.FORGOT_PASSWORD)
+  await expect(authPage.requestNewResetLink()).toHaveAttribute("href", ROUTES.AUTH.FORGOT_PASSWORD)
   await expect(authPage.resetPasswordSubmitButton()).toHaveCount(0)
 }
 
@@ -384,7 +384,7 @@ test.describe("auth", () => {
     await expect(page).toHaveURL(/\/pl-PL\/app\/?$/u)
 
     const verificationUrl = await expectVerificationEmail(request, email, 1, POLISH_LOCALE)
-    expect(verificationUrl.pathname).toBe(`${POLISH_PREFIX}${ROUTES.VERIFY_EMAIL}`)
+    expect(verificationUrl.pathname).toBe(`${POLISH_PREFIX}${ROUTES.AUTH.VERIFY_EMAIL}`)
     await page.goto(verificationUrl.toString())
 
     await expect(page).toHaveURL(/\/pl-PL\/app\/?$/u)
@@ -492,7 +492,7 @@ test.describe("auth", () => {
 })
 
 test("the sign-in page, which is not prerendered, shares the site card", async ({ page, request }) => {
-  await page.goto(ROUTES.SIGN_IN)
+  await page.goto(ROUTES.AUTH.SIGN_IN)
   await expect(page.locator('head > meta[property="og:image"]')).toHaveAttribute("content", `${APP_URL}${SOCIAL_IMAGE.SITE_PATH}`)
   expect((await request.get(SOCIAL_IMAGE.SITE_PATH)).status()).toBe(HTTP_STATUS.OK)
 })

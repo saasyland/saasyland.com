@@ -31,7 +31,7 @@ import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAuthVerifyEmailMessages from "~/messages/en-US/pages.auth.verify-email.json"
 import plPagesAuthVerifyEmailMessages from "~/messages/pl-PL/pages.auth.verify-email.json"
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const TEST_EMAIL = "user@example.com"
 const NEW_EMAIL = "new@example.com"
@@ -61,14 +61,16 @@ const unverifiedSession = (email = TEST_EMAIL) => {
 }
 
 const renderVerifyEmail = async ({ locale = "en-US", search = "" }: Readonly<{ locale?: SupportedLocale; search?: string }> = {}) => {
-  vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL })}`))
+  vi.mocked(getRequest).mockReturnValue(
+    new Request(`http://127.0.0.1:3000${localizePathname({ locale, pathname: ROUTES.AUTH.VERIFY_EMAIL })}`),
+  )
   const root = createRootRouteWithContext<RouterContext>()()
-  Object.assign(VerifyEmailRoute.options, { getParentRoute: () => root, id: ROUTES.VERIFY_EMAIL, path: ROUTES.VERIFY_EMAIL })
-  const callback = createRoute({ component: () => <h1>Callback</h1>, getParentRoute: () => root, path: ROUTES.AUTH_CALLBACK })
+  Object.assign(VerifyEmailRoute.options, { getParentRoute: () => root, id: ROUTES.AUTH.VERIFY_EMAIL, path: ROUTES.AUTH.VERIFY_EMAIL })
+  const callback = createRoute({ component: () => <h1>Callback</h1>, getParentRoute: () => root, path: ROUTES.AUTH.CALLBACK })
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
   const router = createRouter({
     context: { queryClient },
-    history: createMemoryHistory({ initialEntries: [`${ROUTES.VERIFY_EMAIL}${search}`] }),
+    history: createMemoryHistory({ initialEntries: [`${ROUTES.AUTH.VERIFY_EMAIL}${search}`] }),
     rewrite: { input: ({ url }) => deLocalizeUrl(url), output: ({ url }) => localizeUrl(url) },
     routeTree: root.addChildren([VerifyEmailRoute, callback]),
   })
@@ -106,7 +108,7 @@ describe("verify email page, signed out", () => {
     expect(screen.getByRole("button", { name: messages.form.useDifferentEmail })).toBeVisible()
     expect(screen.getByRole("link", { name: messages.form.backToSignIn })).toHaveAttribute(
       "href",
-      `${ROUTES.SIGN_IN}?email=${encodeURIComponent(TEST_EMAIL)}&redirect=${encodeURIComponent(RETURN_TO)}`,
+      `${ROUTES.AUTH.SIGN_IN}?email=${encodeURIComponent(TEST_EMAIL)}&redirect=${encodeURIComponent(RETURN_TO)}`,
     )
     expect(resendMock).not.toHaveBeenCalled()
   })
@@ -126,7 +128,7 @@ describe("verify email page, signed out", () => {
     })
 
     expect(resendMock).toHaveBeenCalledExactlyOnceWith(
-      { callbackURL: `${ROUTES.AUTH_CALLBACK}?redirect=${encodeURIComponent(RETURN_TO)}`, email: TEST_EMAIL },
+      { callbackURL: `${ROUTES.AUTH.CALLBACK}?redirect=${encodeURIComponent(RETURN_TO)}`, email: TEST_EMAIL },
       expect.anything(),
     )
     expect(await screen.findByRole("status")).toHaveTextContent(resendMessages.sentIfAccount.replace("{email}", TEST_EMAIL))
@@ -175,7 +177,7 @@ describe("verify email page, signed out", () => {
     await user.click(await resendButton(messages.pending.send))
 
     await waitFor(() => {
-      expect(resendMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH_CALLBACK, email: NEW_EMAIL }, expect.anything())
+      expect(resendMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH.CALLBACK, email: NEW_EMAIL }, expect.anything())
     })
   })
 
@@ -201,7 +203,7 @@ describe("verify email page, signed out", () => {
     await user.click(await resendButton(messages.invalid.send))
 
     await waitFor(() => {
-      expect(resendMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH_CALLBACK, email: TEST_EMAIL }, expect.anything())
+      expect(resendMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH.CALLBACK, email: TEST_EMAIL }, expect.anything())
     })
   })
 
@@ -219,7 +221,7 @@ describe("verify email page, signed out", () => {
     expect(screen.getByText(messages.confirmed.description)).toBeVisible()
     expect(screen.getByRole("link", { name: messages.confirmed.signIn })).toHaveAttribute(
       "href",
-      `${ROUTES.SIGN_IN}?email=${encodeURIComponent(TEST_EMAIL)}&redirect=${encodeURIComponent(RETURN_TO)}`,
+      `${ROUTES.AUTH.SIGN_IN}?email=${encodeURIComponent(TEST_EMAIL)}&redirect=${encodeURIComponent(RETURN_TO)}`,
     )
     expect(screen.queryByRole("button", { name: /resend/iu })).not.toBeInTheDocument()
   })
@@ -229,7 +231,7 @@ describe("verify email page, signed out", () => {
 
     expect(await screen.findByRole("link", { name: plPagesAuthVerifyEmailMessages.form.backToSignIn })).toHaveAttribute(
       "href",
-      `/pl-PL${ROUTES.SIGN_IN}?email=${encodeURIComponent(TEST_EMAIL)}`,
+      `/pl-PL${ROUTES.AUTH.SIGN_IN}?email=${encodeURIComponent(TEST_EMAIL)}`,
     )
   })
 })
@@ -246,7 +248,7 @@ describe("verify email page, signed in", () => {
     await waitFor(() => {
       expect(screen.getByRole("status")).toHaveTextContent(resendMessages.sent.replace("{email}", TEST_EMAIL))
     })
-    expect(resendMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH_CALLBACK, email: TEST_EMAIL }, expect.anything())
+    expect(resendMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH.CALLBACK, email: TEST_EMAIL }, expect.anything())
   })
 
   it("moves the account to a different address and shows it", async () => {
@@ -261,7 +263,7 @@ describe("verify email page, signed in", () => {
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith(changeEmailMessages.changed.replace("{email}", NEW_EMAIL))
     })
-    expect(changeEmailMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH_CALLBACK, newEmail: NEW_EMAIL }, expect.anything())
+    expect(changeEmailMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH.CALLBACK, newEmail: NEW_EMAIL }, expect.anything())
     expect(await screen.findByText(NEW_EMAIL, { selector: "strong" })).toBeVisible()
   })
 
@@ -274,7 +276,7 @@ describe("verify email page, signed in", () => {
     await act(() => queryClient.invalidateQueries({ queryKey: getCurrentSessionQuery.queryKey }))
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(ROUTES.AUTH_CALLBACK)
+      expect(router.state.location.pathname).toBe(ROUTES.AUTH.CALLBACK)
     })
     expect(router.state.location.search).toEqual({ redirect: RETURN_TO })
   })

@@ -4,7 +4,7 @@ import { TIER_PRICES } from "../../src/data/license"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { LESSON_ACCESS } from "../../src/modules/lesson/lesson.constants"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS, TEST_MATERIALS } from "../data/courses"
 import { expect, test } from "../fixtures/auth"
 import { buyLicense } from "../fixtures/license"
@@ -83,7 +83,7 @@ test.describe("paid lessons for each licence", () => {
     await expectOffered(page)
     await expect(page.getByRole("link", { name: "Get Complete" })).toHaveAttribute(
       "href",
-      `${ROUTES.APP_LICENSE}?redirect=${encodeURIComponent(lessonPath(paid.slug))}&tier=${LICENSE_TIER.COMPLETE}`,
+      `${ROUTES.APP.LICENSE}?redirect=${encodeURIComponent(lessonPath(paid.slug))}&tier=${LICENSE_TIER.COMPLETE}`,
     )
     await expect(materials(page).getByText(checklist.title["en-US"])).toBeVisible()
     await expect(materials(page).getByRole("link")).toHaveCount(0)

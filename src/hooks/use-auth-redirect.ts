@@ -6,9 +6,9 @@ import { useRouter, useRouterState } from "@tanstack/react-router"
 import { removeUserData } from "~/src/integrations/better-auth/auth.session"
 import { authSearchSchema } from "~/src/integrations/better-auth/auth.zod"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
-type AuthPage = typeof ROUTES.AUTH_CALLBACK | typeof ROUTES.RESET_PASSWORD | typeof ROUTES.SIGN_IN
+type AuthPage = typeof ROUTES.AUTH.CALLBACK | typeof ROUTES.AUTH.RESET_PASSWORD | typeof ROUTES.AUTH.SIGN_IN
 
 export const useAuthRedirect = (target?: string) => {
   const queryClient = useQueryClient()
@@ -22,7 +22,7 @@ export const useAuthRedirect = (target?: string) => {
   const finishSignIn = useCallback(async () => {
     removeUserData(queryClient)
     router.clearCache()
-    await router.navigate({ replace: true, search: { redirect }, to: ROUTES.AUTH_CALLBACK })
+    await router.navigate({ replace: true, search: { redirect }, to: ROUTES.AUTH.CALLBACK })
   }, [queryClient, redirect, router])
 
   return { finishSignIn, hrefWithRedirect, redirect }

@@ -17,7 +17,7 @@ import { SignUpForm } from "~/src/presentation/components/custom/auth/sign-up-fo
 import { SignUpIntro } from "~/src/presentation/components/custom/auth/sign-up-intro"
 import { SignUpConsent } from "~/src/presentation/components/custom/sign-up-consent"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SignUpPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.sign-up")
@@ -53,7 +53,7 @@ export const Route = createFileRoute("/auth/sign-up")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.SIGN_UP),
+  head: pageHead(ROUTES.AUTH.SIGN_UP),
   pendingComponent: SignUpPending,
   staticData: { namespaces: [NAMESPACE] },
 })

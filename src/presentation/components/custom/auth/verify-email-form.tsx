@@ -28,7 +28,7 @@ import { ChangeEmailForm } from "~/src/presentation/components/custom/auth/chang
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const routeApi = getRouteApi("/auth/verify-email")
 
@@ -142,7 +142,7 @@ export const VerifyEmailForm = (): JSX.Element => {
     defaultValues: { email: address ?? "" },
     listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
-      resend.send({ callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK), email: unconfirmedEmail ?? value.email })
+      resend.send({ callbackURL: hrefWithRedirect(ROUTES.AUTH.CALLBACK), email: unconfirmedEmail ?? value.email })
     },
     validators: { onChange: fieldSchema },
   })
@@ -150,7 +150,7 @@ export const VerifyEmailForm = (): JSX.Element => {
   if (status === VERIFY_EMAIL_STATUS.CONFIRMED) {
     return (
       <div className="mt-10 flex flex-col gap-6">
-        <Link className={cn(buttonVariants(), PRIMARY_CLASS)} search={{ email: address, redirect }} to={ROUTES.SIGN_IN}>
+        <Link className={cn(buttonVariants(), PRIMARY_CLASS)} search={{ email: address, redirect }} to={ROUTES.AUTH.SIGN_IN}>
           {t("confirmed.signIn")}
         </Link>
       </div>
@@ -231,7 +231,7 @@ export const VerifyEmailForm = (): JSX.Element => {
         </Button>
       )}
       {!signedIn && (
-        <Link className={SECONDARY_LINK_CLASS} search={{ email: address, redirect }} to={ROUTES.SIGN_IN}>
+        <Link className={SECONDARY_LINK_CLASS} search={{ email: address, redirect }} to={ROUTES.AUTH.SIGN_IN}>
           {t("form.backToSignIn")}
         </Link>
       )}

@@ -47,7 +47,7 @@ import customersMessages from "~/messages/en-US/pages.admin.customers.json"
 import ordersMessages from "~/messages/en-US/pages.admin.orders.json"
 import licenseMessages from "~/messages/en-US/pages.admin.users.license.json"
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 import { routeTree } from "~/src/routeTree.gen"
 
 const { detail } = ordersMessages
@@ -103,13 +103,13 @@ const renderOrder = async (polar: Order["detail"]["polar"], order: Order["detail
   Object.assign(OrderRoute.options, {
     getParentRoute: () => root,
     id: "/admin/orders/$orderId",
-    loader: () => ({ locale: "en-US", pathname: `${ROUTES.ADMIN_ORDERS}/${order.id}`, title: order.description }),
+    loader: () => ({ locale: "en-US", pathname: `${ROUTES.ADMIN.ORDERS}/${order.id}`, title: order.description }),
     path: "/admin/orders/$orderId",
   })
   const router = createRouter({
     context: { queryClient },
     defaultPendingMinMs: 0,
-    history: createMemoryHistory({ initialEntries: [`${ROUTES.ADMIN_ORDERS}/${order.id}`] }),
+    history: createMemoryHistory({ initialEntries: [`${ROUTES.ADMIN.ORDERS}/${order.id}`] }),
     rewrite: LOCALE_REWRITE,
     routeTree: root.addChildren([OrderRoute]),
   })
@@ -305,7 +305,7 @@ describe("order page", () => {
       "href",
       "https://sandbox.polar.sh/dashboard/saasyland/sales/ord_complete",
     )
-    expect(screen.getByRole("link", { name: detail.back })).toHaveAttribute("href", ROUTES.ADMIN_ORDERS)
+    expect(screen.getByRole("link", { name: detail.back })).toHaveAttribute("href", ROUTES.ADMIN.ORDERS)
     expect(valueOf(detail.mirror.fields.invoiceNumber)).toHaveTextContent("SAASY-0001")
     expect(valueOf(detail.mirror.fields.subscription)).toHaveTextContent(detail.none)
     expect(valueOf(detail.mirror.fields.customerId)).toHaveTextContent("cus_ada")
@@ -483,7 +483,7 @@ describe("customers tab", () => {
 
   it("mirrors the tab in the skeleton of user management", () => {
     const page = markupOf(<AdminCustomersPending />)
-    const { container } = renderWithRouter(<AdminUsersPending />, { router: createTestRouter(ROUTES.ADMIN_USERS_CUSTOMERS, routeTree) })
+    const { container } = renderWithRouter(<AdminUsersPending />, { router: createTestRouter(ROUTES.ADMIN.USERS.CUSTOMERS, routeTree) })
 
     expect(container.innerHTML).toContain(page)
   })

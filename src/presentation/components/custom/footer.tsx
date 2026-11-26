@@ -18,7 +18,7 @@ import { SiteEntryLabel } from "~/src/presentation/components/custom/site-entry-
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
 import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_INSTAGRAM_URL, APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LINK_CLASSNAME =
   "inline-block rounded-sm py-1.5 text-body-sm text-muted-foreground transition-colors duration-200 ease-exp hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

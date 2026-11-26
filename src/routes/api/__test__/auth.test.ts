@@ -5,7 +5,7 @@ import { Route as AuthRoute } from "~/src/routes/api/auth.$"
 import { createNonce } from "~/src/lib/content-security-policy"
 
 import { getRouter } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const { authHandler } = vi.hoisted(() => ({
   authHandler: vi.fn<(request: Request) => Promise<Response>>(),
@@ -13,10 +13,10 @@ const { authHandler } = vi.hoisted(() => ({
 
 vi.mock("~/src/integrations/better-auth/auth.server", () => ({ auth: { handler: authHandler } }))
 
-const AUTH_SPLAT_PATH = `${ROUTES.API_AUTH_BASE}/$`
+const AUTH_SPLAT_PATH = `${ROUTES.API.AUTH.BASE}/$`
 
 describe("API route forwarding", () => {
-  it.each([ROUTES.API_AUTH_VERIFY_EMAIL, `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}`])(
+  it.each([ROUTES.API.AUTH.VERIFY_EMAIL, `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.GET_SESSION}`])(
     "routes %s to the Better Auth route file, whose path the router generator writes",
     (path) => {
       const [matchedRoutes] = getRouter().getMatchedRoutes(path)

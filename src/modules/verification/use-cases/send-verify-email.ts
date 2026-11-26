@@ -16,7 +16,7 @@ import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
 import type verifyEmailMessages from "~/messages/en-US/emails.verify-email.json"
 import { VERIFY_EMAIL_NAMESPACE, VerifyEmail } from "~/src/presentation/emails/verify-email"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const sendVerifyEmail = async ({
   callbackURL,
@@ -34,7 +34,7 @@ export const sendVerifyEmail = async ({
 
   const callback = new URL(callbackURL, getRequest().url)
   const locale = extractLocaleFromPath(callback.pathname) ?? I18N.DEFAULT_LOCALE
-  const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.VERIFY_EMAIL }), getRequest().url)
+  const verifyUrl = new URL(localizePathname({ locale, pathname: ROUTES.AUTH.VERIFY_EMAIL }), getRequest().url)
   verifyUrl.search = callback.search
   verifyUrl.searchParams.set("token", token)
 

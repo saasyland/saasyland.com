@@ -17,7 +17,7 @@ Les paiements passent par Polar avec le plugin `@polar-sh/better-auth`, que `plu
         before: [
           {
             handler: requireVerifiedEmail,
-            matcher: ({ path }) => path?.startsWith(ROUTES.API_AUTH_POLAR.CUSTOMER) === true,
+            matcher: ({ path }) => path?.startsWith(ROUTES.API.AUTH.POLAR.CUSTOMER) === true,
           },
         ],
       },
@@ -25,11 +25,11 @@ Les paiements passent par Polar avec le plugin `@polar-sh/better-auth`, que `plu
     },
 ```
 
-Le plugin ajoute le portail client et les webhooks, que `[ROUTES.API_AUTH_POLAR.WEBHOOKS]: false` dans `rateLimit.customRules` exempte du limiteur de débit de Better Auth, mais aucun paiement : son `checkout()` créerait un paiement avec le seul identifiant du compte, si bien que Polar redemanderait son e-mail à un acheteur connecté. Better Auth ne ferme aucun chemin en HTTP : `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` vérifie donc que le chemin de paiement du plugin répond 404, et échoue dès que `checkout()` est ajouté au plugin. Les paiements démarrent plutôt dans le module des commandes, avec le SDK Polar (voir [Paiement](#checkout)).
+Le plugin ajoute le portail client et les webhooks, que `[ROUTES.API.AUTH.POLAR.WEBHOOKS]: false` dans `rateLimit.customRules` exempte du limiteur de débit de Better Auth, mais aucun paiement : son `checkout()` créerait un paiement avec le seul identifiant du compte, si bien que Polar redemanderait son e-mail à un acheteur connecté. Better Auth ne ferme aucun chemin en HTTP : `src/integrations/better-auth/__test__/auth.server.polar.integration.test.ts` vérifie donc que le chemin de paiement du plugin répond 404, et échoue dès que `checkout()` est ajouté au plugin. Les paiements démarrent plutôt dans le module des commandes, avec le SDK Polar (voir [Paiement](#checkout)).
 
 Le deuxième élément, `polar-verified-customer`, est un plugin à part qui exécute `requireVerifiedEmail` (`auth.hooks.ts`) avant chaque endpoint sous `/customer/`, de sorte que le portail client répond `403 EMAIL_NOT_VERIFIED` tant que l’adresse du compte n’est pas confirmée ([Vérification de l’e-mail](/docs/features/email-verification)).
 
-`src/integrations/polar/polar.config.ts` crée `polarCore` à partir de `POLAR_ACCESS_TOKEN` et `POLAR_SERVER`, que le plugin utilise, ainsi que `polar`, les services de paiements, de clés de licence, de commandes et de produits construits dessus. `POLAR_ORGANIZATION_ID` restreint à l’organisation chaque appel à Polar qui nomme une organisation ; [Environnement et bindings](/docs/reference/environment) les énumère. `src/integrations/polar/polar.constants.ts` contient les valeurs propres à Polar : `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` et `POLAR_WEBHOOK_EVENT`, chacune vérifiée par rapport aux types du SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM`, ainsi que `POLAR_ID_MAX_LENGTH`, la longueur de chaque colonne qui contient un identifiant Polar. Il ne lit aucun environnement, si bien que le navigateur et la suite du navigateur l’importent aussi. Les chemins de Polar, `API_AUTH_POLAR` et `API_AUTH_CUSTOMER_PORTAL`, se trouvent dans `src/routes.ts`. [Configurer Polar](/docs/getting-started/polar-setup) décrit les produits, les clés de licence, la case de consentement, le comportement fiscal, le webhook et le jeton que ce code attend dans Polar, et `bun run polar:verify:<environment>` les vérifie.
+`src/integrations/polar/polar.config.ts` crée `polarCore` à partir de `POLAR_ACCESS_TOKEN` et `POLAR_SERVER`, que le plugin utilise, ainsi que `polar`, les services de paiements, de clés de licence, de commandes et de produits construits dessus. `POLAR_ORGANIZATION_ID` restreint à l’organisation chaque appel à Polar qui nomme une organisation ; [Environnement et bindings](/docs/reference/environment) les énumère. `src/integrations/polar/polar.constants.ts` contient les valeurs propres à Polar : `POLAR_ORDER_STATUS`, `POLAR_SUBSCRIPTION_STATUS`, `POLAR_RECURRING_INTERVAL`, `POLAR_LICENSE_KEY_STATUS` et `POLAR_WEBHOOK_EVENT`, chacune vérifiée par rapport aux types du SDK, `POLAR_CHECKOUT_ID_PLACEHOLDER`, `POLAR_CUSTOMER_SESSION_TOKEN_PARAM`, ainsi que `POLAR_ID_MAX_LENGTH`, la longueur de chaque colonne qui contient un identifiant Polar. Il ne lit aucun environnement, si bien que le navigateur et la suite du navigateur l’importent aussi. Les chemins de Polar, `API.AUTH.POLAR` et `API.AUTH.CUSTOMER_PORTAL`, se trouvent dans `src/routes.ts`. [Configurer Polar](/docs/getting-started/polar-setup) décrit les produits, les clés de licence, la case de consentement, le comportement fiscal, le webhook et le jeton que ce code attend dans Polar, et `bun run polar:verify:<environment>` les vérifie.
 
 ## Paiement [#checkout]
 
@@ -123,7 +123,7 @@ Les trois fonctions serveur exécutent `authorized()` et ne lisent que le compte
 
 ## Portail client [#customer-portal]
 
-`ROUTES.API_AUTH_CUSTOMER_PORTAL` (`/api/auth/customer/portal`) crée une session client Polar pour le compte connecté et répond avec l’adresse de son portail, où le client met à jour son moyen de paiement et ses informations de facturation, télécharge ses factures et modifie ou résilie un abonnement. L’endpoint répond en JSON, si bien qu’un simple lien afficherait ce JSON au lieu du portail : **Gérer la facturation**, sur la page de facturation, l’appelle avec le client Better Auth (`authClient.$fetch`), dont le plugin de redirection envoie le navigateur vers cette adresse. La carte de licence de `/app/license` renvoie vers la page de facturation.
+`ROUTES.API.AUTH.CUSTOMER_PORTAL` (`/api/auth/customer/portal`) crée une session client Polar pour le compte connecté et répond avec l’adresse de son portail, où le client met à jour son moyen de paiement et ses informations de facturation, télécharge ses factures et modifie ou résilie un abonnement. L’endpoint répond en JSON, si bien qu’un simple lien afficherait ce JSON au lieu du portail : **Gérer la facturation**, sur la page de facturation, l’appelle avec le client Better Auth (`authClient.$fetch`), dont le plugin de redirection envoie le navigateur vers cette adresse. La carte de licence de `/app/license` renvoie vers la page de facturation.
 
 ## Revenus sur le tableau de bord [#revenue-on-the-dashboard]
 

@@ -20,7 +20,7 @@ import { Button } from "~/src/presentation/components/shadcn/button"
 
 import { Github, Google } from "~/src/presentation/components/custom/icons"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ICONS = { [AUTH_PROVIDER.GITHUB]: Github, [AUTH_PROVIDER.GOOGLE]: Google } as const
 
@@ -36,8 +36,8 @@ const useSocialSignIn = (redirect?: string) => {
   return useMutation({
     mutationFn: (provider: Provider) =>
       signInSocial({
-        callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK),
-        errorCallbackURL: hrefWithRedirect(ROUTES.SIGN_IN),
+        callbackURL: hrefWithRedirect(ROUTES.AUTH.CALLBACK),
+        errorCallbackURL: hrefWithRedirect(ROUTES.AUTH.SIGN_IN),
         fetchOptions: {
           onError: (context) => {
             toast.error(t(`errors.${authErrorKey(context.error)}`))

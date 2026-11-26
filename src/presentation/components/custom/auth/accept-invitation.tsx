@@ -21,7 +21,7 @@ import { AcceptInvitationForm } from "~/src/presentation/components/custom/auth/
 import { OAuthButtons, OAuthDivider } from "~/src/presentation/components/custom/auth/oauth-buttons"
 
 import { APP_NAME } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const UNKNOWN_LINK = "invalid"
 
@@ -46,7 +46,7 @@ export const InvitationUnavailable = ({
   return (
     <>
       <PageHeading description={t(`${kind}.description`)}>{t(`${kind}.title`)}</PageHeading>
-      <LinkButton className="mt-10 h-11 w-full text-body-sm font-semibold" to={ROUTES.SIGN_IN}>
+      <LinkButton className="mt-10 h-11 w-full text-body-sm font-semibold" to={ROUTES.AUTH.SIGN_IN}>
         {t("signIn")}
       </LinkButton>
     </>
@@ -148,7 +148,7 @@ export const AcceptInvitation = ({ token }: { readonly token: string }): JSX.Ele
     return <InvitationMismatch current={session.user.email} invited={invitation.email} />
   }
 
-  const invitePage = `${ROUTES.ACCEPT_INVITATION}?${new URLSearchParams({ token }).toString()}`
+  const invitePage = `${ROUTES.AUTH.INVITE}?${new URLSearchParams({ token }).toString()}`
 
   return (
     <>
@@ -163,7 +163,7 @@ export const AcceptInvitation = ({ token }: { readonly token: string }): JSX.Ele
       <p className="mt-10 text-body-sm text-muted-foreground">
         {t.rich("form.hasAccount", {
           link: (chunks: ReactNode) => (
-            <Link className={LINK_CLASS} search={{ redirect: invitePage }} to={ROUTES.SIGN_IN}>
+            <Link className={LINK_CLASS} search={{ redirect: invitePage }} to={ROUTES.AUTH.SIGN_IN}>
               {chunks}
             </Link>
           ),

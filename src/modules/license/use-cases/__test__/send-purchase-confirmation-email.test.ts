@@ -20,7 +20,7 @@ import coursesStep from "~/messages/en-US/purchase-email.courses.json"
 import plMessages from "~/messages/pl-PL/emails.purchase-confirmation-email.json"
 import plCoursesStep from "~/messages/pl-PL/purchase-email.courses.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const RECIPIENT = "buyer@example.test"
 const BUYER = { email: RECIPIENT, id: "buyer-1" }
@@ -83,7 +83,7 @@ describe("the purchase confirmation", () => {
       "You can still get a full refund until Oct 8, 2026, 10:00 AM UTC if you have not generated a project with the CLI or opened a paid lesson.",
     )
     expect(email.text).toContain("in force on Sep 24, 2026 apply to this purchase.")
-    for (const path of [ROUTES.APP_LICENSE, ROUTES.DOCS_CLI, ROUTES.TERMS, ROUTES.LICENCE, ROUTES.REFUNDS, ROUTES.WITHDRAWAL]) {
+    for (const path of [ROUTES.APP.LICENSE, ROUTES.DOCS.CLI, ROUTES.TERMS, ROUTES.LICENCE, ROUTES.REFUNDS, ROUTES.WITHDRAWAL]) {
       expect(email.html).toContain(`href="${ORIGIN}${path}"`)
     }
     expect(email.html).toContain(`href="mailto:${CONTACT_EMAIL}"`)

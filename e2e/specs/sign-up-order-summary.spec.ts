@@ -4,7 +4,7 @@ import { CURRENCY_FORMAT } from "../../src/modules/_core/constants/pricing"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { TIER_PRICES } from "../../src/data/license"
 import { REFUND_TERMS } from "../../src/data/refunds"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/auth"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
@@ -14,7 +14,7 @@ import signUp from "../../messages/en-US/pages.auth.sign-up.json" with { type: "
 const COMPLETE_PRICE = new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(TIER_PRICES[LICENSE_TIER.COMPLETE])
 
 const signUpPath = (redirect?: string): string =>
-  redirect === undefined ? ROUTES.SIGN_UP : `${ROUTES.SIGN_UP}?${new URLSearchParams({ redirect }).toString()}`
+  redirect === undefined ? ROUTES.AUTH.SIGN_UP : `${ROUTES.AUTH.SIGN_UP}?${new URLSearchParams({ redirect }).toString()}`
 
 const orderSummary = (page: Page) => page.getByRole("region", { name: new RegExp(`^${pricing.tiers.complete.name}`, "u") })
 
@@ -23,7 +23,7 @@ test.describe("sign-up order summary", () => {
     authPage,
     page,
   }) => {
-    await page.goto(signUpPath(`${ROUTES.APP}?tier=${LICENSE_TIER.COMPLETE}`), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(signUpPath(`${ROUTES.APP.INDEX}?tier=${LICENSE_TIER.COMPLETE}`), { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await authPage.waitForAppReady()
 
     const summary = orderSummary(page)

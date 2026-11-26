@@ -18,7 +18,7 @@ import { readPageHead } from "../../src/lib/page-head"
 import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, PAGES_SITEMAP_PATH, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
 import { isIndexable, listedPages } from "../../src/lib/sitemap"
 import { APP_URL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
 const CLIENT_DIR = "dist/client"
@@ -30,8 +30,8 @@ const XML_CONTENT_TYPE = /^(?:application|text)\/xml/u
 
 const SHARED_PAGES = [
   ROUTES.HOME,
-  `${ROUTES.DOCS}/conventions/files-and-naming`,
-  `${ROUTES.BLOG}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`,
+  `${ROUTES.DOCS.INDEX}/conventions/files-and-naming`,
+  `${ROUTES.BLOG.INDEX}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`,
 ].flatMap((path) => [path, `/ja-JP${path === ROUTES.HOME ? "" : path}`])
 
 

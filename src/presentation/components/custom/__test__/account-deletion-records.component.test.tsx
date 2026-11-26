@@ -9,7 +9,7 @@ import { AccountDeletionRecords } from "~/src/presentation/components/custom/acc
 import { ACCOUNT_DELETION_NOTICES } from "~/src/presentation/components/custom/settings/delete-account-card"
 
 import recordsMessages from "~/messages/en-US/components.custom.account-deletion-records.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const PRIVACY_TAG = /<privacy>(?<link>.*)<\/privacy>/u
 

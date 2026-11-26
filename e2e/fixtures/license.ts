@@ -5,7 +5,7 @@ import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants
 import { licensePolarProduct } from "../../src/modules/license/__test__/fixtures/polar-product"
 import { LICENSE_CHECKOUT_FIELD, LICENSE_WEBHOOK_EVENTS, type LicenseTier } from "../../src/modules/license/license.constants"
 import { polarCustomer, polarOrder, signedPolarWebhook } from "../../src/platform/testing/lib/polar"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_POLAR, TEST_PRODUCT_IDS } from "../data/polar-settings"
 import { expect } from "./test"
 
@@ -52,7 +52,7 @@ const purchaseSchema = paymentSchema.extend({ orderRefunded: signedWebhookSchema
 export type SignedWebhook = zod.infer<typeof signedWebhookSchema>
 
 export const deliverWebhook = async (request: APIRequestContext, { body, headers }: SignedWebhook): Promise<APIResponse> =>
-  request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, { data: body, headers })
+  request.post(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.POLAR.WEBHOOKS}`, { data: body, headers })
 
 const post = async (request: APIRequestContext, webhook: SignedWebhook): Promise<void> => {
   expect((await deliverWebhook(request, webhook)).ok()).toBe(true)

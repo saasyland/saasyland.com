@@ -16,7 +16,7 @@ import { pageHead } from "~/src/lib/seo"
 import { AcceptInvitation, InvitationUnavailable } from "~/src/presentation/components/custom/auth/accept-invitation"
 import { AcceptInvitationPending } from "~/src/presentation/components/custom/auth/auth-pending"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const inviteSearchSchema = zod.object({ token: searchText() })
 
@@ -47,7 +47,7 @@ export const Route = createFileRoute("/auth/invite")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ACCEPT_INVITATION),
+  head: pageHead(ROUTES.AUTH.INVITE),
   pendingComponent: AcceptInvitationPending,
   search: { middlewares: [onlyDeclaredSearch(inviteSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

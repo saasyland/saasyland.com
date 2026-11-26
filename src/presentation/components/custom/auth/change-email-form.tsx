@@ -24,7 +24,7 @@ import { Input } from "~/src/presentation/components/shadcn/input"
 
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const newEmailSchema = accountZodSchemas.changeEmail.pick({ newEmail: true })
 
@@ -66,9 +66,9 @@ export const ChangeEmailForm = ({ onDone }: { readonly onDone: () => void }): JS
     onSubmit: ({ value }) => {
       const returnHere = router.buildLocation({
         search: { redirect: router.state.location.publicHref },
-        to: ROUTES.AUTH_CALLBACK,
+        to: ROUTES.AUTH.CALLBACK,
       }).publicHref
-      const callbackURL = currentUser?.emailVerified === true ? returnHere : hrefWithRedirect(ROUTES.AUTH_CALLBACK)
+      const callbackURL = currentUser?.emailVerified === true ? returnHere : hrefWithRedirect(ROUTES.AUTH.CALLBACK)
       changeEmail.mutate({ callbackURL, newEmail: value.newEmail })
     },
     validators: { onChange: newEmailSchema },

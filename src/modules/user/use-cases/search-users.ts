@@ -12,7 +12,7 @@ import { user } from "~/src/modules/user/user.schema"
 import type { User } from "~/src/modules/user/user.types"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const searchUsers = createServerFn({ method: "GET" })
   .middleware([authorized({ user: ["list"] })])
@@ -24,7 +24,7 @@ export const searchUsers = createServerFn({ method: "GET" })
       .where(or(containsText(user.name, data.text), containsText(user.email, data.text)))
       .orderBy(desc(user.createdAt), desc(user.id))
       .limit(SEARCH_HITS_LIMIT)
-    return rows.map(({ email, id, name }) => ({ detail: email, id, title: name, to: `${ROUTES.ADMIN_USERS}/${id}` }))
+    return rows.map(({ email, id, name }) => ({ detail: email, id, title: name, to: `${ROUTES.ADMIN.USERS.INDEX}/${id}` }))
   })
 
 export const searchUsersQuery = (input: User["searchUsers"]) =>

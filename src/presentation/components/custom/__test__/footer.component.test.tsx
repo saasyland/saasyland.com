@@ -20,7 +20,7 @@ import footerMessages from "~/messages/en-US/components.custom.footer.json"
 import newsletterFormMessages from "~/messages/en-US/components.custom.newsletter-form.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import { APP_FOUNDED_YEAR, APP_GITHUB_URL, APP_INSTAGRAM_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const pageLabel = getNavigationLabel("en-US")
 
@@ -147,8 +147,8 @@ describe("the footer for a signed-in visitor", () => {
   })
 
   it.each([
-    { role: ROLE_CODES.CUSTOMER, workspace: ROUTES.APP },
-    { role: ROLE_CODES.ADMIN, workspace: ROUTES.ADMIN },
+    { role: ROLE_CODES.CUSTOMER, workspace: ROUTES.APP.INDEX },
+    { role: ROLE_CODES.ADMIN, workspace: ROUTES.ADMIN.INDEX },
   ])("leads a $role from its account link to $workspace instead of sign-in", async ({ role, workspace }) => {
     document.documentElement.setAttribute(SESSION_ATTRIBUTE, "")
     sessionRequest.mockResolvedValue(createAuthSessionFixture({ role }))
@@ -157,7 +157,7 @@ describe("the footer for a signed-in visitor", () => {
     await waitFor(() => {
       expect(footerLink(workspace)).toHaveTextContent(`${navigationAuthMessages.footer.signIn}${navigationAuthMessages.footer.account}`)
     })
-    expect(footerLink(ROUTES.SIGN_IN)).toBeUndefined()
+    expect(footerLink(ROUTES.AUTH.SIGN_IN)).toBeUndefined()
   })
 
   it("keeps the same link while the session loads, so a press that starts on it still lands on it", async () => {
@@ -165,11 +165,11 @@ describe("the footer for a signed-in visitor", () => {
     const session = Promise.withResolvers<ReturnType<typeof createAuthSessionFixture>>()
     sessionRequest.mockReturnValue(session.promise)
     renderFooter()
-    const signIn = footerLink(ROUTES.SIGN_IN)
+    const signIn = footerLink(ROUTES.AUTH.SIGN_IN)
     session.resolve(createAuthSessionFixture())
 
     await waitFor(() => {
-      expect(footerLink(ROUTES.APP)).toBe(signIn)
+      expect(footerLink(ROUTES.APP.INDEX)).toBe(signIn)
     })
   })
 })

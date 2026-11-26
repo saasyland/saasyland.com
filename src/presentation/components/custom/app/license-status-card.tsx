@@ -11,7 +11,7 @@ import { Badge, type BadgeVariant } from "~/src/presentation/components/shadcn/b
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "~/src/presentation/components/shadcn/card"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const licenseStatus = (license: Pick<License["select"], "polarLicenseKeyId" | "status">): License["select"]["status"] | "pending" => {
   if (license.status !== LICENSE_STATUS.ACTIVE) {
@@ -54,7 +54,7 @@ export const LicenseStatusCard = (): JSX.Element | undefined => {
       </CardHeader>
       <CardContent className="flex flex-wrap items-center justify-between gap-4">
         <p className="text-lg font-semibold text-foreground">{t(`components.custom.pricing.tiers.${license.tier}.name`)}</p>
-        <LinkButton to={ROUTES.APP_LICENSE} size="sm" variant="outline">
+        <LinkButton to={ROUTES.APP.LICENSE} size="sm" variant="outline">
           {t("pages.license.statusCard.action")}
         </LinkButton>
       </CardContent>

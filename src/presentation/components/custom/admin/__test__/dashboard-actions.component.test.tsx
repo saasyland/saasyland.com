@@ -11,9 +11,9 @@ import { DashboardActions } from "~/src/presentation/components/custom/admin/das
 
 const TEST_ACTION = await vi.hoisted(async () => {
   const { FileDown } = await import("lucide-react")
-  const ROUTES = await import("~/src/routes")
+  const { ROUTES } = await import("~/src/routes")
 
-  return { icon: FileDown, label: "navigation.reports.dashboard.exportReport", to: ROUTES.ADMIN_SETTINGS } as const
+  return { icon: FileDown, label: "navigation.reports.dashboard.exportReport", to: ROUTES.ADMIN.SETTINGS } as const
 })
 
 const TEST_ACTION_LABEL = "Export report"

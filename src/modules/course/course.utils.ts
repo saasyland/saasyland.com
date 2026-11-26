@@ -13,7 +13,7 @@ import { MILLISECONDS_PER_MINUTE } from "~/src/lib/duration"
 import { SCHEMA_CONTEXT, type ShareImage, type StructuredDataNode, absoluteUrl, localizedUrl, toStructuredDataHtml } from "~/src/lib/seo"
 
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type Lesson = Course["pageLesson"]
 

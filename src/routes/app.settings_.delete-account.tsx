@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/src/presentation/com
 import { AppDeleteAccountPending } from "~/src/presentation/components/custom/app/auth-pending"
 import { ACCOUNT_DELETION_NOTICES, AccountDeletionConsequences } from "~/src/presentation/components/custom/settings/delete-account-card"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const deleteAccountSearchSchema = zod.object({ token: searchText() })
 
@@ -64,7 +64,7 @@ const DeleteAccountPage = (): JSX.Element => {
           {token === undefined && <p className="text-sm text-pretty text-muted-foreground">{t("missing.description")}</p>}
           {token !== undefined && <AccountDeletionConsequences />}
           <div className="flex flex-wrap justify-end gap-2">
-            <LinkButton to={ROUTES.APP_SETTINGS} size="sm" variant="outline">
+            <LinkButton to={ROUTES.APP.SETTINGS.INDEX} size="sm" variant="outline">
               {token === undefined ? t("missing.back") : t("confirm.keep")}
             </LinkButton>
             {token !== undefined && (
@@ -100,7 +100,7 @@ export const Route = createFileRoute("/app/settings_/delete-account")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.APP_DELETE_ACCOUNT),
+  head: pageHead(ROUTES.APP.SETTINGS.DELETE_ACCOUNT),
   pendingComponent: AppDeleteAccountPending,
   search: { middlewares: [onlyDeclaredSearch(deleteAccountSearchSchema)] },
   staticData: { namespaces: [NAMESPACE] },

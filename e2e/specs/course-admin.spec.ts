@@ -3,7 +3,7 @@ import type { Locator, Page } from "@playwright/test"
 import labels from "../../messages/en-US/pages.admin.json" with { type: "json" }
 import locales from "../../messages/en-US/locales.json" with { type: "json" }
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import coursesMessages from "../../messages/en-US/pages.admin.courses.json" with { type: "json" }
 import { TEST_COURSE, TEST_MATERIALS } from "../data/courses"
 import { TEST_VIDEO } from "../data/videos"
@@ -269,7 +269,7 @@ test("an administrator finds a course by its slug, filters the catalogue by stat
   page,
 }) => {
   await signInAsAdmin(page, authPage)
-  await page.goto(ROUTES.ADMIN_COURSES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.COURSES.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   const { headers } = coursesMessages.table
   const grid = gridOf(page, coursesMessages.title)
@@ -324,7 +324,7 @@ test("an administrator orders the catalogue by dragging a course and with the ke
     await expect(page).toHaveURL(/\/admin\/courses\/[\da-f-]{36}$/u)
   }
 
-  await page.goto(ROUTES.ADMIN_COURSES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.COURSES.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   const grid = gridOf(page, coursesMessages.title)
   const rowOf = (course: { readonly slug: string }): Locator => grid.getByRole("row").filter({ hasText: course.slug })

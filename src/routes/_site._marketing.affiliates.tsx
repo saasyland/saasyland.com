@@ -16,7 +16,7 @@ import { LegalPending } from "~/src/presentation/components/custom/legal-pending
 import { LegalSection, LegalSections } from "~/src/presentation/components/custom/legal-sections"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SECTIONS = ["commission", "attribution", "verification", "payouts", "refunds", "rules", "buyers", "changes", "join"] as const
 

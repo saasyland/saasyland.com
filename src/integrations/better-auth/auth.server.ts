@@ -41,20 +41,20 @@ import { sendVerifyEmail } from "~/src/modules/verification/use-cases/send-verif
 import { consumeRateLimit } from "~/src/lib/rate-limit"
 
 import { APP_NAME, APP_SLUG } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
 const RATE_LIMIT_KEY_PREFIX = "auth:"
 const UNNAMED_CALLBACK_URL = "/"
 
 const NEW_PASSWORD_PATHS = [
-  ROUTES.API_AUTH.ACCEPT_INVITATION,
-  ROUTES.API_AUTH.ADMIN_CREATE_USER,
-  ROUTES.API_AUTH.ADMIN_SET_USER_PASSWORD,
-  ROUTES.API_AUTH.CHANGE_PASSWORD,
-  ROUTES.API_AUTH.RESET_PASSWORD,
-  ROUTES.API_AUTH.SET_PASSWORD,
-  ROUTES.API_AUTH.SIGN_UP_EMAIL,
+  ROUTES.API.AUTH.ACCEPT_INVITATION,
+  ROUTES.API.AUTH.ADMIN_CREATE_USER,
+  ROUTES.API.AUTH.ADMIN_SET_USER_PASSWORD,
+  ROUTES.API.AUTH.CHANGE_PASSWORD,
+  ROUTES.API.AUTH.RESET_PASSWORD,
+  ROUTES.API.AUTH.SET_PASSWORD,
+  ROUTES.API.AUTH.SIGN_UP_EMAIL,
 ]
 
 const signUpCallbackSchema = zod.object({ callbackURL: zod.string() })
@@ -104,7 +104,7 @@ export const auth = betterAuth({
     useSecureCookies: !isLocalMode(import.meta.env.MODE),
   },
   appName: APP_NAME,
-  basePath: ROUTES.API_AUTH_BASE,
+  basePath: ROUTES.API.AUTH.BASE,
   baseURL: { allowedHosts: appHostsForMode(import.meta.env.MODE) },
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
   databaseHooks: {
@@ -146,7 +146,7 @@ export const auth = betterAuth({
     sendVerificationEmail: ({ token, url, user }) => sendVerifyEmail({ callbackURL: readVerificationCallbackURL(url), token, user }),
   },
   hooks: { after: signInNewAccount, before: enforceInputPolicy },
-  onAPIError: { errorURL: ROUTES.SIGN_IN },
+  onAPIError: { errorURL: ROUTES.AUTH.SIGN_IN },
   plugins: [
     admin({ ac, adminRoles: [ROLE_CODES.ADMIN], defaultRole: DEFAULT_ROLE_CODE, roles: ROLES }),
     twoFactor({ issuer: APP_NAME }),
@@ -154,7 +154,7 @@ export const auth = betterAuth({
     invitationPlugin(),
     haveIBeenPwned({ paths: NEW_PASSWORD_PATHS }),
     {
-      hooks: { after: [{ handler: notifyPasswordChange, matcher: ({ path }) => path === ROUTES.API_AUTH.CHANGE_PASSWORD }] },
+      hooks: { after: [{ handler: notifyPasswordChange, matcher: ({ path }) => path === ROUTES.API.AUTH.CHANGE_PASSWORD }] },
       id: "password-change-notice",
     },
     {
@@ -170,7 +170,7 @@ export const auth = betterAuth({
         before: [
           {
             handler: requireVerifiedEmail,
-            matcher: ({ path }) => path?.startsWith(ROUTES.API_AUTH_POLAR.CUSTOMER) === true,
+            matcher: ({ path }) => path?.startsWith(ROUTES.API.AUTH.POLAR.CUSTOMER) === true,
           },
         ],
       },
@@ -180,9 +180,9 @@ export const auth = betterAuth({
   ],
   rateLimit: {
     customRules: {
-      [ROUTES.API_AUTH.GET_SESSION]: false,
-      [ROUTES.API_AUTH.SIGN_OUT]: false,
-      [ROUTES.API_AUTH_POLAR.WEBHOOKS]: false,
+      [ROUTES.API.AUTH.GET_SESSION]: false,
+      [ROUTES.API.AUTH.SIGN_OUT]: false,
+      [ROUTES.API.AUTH.POLAR.WEBHOOKS]: false,
     },
     customStorage: {
       consume: (key, { max, window }) => consumeRateLimit({ key: `${RATE_LIMIT_KEY_PREFIX}${key}`, limit: max, windowSeconds: window }),

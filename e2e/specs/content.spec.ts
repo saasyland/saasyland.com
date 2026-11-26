@@ -7,7 +7,7 @@ import { DOCS_CONTENT_ID } from "../../src/data/navigation.constants"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { CHANGELOG_DIRECTORY, ENTRY_ORIGIN, entryItems, originOf, readChangelog } from "../../src/lib/changelog"
 import { APP_GITHUB_URL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, turnOnDataSaver } from "../pages/base-page"
 
@@ -20,11 +20,11 @@ const ENGLISH_DOCS_INDEX_CHUNK = /\/assets\/docs-index-en-US-[\w-]+\.js$/u
 const SEARCH_INDEX = /^\/assets\/search-index-(?<locale>[a-zA-Z-]+)-[\da-f]+\.json$/u
 const SEARCH_OPEN_TIMEOUT_MS = 2000
 const STATIC_FILE = /^\/(?:assets|fonts|images)\//u
-const GETTING_STARTED_PATH = `${ROUTES.DOCS}/getting-started`
+const GETTING_STARTED_PATH = `${ROUTES.DOCS.INDEX}/getting-started`
 const INSTALLATION_PATH = `${GETTING_STARTED_PATH}/installation`
 const INSTALLATION_CHUNK = "/installation.en-US-"
 const PAGER = `#${DOCS_CONTENT_ID} > :last-child a`
-const CHANGELOG_PATH = `${ROUTES.DOCS}/project/changelog`
+const CHANGELOG_PATH = `${ROUTES.DOCS.INDEX}/project/changelog`
 const ENGLISH_ENTRY = ".en-US.mdx"
 const SHORT_COMMIT_LENGTH = 7
 const ENTRY_LINKS = `#${DOCS_CONTENT_ID} a[href^="${APP_GITHUB_URL}/pull/"], #${DOCS_CONTENT_ID} a[href^="${APP_GITHUB_URL}/commit/"]`
@@ -212,7 +212,7 @@ test.describe("a slow navigation to the docs", () => {
       await route.continue()
     })
 
-    await page.locator(`header a[href="${ROUTES.DOCS}"]`).first().click()
+    await page.locator(`header a[href="${ROUTES.DOCS.INDEX}"]`).first().click()
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0)
     await expect(page.locator('[aria-busy="true"] [data-slot="skeleton"]').filter({ visible: true }).first()).toBeVisible()
     await expect(page.getByRole("banner")).toBeVisible()
@@ -255,14 +255,14 @@ test.describe("content without the Worker", () => {
     const requests: string[] = []
     page.on("request", (request) => requests.push(new URL(request.url()).pathname))
 
-    await page.locator(`header a[href="${ROUTES.DOCS}"]`).first().click()
+    await page.locator(`header a[href="${ROUTES.DOCS.INDEX}"]`).first().click()
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(DOCS_TITLE ?? "")
     await page.locator(`a[href="${GETTING_STARTED_PATH}"]`).first().click()
     await expect(page).toHaveURL(GETTING_STARTED_PATH)
     await page.locator(`a[href="${INSTALLATION_PATH}"]`).first().click()
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(INSTALLATION_TITLE ?? "")
-    await page.locator(`header a[href="${ROUTES.BLOG}"]`).first().click()
-    await expect(page).toHaveURL(ROUTES.BLOG)
+    await page.locator(`header a[href="${ROUTES.BLOG.INDEX}"]`).first().click()
+    await expect(page).toHaveURL(ROUTES.BLOG.INDEX)
     await page.locator('main h3 a[href^="/blog/"]').first().click()
     await expect(page).toHaveURL(/\/blog\/.+/u)
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()

@@ -20,7 +20,7 @@ import { order } from "~/src/modules/order/order.schema"
 import { searchOrdersQuery } from "~/src/modules/order/use-cases/search-orders"
 import { user } from "~/src/modules/user/user.schema"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const signInAs = (role: string): void => {
   vi.spyOn(auth.api, "getSession").mockResolvedValue(createAuthSessionFixture({ role, userId: ADMIN_ID }))
@@ -51,7 +51,7 @@ describe("search-orders", () => {
         detail: `${PAID_CORE.id} · ${PAID_CORE.description}`,
         id: PAID_CORE.id,
         title: "Ada Buyer",
-        to: `${ROUTES.ADMIN_ORDERS}/${PAID_CORE.id}`,
+        to: `${ROUTES.ADMIN.ORDERS}/${PAID_CORE.id}`,
       },
     ])
   })

@@ -7,12 +7,12 @@ import { MIN_FIELD_LENGTH, idField, positionField } from "~/src/modules/_core/ut
 import { LESSON_ATTACHMENT_MAX_BYTES, LESSON_ATTACHMENT_URL_MAX_LENGTH } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { attachmentContentType, attachmentFileName, uploadEntries } from "~/src/modules/lesson-attachment/lesson-attachment.files"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const HTTPS_PROTOCOL = "https:"
 const pagePath = (section: string): RegExp => new RegExp(`^${section}(?:/[\\da-z-]+)*(?:#[\\w-]+)?$`, "u")
 
-const LINKED_SECTIONS: readonly RegExp[] = [pagePath(ROUTES.DOCS)]
+const LINKED_SECTIONS: readonly RegExp[] = [pagePath(ROUTES.DOCS.INDEX)]
 
 const isHttpsUrl = (value: string): boolean => URL.canParse(value) && new URL(value).protocol === HTTPS_PROTOCOL
 

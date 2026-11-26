@@ -24,7 +24,7 @@ import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/lib/tier-features"
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 
 import { APP_NAME, APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const FEATURED_TIER = LICENSE_TIER.COMPLETE
 

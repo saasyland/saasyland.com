@@ -22,7 +22,7 @@ import { CLI_ACTIVATION, machineConnection, sendToApi } from "../fixtures/cli-ap
 import { buyLicense } from "../fixtures/license"
 import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 
 const [admin, customer] = TEST_ACCOUNTS
 const BROWSER_TIMEZONE = "Asia/Tokyo"
@@ -274,7 +274,7 @@ test.describe("a licence holder", () => {
   }) => {
     const { userId } = await signUpVerifiedBuyer(page, request, baseURL)
     const { refund } = await buyLicense(request, { tier: LICENSE_TIER.COMPLETE, userId })
-    await page.goto(ROUTES.APP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
 
     const status = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: "Your licence" }) })
@@ -282,11 +282,11 @@ test.describe("a licence holder", () => {
     await expect(status.getByText("Active", { exact: true })).toBeVisible()
     await appPage.waitForHydration(status)
     await status.getByRole("link", { name: "Manage your licence" }).click()
-    await expect(page).toHaveURL(ROUTES.APP_LICENSE)
+    await expect(page).toHaveURL(ROUTES.APP.LICENSE)
     await expect(page.getByRole("heading", { name: "Complete", exact: true })).toBeVisible()
 
     await refund()
-    await page.goto(ROUTES.APP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(status.getByText("Refunded", { exact: true })).toBeVisible()
   })
@@ -305,7 +305,7 @@ test.describe("a licence holder", () => {
     const keptActivation = await sendToApi(API_ENDPOINT.ACTIVATE, { body: { ...CLI_ACTIVATION.body, label: KEPT_MACHINE } }, kept)
     const freedActivation = await sendToApi(API_ENDPOINT.ACTIVATE, { body: { ...CLI_ACTIVATION.body, label: FREED_MACHINE } }, freed)
     assert(keptActivation.success && freedActivation.success)
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByText(`2 of ${String(limit)} in use`)).toBeVisible()
 
@@ -334,7 +334,7 @@ test.describe("the licence offer", () => {
   const openOffer = async ({ appPage, authPage, page }: { appPage: BasePage; authPage: AuthPage; page: Page }): Promise<void> => {
     await authPage.signIn(customer.email)
     await expect(page).toHaveURL(/\/app\/?$/u)
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
   }
 

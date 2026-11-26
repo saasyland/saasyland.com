@@ -3,7 +3,7 @@ import type { Locator, Page, Request, Route } from "@playwright/test"
 import errors from "../../messages/en-US/errors.global.json" with { type: "json" }
 import blog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/base-page"
@@ -60,12 +60,12 @@ const openHome = async (page: Page): Promise<Locator> => {
 test.describe("a tab opened before a deploy", () => {
   test("lands on the page a visitor clicks when the deploy removed that page's code", async ({ appPage, page }) => {
     const blogLink = await openHome(page)
-    const documents = recordDocuments(page, ROUTES.BLOG)
+    const documents = recordDocuments(page, ROUTES.BLOG.INDEX)
     await removeBlogCodeUntilNextPageLoad(page)
 
     await blogLink.click()
 
-    await expect(page).toHaveURL(ROUTES.BLOG)
+    await expect(page).toHaveURL(ROUTES.BLOG.INDEX)
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { level: 1, name: blog.index.title })).toBeVisible()
     await expect(page.getByRole("alert").filter({ hasText: errors.title })).toHaveCount(0)
@@ -74,7 +74,7 @@ test.describe("a tab opened before a deploy", () => {
 
   test("lands on the page after a hover failed to preload the removed code", async ({ appPage, page }) => {
     const blogLink = await openHome(page)
-    const documents = recordDocuments(page, ROUTES.BLOG)
+    const documents = recordDocuments(page, ROUTES.BLOG.INDEX)
     await removeBlogCodeUntilNextPageLoad(page)
     const preload = page.waitForResponse((response) => BLOG_CODE.test(response.url()) && response.status() === HTTP_STATUS.NOT_FOUND)
 
@@ -84,7 +84,7 @@ test.describe("a tab opened before a deploy", () => {
     expect(documents).toHaveLength(0)
     await blogLink.click()
 
-    await expect(page).toHaveURL(ROUTES.BLOG)
+    await expect(page).toHaveURL(ROUTES.BLOG.INDEX)
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { level: 1, name: blog.index.title })).toBeVisible()
     expect(documents).toHaveLength(1)
@@ -92,13 +92,13 @@ test.describe("a tab opened before a deploy", () => {
 
   test("shows the error page instead of loading the page again when its code is still missing", async ({ page }) => {
     const blogLink = await openHome(page)
-    const documents = recordDocuments(page, ROUTES.BLOG)
+    const documents = recordDocuments(page, ROUTES.BLOG.INDEX)
     await removeBlogCode(page)
 
     await blogLink.click()
 
     await expect(page.getByRole("alert").filter({ hasText: errors.title })).toBeVisible()
-    await expect(page).toHaveURL(ROUTES.BLOG)
+    await expect(page).toHaveURL(ROUTES.BLOG.INDEX)
     expect(documents).toHaveLength(RELOADS_BEFORE_THE_ERROR_PAGE)
   })
 })

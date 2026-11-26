@@ -2,7 +2,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES, isRequestRenderedRoute } from "~/src/routes"
 
 export const ROBOTS = {
   FULL_PREVIEWS: "max-image-preview:large, max-snippet:-1, max-video-preview:-1",
@@ -75,7 +75,7 @@ const socialImage = ({
   readonly title: string | undefined
 }): ShareImage => {
   const card = { height: SOCIAL_IMAGE.HEIGHT, type: SOCIAL_IMAGE.TYPE, width: SOCIAL_IMAGE.WIDTH }
-  if (ROUTES.isRequestRenderedRoute(deLocalizePathname(canonicalPath))) {
+  if (isRequestRenderedRoute(deLocalizePathname(canonicalPath))) {
     return { ...card, alt: APP_NAME, path: SOCIAL_IMAGE.SITE_PATH }
   }
 

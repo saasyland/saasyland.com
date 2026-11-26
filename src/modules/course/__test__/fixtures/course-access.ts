@@ -4,7 +4,7 @@ import { vi } from "vite-plus/test"
 import { USERS } from "~/src/modules/course/__test__/fixtures/catalogue"
 import type * as LessonAccess from "~/src/modules/lesson/lesson.access"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const TEST_GRANT = {
   holders: "coursePassHolders",

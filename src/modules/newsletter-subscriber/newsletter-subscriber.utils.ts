@@ -5,7 +5,7 @@ import { CONFIRMATION_WINDOW_IN_HOURS, NEWSLETTER_TOKEN_LENGTH } from "~/src/mod
 
 import { randomHex } from "~/src/lib/hex"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const MILLISECONDS_PER_HOUR = 3_600_000
 
@@ -25,6 +25,6 @@ const newsletterTokenUrl = (pathname: string, { locale, origin, token }: Newslet
   return url.toString()
 }
 
-export const confirmationUrl = (options: NewsletterTokenUrlOptions): string => newsletterTokenUrl(ROUTES.NEWSLETTER_CONFIRM, options)
+export const confirmationUrl = (options: NewsletterTokenUrlOptions): string => newsletterTokenUrl(ROUTES.NEWSLETTER.CONFIRM, options)
 
-export const unsubscribeUrl = (options: NewsletterTokenUrlOptions): string => newsletterTokenUrl(ROUTES.NEWSLETTER_UNSUBSCRIBE, options)
+export const unsubscribeUrl = (options: NewsletterTokenUrlOptions): string => newsletterTokenUrl(ROUTES.NEWSLETTER.UNSUBSCRIBE, options)

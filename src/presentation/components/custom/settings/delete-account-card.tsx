@@ -36,7 +36,7 @@ import { LicenseDeletionNotice } from "~/src/presentation/components/custom/app/
 import { PasswordInput } from "~/src/presentation/components/custom/auth/password-input"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const passwordSchema = userZodSchemas.requestAccountDeletion.pick({ password: true }).required()
 
@@ -88,7 +88,7 @@ const DeletionRequestForm = ({ onSent }: { readonly onSent: () => void }): JSX.E
     defaultValues: { password: "" },
     listeners: { onBlur: validateOnBlur },
     onSubmit: ({ value }) => {
-      const callbackURL = router.buildLocation({ to: ROUTES.APP_DELETE_ACCOUNT }).publicHref
+      const callbackURL = router.buildLocation({ to: ROUTES.APP.SETTINGS.DELETE_ACCOUNT }).publicHref
       requestDeletion.mutate(hasPassword ? { callbackURL, password: value.password } : { callbackURL })
     },
     validators: hasPassword ? { onChange: passwordSchema } : {},

@@ -15,7 +15,7 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { HTTP_STATUS } from "~/src/modules/_core/constants/api"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const A_MINUTE_LATER_MS = 60_000
 
@@ -38,7 +38,7 @@ describe("auth update user", () => {
 
     const response = await auth.handler(
       postJson(
-        `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.UPDATE_USER}`,
+        `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.UPDATE_USER}`,
         { email: createTestAccount().email },
         { cookie: headers.get("cookie") ?? "" },
       ),

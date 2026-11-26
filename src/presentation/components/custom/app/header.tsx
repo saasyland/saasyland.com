@@ -8,12 +8,12 @@ import { APP_NAVIGATION } from "~/src/data/navigation"
 
 import { SidebarTrigger } from "~/src/presentation/components/shadcn/sidebar"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const AppHeader = (): JSX.Element => {
   const t = useTranslations()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const current = APP_NAVIGATION.find((item) => item.to === pathname) ?? APP_NAVIGATION.find((item) => item.to === ROUTES.APP)
+  const current = APP_NAVIGATION.find((item) => item.to === pathname) ?? APP_NAVIGATION.find((item) => item.to === ROUTES.APP.INDEX)
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/80 px-3 backdrop-blur-xl md:px-5">

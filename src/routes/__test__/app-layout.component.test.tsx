@@ -44,7 +44,7 @@ import plAuthSessionMessages from "~/messages/pl-PL/auth.session.json"
 import plErrorMessages from "~/messages/pl-PL/errors.json"
 import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type SignOutResult = Awaited<ReturnType<NonNullable<typeof signOutUserMutation.mutationFn>>>
 
@@ -97,7 +97,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
     path: "/settings/delete-account",
   })
   const nested = createRoute({ component: () => <p>Session details</p>, getParentRoute: () => AppRoute, path: "/settings/details" })
-  const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.SIGN_IN })
+  const signIn = createRoute({ component: () => <h1>Sign in required</h1>, getParentRoute: () => root, path: ROUTES.AUTH.SIGN_IN })
   const home = createRoute({ component: () => <h1>Home page</h1>, getParentRoute: () => root, path: ROUTES.HOME })
   const router = createRouter({
     context: { queryClient },
@@ -106,7 +106,7 @@ const renderApp = async (path: string, locale: SupportedLocale = "en-US") => {
     routeTree: root.addChildren([
       home,
       signIn,
-      createRoute({ component: () => <h1>Documentation</h1>, getParentRoute: () => root, path: ROUTES.DOCS }),
+      createRoute({ component: () => <h1>Documentation</h1>, getParentRoute: () => root, path: ROUTES.DOCS.INDEX }),
       AppRoute.addChildren([OverviewRoute, SettingsRoute, DeleteAccountRoute, nested]),
     ]),
   })
@@ -155,14 +155,14 @@ afterEach(() => {
 describe("customer workspace routes", () => {
   it("redirects guests before loading account or overview data", async () => {
     sessionRequest.mockResolvedValue(JSON_NULL)
-    const { router } = await renderApp(ROUTES.APP)
+    const { router } = await renderApp(ROUTES.APP.INDEX)
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
-    expect(router.state.location.pathname).toBe(ROUTES.SIGN_IN)
+    expect(router.state.location.pathname).toBe(ROUTES.AUTH.SIGN_IN)
     expect(summaryRequest).not.toHaveBeenCalled()
   })
 
   it("loads the overview with active navigation, metadata, and each overview section loaded once", async () => {
-    const { queryClient, router } = await renderApp(ROUTES.APP)
+    const { queryClient, router } = await renderApp(ROUTES.APP.INDEX)
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppMessages.metadata.title })).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
     expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.overview })).toHaveAttribute("aria-current", "page")
@@ -182,7 +182,7 @@ describe("customer workspace routes", () => {
   })
 
   it("loads the settings page with its navigation, metadata and the saved time zone, without the overview's data", async () => {
-    const { queryClient, router } = await renderApp(ROUTES.APP_SETTINGS)
+    const { queryClient, router } = await renderApp(ROUTES.APP.SETTINGS.INDEX)
 
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
@@ -200,7 +200,7 @@ describe("customer workspace routes", () => {
   })
 
   it("keeps the settings navigation active for nested pages and falls back to the overview header", async () => {
-    await renderApp(`${ROUTES.APP_SETTINGS}/details`)
+    await renderApp(`${ROUTES.APP.SETTINGS.INDEX}/details`)
     expect(await screen.findByText("Session details")).toBeVisible()
     const nav = screen.getByRole("navigation", { name: navigation.label })
     expect(within(nav).getByRole("link", { name: navigationAuthMessages.app.settings })).toHaveAttribute("aria-current", "page")
@@ -211,24 +211,24 @@ describe("customer workspace routes", () => {
   it("uses the email as the account name when the profile has no name", async () => {
     const session = createAuthSessionFixture()
     sessionRequest.mockResolvedValue({ ...session, user: { ...session.user, name: "" } })
-    await renderApp(ROUTES.APP)
+    await renderApp(ROUTES.APP.INDEX)
     const region = await screen.findByRole("region", { name: account.label })
     expect(within(region).getAllByText(session.user.email)).toHaveLength(2)
   })
 
   it("allows sidebar navigation and documentation links", async () => {
-    const { router, user } = await renderApp(ROUTES.APP)
+    const { router, user } = await renderApp(ROUTES.APP.INDEX)
     await screen.findByRole("heading", { name: pagesAppMessages.metadata.title })
     const nav = screen.getByRole("navigation", { name: navigation.label })
     await user.click(within(nav).getByRole("link", { name: navigationAuthMessages.app.settings }))
     expect(await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })).toBeVisible()
     await user.click(screen.getByRole("link", { name: navigationContentMessages.appResources.docs }))
     expect(await screen.findByRole("heading", { name: "Documentation" })).toBeVisible()
-    expect(router.state.location.pathname).toBe(ROUTES.DOCS)
+    expect(router.state.location.pathname).toBe(ROUTES.DOCS.INDEX)
   })
 
   it("takes the wordmark to the home page", async () => {
-    const { router, user } = await renderApp(ROUTES.APP_SETTINGS)
+    const { router, user } = await renderApp(ROUTES.APP.SETTINGS.INDEX)
     await screen.findByRole("heading", { level: 1, name: pagesAppSettingsMessages.metadata.title })
     const brand = screen.getByRole("link", { name: APP_NAME })
 
@@ -243,14 +243,14 @@ describe("account deletion page", () => {
   const { confirm, missing } = pagesAppDeleteAccountMessages
 
   it("repeats what deletion does and deletes the account only when the button is pressed", async () => {
-    const { router, user } = await renderApp(`${ROUTES.APP_DELETE_ACCOUNT}?token=deletion-token`)
+    const { router, user } = await renderApp(`${ROUTES.APP.SETTINGS.DELETE_ACCOUNT}?token=deletion-token`)
 
     expect(await screen.findByRole("heading", { level: 2, name: confirm.title })).toBeVisible()
     for (const { key, load } of ACCOUNT_DELETION_NOTICES) {
       expect(screen.getByText(noticeText(key))).toBeVisible()
       expect(load).toHaveBeenCalledOnce()
     }
-    expect(screen.getByRole("link", { name: confirm.keep })).toHaveAttribute("href", ROUTES.APP_SETTINGS)
+    expect(screen.getByRole("link", { name: confirm.keep })).toHaveAttribute("href", ROUTES.APP.SETTINGS.INDEX)
     expect(confirmDeletionMock).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole("button", { name: confirm.delete }))
@@ -264,21 +264,21 @@ describe("account deletion page", () => {
 
   it("keeps the account and says why when the deletion fails", async () => {
     confirmDeletionMock.mockRejectedValue(new Error("Connection failed"))
-    const { router, user } = await renderApp(`${ROUTES.APP_DELETE_ACCOUNT}?token=deletion-token`)
+    const { router, user } = await renderApp(`${ROUTES.APP.SETTINGS.DELETE_ACCOUNT}?token=deletion-token`)
 
     await user.click(await screen.findByRole("button", { name: confirm.delete }))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledOnce()
     })
-    expect(router.state.location.pathname).toBe(ROUTES.APP_DELETE_ACCOUNT)
+    expect(router.state.location.pathname).toBe(ROUTES.APP.SETTINGS.DELETE_ACCOUNT)
   })
 
   it("leads back to Settings from a link without its token", async () => {
-    await renderApp(ROUTES.APP_DELETE_ACCOUNT)
+    await renderApp(ROUTES.APP.SETTINGS.DELETE_ACCOUNT)
 
     expect(await screen.findByRole("heading", { level: 2, name: missing.title })).toBeVisible()
-    expect(screen.getByRole("link", { name: missing.back })).toHaveAttribute("href", ROUTES.APP_SETTINGS)
+    expect(screen.getByRole("link", { name: missing.back })).toHaveAttribute("href", ROUTES.APP.SETTINGS.INDEX)
     expect(screen.queryByRole("button", { name: confirm.delete })).not.toBeInTheDocument()
   })
 })
@@ -286,7 +286,7 @@ describe("account deletion page", () => {
 describe("customer workspace account", () => {
   it("shows the signed-in customer's name and email in the account region", async () => {
     const session = createAuthSessionFixture()
-    await renderApp(ROUTES.APP)
+    await renderApp(ROUTES.APP.INDEX)
     const region = await screen.findByRole("region", { name: account.label })
     expect(within(region).getByText(session.user.name)).toBeVisible()
     expect(within(region).getByText(session.user.email)).toBeVisible()
@@ -295,11 +295,11 @@ describe("customer workspace account", () => {
   })
 
   it("removes the cached session and account data, keeps the translations, and opens sign in after successful sign-out", async () => {
-    const { queryClient, router, user } = await renderApp(ROUTES.APP)
+    const { queryClient, router, user } = await renderApp(ROUTES.APP.INDEX)
     await user.click(await screen.findByRole("button", { name: authSessionMessages.signOut }))
 
     expect(await screen.findByRole("heading", { name: "Sign in required" })).toBeVisible()
-    expect(router.state.location.pathname).toBe(ROUTES.SIGN_IN)
+    expect(router.state.location.pathname).toBe(ROUTES.AUTH.SIGN_IN)
     expect(signOutMock).toHaveBeenCalledOnce()
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toBeUndefined()
     expect(queryClient.getQueryData(SUMMARY_QUERY_KEY)).toBeUndefined()
@@ -312,7 +312,7 @@ describe("customer workspace account", () => {
   it("keeps the cached session and account data when sign-out fails and shows the localized error", async () => {
     signOutMock.mockRejectedValue(new Error("Connection failed"))
     const session = createAuthSessionFixture()
-    const { queryClient, router, user } = await renderApp(ROUTES.APP, "pl-PL")
+    const { queryClient, router, user } = await renderApp(ROUTES.APP.INDEX, "pl-PL")
     await user.click(await screen.findByRole("button", { name: plAuthSessionMessages.signOut }))
 
     await waitFor(() => {
@@ -321,7 +321,7 @@ describe("customer workspace account", () => {
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toStrictEqual(session)
     expect(queryClient.getQueryData(SUMMARY_QUERY_KEY)).toStrictEqual(SUMMARY)
     expect(screen.getByRole("button", { name: plAuthSessionMessages.signOut })).toBeEnabled()
-    expect(router.state.location.pathname).toBe(ROUTES.APP)
+    expect(router.state.location.pathname).toBe(ROUTES.APP.INDEX)
     expect(toast.success).not.toHaveBeenCalled()
   })
 
@@ -329,7 +329,7 @@ describe("customer workspace account", () => {
     const pending = Promise.withResolvers<SignOutResult>()
     signOutMock.mockReturnValue(pending.promise)
     const session = createAuthSessionFixture()
-    const { queryClient, router, user } = await renderApp(ROUTES.APP)
+    const { queryClient, router, user } = await renderApp(ROUTES.APP.INDEX)
 
     await user.click(await screen.findByRole("button", { name: authSessionMessages.signOut }))
     const pendingButton = await screen.findByRole("button", { name: authSessionMessages.signingOut })
@@ -337,7 +337,7 @@ describe("customer workspace account", () => {
     await user.click(pendingButton)
     expect(signOutMock).toHaveBeenCalledOnce()
     expect(queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toStrictEqual(session)
-    expect(router.state.location.pathname).toBe(ROUTES.APP)
+    expect(router.state.location.pathname).toBe(ROUTES.APP.INDEX)
 
     await act(async () => {
       pending.resolve(SIGN_OUT_SUCCESS)

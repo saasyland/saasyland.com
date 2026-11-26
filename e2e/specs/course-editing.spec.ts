@@ -12,7 +12,7 @@ import {
   LESSON_ATTACHMENT_MAX_MEGABYTES,
   LESSON_ATTACHMENT_UPLOADS_PER_MINUTE,
 } from "../../src/modules/lesson-attachment/lesson-attachment.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE, TEST_MATERIALS } from "../data/courses"
 import { TEST_VIDEO } from "../data/videos"
@@ -41,7 +41,7 @@ const visit = async (page: Page, path: string): Promise<number | undefined> => {
 }
 
 const openEditor = async (page: Page, appPage: BasePage, courseId: string): Promise<void> => {
-  await page.goto(`${ROUTES.ADMIN_COURSES}/${courseId}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(`${ROUTES.ADMIN.COURSES.INDEX}/${courseId}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
 }
 
@@ -64,7 +64,7 @@ const visitorPage = async (browser: Browser): Promise<Page> => browser.newPage()
 
 const customerPage = async (browser: Browser, origin: string): Promise<Page> => {
   const context = await browser.newContext()
-  const signedIn = await context.request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`, {
+  const signedIn = await context.request.post(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_EMAIL}`, {
     data: { email: customer.email, password: TEST_PASSWORD },
     headers: { "CF-Connecting-IP": ownAddress(), Origin: origin },
   })
@@ -330,7 +330,7 @@ test.describe("course editing", () => {
     await signInAsAdmin(page, authPage)
     const course = await buildCourse(page, appPage, "Slugs in use")
 
-    await page.goto(ROUTES.ADMIN_COURSES_CREATE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.ADMIN.COURSES.CREATE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await page.getByLabel("Title", { exact: true }).fill("A course that wants a taken slug")
     await page.getByLabel("Summary", { exact: true }).fill("Its slug belongs to another course.")
@@ -339,7 +339,7 @@ test.describe("course editing", () => {
     await expect(page.getByLabel("URL slug")).toHaveAttribute("aria-invalid", "true")
     await expect(page.getByLabel("URL slug")).toBeFocused()
     await expect(page.getByText(validations.courseSlugTaken)).toBeVisible()
-    await expect(page).toHaveURL(ROUTES.ADMIN_COURSES_CREATE)
+    await expect(page).toHaveURL(ROUTES.ADMIN.COURSES.CREATE)
 
     await openEditor(page, appPage, course.courseId)
     await page.getByLabel("URL slug").fill(TEST_COURSE.slug)
@@ -377,7 +377,7 @@ test.describe("course editing", () => {
     await signInAsAdmin(page, authPage)
     const course = await buildCourse(page, appPage, "A course that travels")
 
-    await page.goto(ROUTES.ADMIN_COURSES, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.ADMIN.COURSES.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const everything = page.waitForEvent("download")
     await page.getByRole("button", { name: "Export all" }).click()

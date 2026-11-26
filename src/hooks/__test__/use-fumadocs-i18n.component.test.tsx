@@ -13,12 +13,12 @@ import { localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 import { useFumadocsI18n } from "~/src/hooks/use-fumadocs-i18n"
 
 import fumadocsMessages from "~/messages/pl-PL/fumadocs.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const POLISH = "pl-PL"
 
 const renderI18n = (locale: SupportedLocale) => {
-  vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${localizePathname({ locale, pathname: ROUTES.DOCS })}`))
+  vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${localizePathname({ locale, pathname: ROUTES.DOCS.INDEX })}`))
   const wrapper = ({ children }: Readonly<{ children: ReactNode }>) => (
     <IntlProvider locale={locale} messages={getTestMessages(locale)}>
       {children}

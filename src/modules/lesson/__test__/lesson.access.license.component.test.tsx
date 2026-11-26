@@ -20,7 +20,7 @@ import { useCourseAccessNames } from "~/src/hooks/use-course-access-names"
 import { CourseUnlocks } from "~/src/presentation/components/custom/app/course-unlocks"
 import { LockedLesson } from "~/src/presentation/components/custom/courses/locked-lesson"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const CATALOGUE = {
   courses: [
@@ -98,7 +98,7 @@ describe("the licence's names in the course copy", () => {
     expect(screen.getByRole("heading", { name: title })).toBeVisible()
     expect(screen.getByRole("link", { name: cta })).toHaveAttribute(
       "href",
-      `${ROUTES.APP_LICENSE}?redirect=%2F&tier=${LICENSE_TIER.COMPLETE}`,
+      `${ROUTES.APP.LICENSE}?redirect=%2F&tier=${LICENSE_TIER.COMPLETE}`,
     )
   })
 })

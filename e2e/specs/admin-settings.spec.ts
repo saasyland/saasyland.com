@@ -4,7 +4,7 @@ import authErrors from "../../messages/en-US/auth.errors.json" with { type: "jso
 import settingsMessages from "../../messages/en-US/pages.admin.settings.json" with { type: "json" }
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { BUSINESS_LOGO_PATH_PREFIX, BUSINESS_LOGO_STORED_TYPES } from "../../src/modules/business-profile/business-profile.logo"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import { expectPasswordChangedEmail, expectVerificationEmail } from "../fixtures/emails"
@@ -69,7 +69,7 @@ const addAdmin = async (browsers: Browsers): Promise<string> => {
   const email = `settings-admin.${crypto.randomUUID()}@example.test`
   const { context, page } = await openDevice(browsers, admin.email)
   await expect(page).toHaveURL(ADMIN_HOME)
-  await page.goto(ROUTES.ADMIN_USERS_ALL, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.USERS.ALL, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await new AuthPage(page).waitForAppReady()
   await page.getByRole("button", { exact: true, name: "Add user" }).click()
   const dialog = page.getByRole("dialog", { name: "Add user" })
@@ -97,13 +97,13 @@ const signInAsNewAdmin = async (
 }
 
 const openSecuritySettings = async (page: Page, authPage: AuthPage): Promise<void> => {
-  await page.goto(`${ROUTES.ADMIN_SETTINGS}?tab=security`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(`${ROUTES.ADMIN.SETTINGS}?tab=security`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await authPage.waitForAppReady()
   await authPage.waitForHydration(page.getByRole("tabpanel"))
 }
 
 const expectSignedOut = async (page: Page): Promise<void> => {
-  await page.goto(ROUTES.ADMIN, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.ADMIN.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await expect(page).toHaveURL(/\/auth\/sign-in/u)
 }
 
@@ -226,7 +226,7 @@ test.describe("admin general settings", () => {
     }
     await authPage.signIn(admin.email)
     await expect(page).toHaveURL(ADMIN_HOME)
-    await page.goto(ROUTES.ADMIN_SETTINGS, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.ADMIN.SETTINGS, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
 
     await page.getByRole("textbox", { name: business.name }).fill(profile.name)

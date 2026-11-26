@@ -25,7 +25,7 @@ import { PreferencesCard } from "~/src/presentation/components/custom/preference
 import { EmailCard } from "~/src/presentation/components/custom/settings/email-card"
 import { SecurityCards, SettingsTabs } from "~/src/presentation/components/custom/settings/settings-tabs"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SettingsPage = (): JSX.Element => {
   const t = useTranslations()
@@ -36,7 +36,7 @@ const SettingsPage = (): JSX.Element => {
     <Tabs className="w-full animate-in gap-0 duration-500 fade-in-50" selectedKey={tab}>
       <AdminPageHeader
         description={t("pages.admin.settings.description")}
-        tabs={<SettingsTabs to={ROUTES.ADMIN_SETTINGS} />}
+        tabs={<SettingsTabs to={ROUTES.ADMIN.SETTINGS} />}
         title={t("pages.admin.settings.title")}
       />
 
@@ -70,7 +70,7 @@ export const Route = createFileRoute("/admin/settings")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_SETTINGS),
+  head: pageHead(ROUTES.ADMIN.SETTINGS),
   pendingComponent: AdminSettingsPending,
   search: { middlewares: [onlyDeclaredSearch(settingsSearchSchema), stripSearchParams({ tab: SETTINGS_TAB.GENERAL })] },
   staticData: { namespaces: [NAMESPACE] },

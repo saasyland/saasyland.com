@@ -8,13 +8,13 @@ import { buildTitle } from "~/src/lib/seo"
 import { escapeXml } from "~/src/lib/sitemap"
 
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const BLOG_FEED_TYPE = "application/rss+xml"
 
 const ATOM_NAMESPACE = "http://www.w3.org/2005/Atom"
 const DUBLIN_CORE_NAMESPACE = "http://purl.org/dc/elements/1.1/"
-const POST_PREFIX = `${ROUTES.BLOG}/`
+const POST_PREFIX = `${ROUTES.BLOG.INDEX}/`
 const ARCHIVE_PREFIX = `${POST_PREFIX}${BLOG_ARCHIVE.PAGE_SEGMENT}/`
 
 export interface BlogFeed {
@@ -24,7 +24,7 @@ export interface BlogFeed {
 
 type FeedPost = PageHead & { readonly published: string }
 
-export const blogFeedPath = (locale: SupportedLocale): string => localizePathname({ locale, pathname: ROUTES.BLOG_FEED })
+export const blogFeedPath = (locale: SupportedLocale): string => localizePathname({ locale, pathname: ROUTES.BLOG.FEED })
 
 export const blogFeedLinks = (blog: { readonly locale: SupportedLocale; readonly title: string } | undefined) => {
   if (blog === undefined) {
@@ -89,7 +89,7 @@ const buildFeed = ({ index, locale, posts }: { index: PageHead; locale: Supporte
 export const buildBlogFeeds = (pages: readonly PageHead[]): BlogFeed[] =>
   I18N.SUPPORTED_LOCALES.map((locale) => {
     const own = pages.filter(({ lang }) => lang === locale)
-    const index = own.find((page) => pathOf(page) === ROUTES.BLOG)
+    const index = own.find((page) => pathOf(page) === ROUTES.BLOG.INDEX)
 
     if (index === undefined) {
       throw new Error(`No ${locale} blog index is listed, so its blog feed would have no channel.`)

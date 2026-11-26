@@ -25,7 +25,7 @@ import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { CommandLine } from "~/src/presentation/components/custom/app/command-line"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LINK_CLASSNAME = "underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 
@@ -135,7 +135,7 @@ const TierChanges = ({ tier }: Readonly<{ tier: LicenseTier }>): JSX.Element => 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-spec text-muted-foreground">
       {higherTiers(tier).map((higher) => (
-        <Link className={LINK_CLASSNAME} key={higher} search={{ tier: higher }} to={ROUTES.APP_LICENSE}>
+        <Link className={LINK_CLASSNAME} key={higher} search={{ tier: higher }} to={ROUTES.APP.LICENSE}>
           {t("pages.license.upgrade.link", { tier: t(`components.custom.pricing.tiers.${higher}.name`) })}
         </Link>
       ))}
@@ -166,7 +166,7 @@ export const LicenseCard = (): JSX.Element | undefined => {
         {license.status === LICENSE_STATUS.ACTIVE && <KeyCommands />}
         <p className="text-spec leading-relaxed text-muted-foreground">{t.rich("pages.license.agreement", AGREEMENT_TAGS)}</p>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <LinkButton size="sm" to={ROUTES.APP_BILLING} variant="outline">
+          <LinkButton size="sm" to={ROUTES.APP.BILLING} variant="outline">
             {t("pages.license.manage")}
           </LinkButton>
           {license.status === LICENSE_STATUS.ACTIVE && <TierChanges tier={license.tier} />}

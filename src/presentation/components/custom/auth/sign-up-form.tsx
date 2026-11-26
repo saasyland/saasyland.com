@@ -28,7 +28,7 @@ import { PasswordInput } from "~/src/presentation/components/custom/auth/passwor
 import { PasswordRequirements } from "~/src/presentation/components/custom/auth/password-requirements"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const EMAIL_SUGGESTION_ID = "sign-up-email-suggestion"
 
@@ -53,7 +53,7 @@ const useSignUp = () => {
         return
       }
       await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEYS.ALL })
-      await router.navigate({ search: { email, redirect }, to: ROUTES.VERIFY_EMAIL })
+      await router.navigate({ search: { email, redirect }, to: ROUTES.AUTH.VERIFY_EMAIL })
       toast.success(t("successCheckEmail"))
     },
   })
@@ -71,7 +71,7 @@ export const SignUpForm = (): JSX.Element => {
     listeners: { onBlur: validateOnBlur },
     onSubmit: ({ formApi, value }) => {
       signUp.mutate(
-        { ...value, callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK) },
+        { ...value, callbackURL: hrefWithRedirect(ROUTES.AUTH.CALLBACK) },
         {
           onError: (error) => {
             if (error.message === AUTH_ERRORS.PASSWORD_COMPROMISED) {

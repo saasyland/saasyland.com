@@ -13,7 +13,7 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { Price } from "~/src/presentation/components/custom/pricing"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const REFUNDS_LINK_CLASS =
   "text-foreground underline underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"

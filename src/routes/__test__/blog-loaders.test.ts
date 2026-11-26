@@ -21,7 +21,7 @@ import frPagesBlogMessages from "~/messages/fr-FR/pages.blog.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
 import { getRouter } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const { loadBlogIndex } = await vi.hoisted(async () => {
   const blog = await import("~/src/data/blog")
@@ -162,7 +162,7 @@ describe("blog index loader", () => {
   it("names the archive's second page as the next page when the posts fill more than one", async () => {
     const router = await load("/fr-FR/blog")
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({ pages: 2 })
-    expect(router.state.matches.at(-1)?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG}/page/2`, rel: "next" })
+    expect(router.state.matches.at(-1)?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG.INDEX}/page/2`, rel: "next" })
   })
 })
 
@@ -187,7 +187,7 @@ describe("blog archive loader", () => {
       listed: [
         {
           title: `Article ${String(BLOG_ARCHIVE.PAGE_SIZE + 1)}`,
-          url: `/fr-FR${ROUTES.BLOG}/article-${String(BLOG_ARCHIVE.PAGE_SIZE + 1)}`,
+          url: `/fr-FR${ROUTES.BLOG.INDEX}/article-${String(BLOG_ARCHIVE.PAGE_SIZE + 1)}`,
         },
       ],
       locale: "fr-FR",
@@ -198,8 +198,8 @@ describe("blog archive loader", () => {
       total: BLOG_ARCHIVE.PAGE_SIZE + 1,
     })
     expect(archive?.meta).toContainEqual({ title: buildTitle({ locale: "fr-FR", title }) })
-    expect(archive?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG}/page/2`, rel: "canonical" })
-    expect(archive?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG}`, rel: "prev" })
+    expect(archive?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG.INDEX}/page/2`, rel: "canonical" })
+    expect(archive?.links).toContainEqual({ href: `${APP_URL}/fr-FR${ROUTES.BLOG.INDEX}`, rel: "prev" })
     expect(archive?.links?.filter((link) => link?.rel === "next")).toStrictEqual([])
   })
 
@@ -272,7 +272,7 @@ describe("blog post loader", () => {
     const router = await load("/pl-PL/blog/guide")
     const blog = router.state.matches.find(({ routeId }) => routeId === "/_site/_marketing/blog")
     expect(blog?.links).toContainEqual({
-      href: `${APP_URL}/pl-PL${ROUTES.BLOG_FEED}`,
+      href: `${APP_URL}/pl-PL${ROUTES.BLOG.FEED}`,
       rel: "alternate",
       title: buildTitle({ locale: "pl-PL", title: plPagesBlogMessages.metadata.title }),
       type: BLOG_FEED_TYPE,
@@ -298,7 +298,7 @@ describe("blog post loader", () => {
     const router = await load("/blog/complete")
     const article = router.state.matches.find((match) => match.routeId === BlogPostRoute.id)
     expect(article?.status).toBe("error")
-    expect(article?.meta).toContainEqual({ content: `${APP_URL}${ROUTES.BLOG}`, property: "og:url" })
+    expect(article?.meta).toContainEqual({ content: `${APP_URL}${ROUTES.BLOG.INDEX}`, property: "og:url" })
   })
 
   it.each<{ _splat?: string }>([{ _splat: "missing" }, { _splat: "" }, {}])("treats params %j as a missing article", async (params) => {

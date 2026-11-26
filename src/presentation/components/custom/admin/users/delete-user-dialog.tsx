@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "~/src/presentation/components/shadcn/alert-dialog"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 interface DeleteUserDialogProps {
   readonly isOpen: boolean
@@ -43,7 +43,7 @@ export const DeleteUserDialog = ({ isOpen, onOpenChange, user }: DeleteUserDialo
     },
     onSuccess: async () => {
       if (matchRoute({ params: { userId: user.id }, to: "/admin/users/$userId" }) !== false) {
-        await router.navigate({ replace: true, to: ROUTES.ADMIN_USERS_ALL })
+        await router.navigate({ replace: true, to: ROUTES.ADMIN.USERS.ALL })
       }
       await queryClient.invalidateQueries({ queryKey: USER_QUERY_KEYS.ALL })
       toast.success(t("feedback.deleteSuccess"))

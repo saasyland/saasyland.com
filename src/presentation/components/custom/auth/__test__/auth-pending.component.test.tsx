@@ -23,10 +23,10 @@ import {
   VerifyEmailPending,
 } from "~/src/presentation/components/custom/auth/auth-pending"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 import { routeTree } from "~/src/routeTree.gen"
 
-const TIER_SIGN_UP = `${ROUTES.SIGN_UP}?${new URLSearchParams({ redirect: `${ROUTES.APP}?${new URLSearchParams({ tier: LICENSE_TIER.COMPLETE }).toString()}` }).toString()}`
+const TIER_SIGN_UP = `${ROUTES.AUTH.SIGN_UP}?${new URLSearchParams({ redirect: `${ROUTES.APP.INDEX}?${new URLSearchParams({ tier: LICENSE_TIER.COMPLETE }).toString()}` }).toString()}`
 
 const renderAuthPending = (path: string) =>
   renderWithRouter(
@@ -60,7 +60,7 @@ describe("path-aware skeletons", () => {
     { Page: ResetPasswordPending, path: "/auth/reset-password" },
     { Page: TwoFactorPending, path: "/auth/two-factor" },
     { Page: VerifyEmailPending, path: "/auth/verify-email" },
-    { Page: AcceptInvitationPending, path: `/pl-PL${ROUTES.ACCEPT_INVITATION}?token=invitation-token` },
+    { Page: AcceptInvitationPending, path: `/pl-PL${ROUTES.AUTH.INVITE}?token=invitation-token` },
   ])("renders the skeleton of the page at $path", ({ Page, path }) => {
     const page = pageMarkupAt(path, Page)
     const { container } = renderAuthPending(path)
@@ -80,7 +80,7 @@ describe("sign-up skeleton", () => {
 
   it("draws the description's skeleton without a tier", () => {
     const summary = markupOf(<SignUpOrderSummaryPending />)
-    const { container } = renderAuthPending(ROUTES.SIGN_UP)
+    const { container } = renderAuthPending(ROUTES.AUTH.SIGN_UP)
 
     expect(busyMarkup(container)).not.toContain(summary)
   })

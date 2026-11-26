@@ -16,7 +16,7 @@ import { buttonVariants } from "~/src/presentation/components/shadcn/button"
 import { ResetPasswordPending } from "~/src/presentation/components/custom/auth/auth-pending"
 import { ResetPasswordForm } from "~/src/presentation/components/custom/auth/reset-password-form"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ResetPasswordPage = (): JSX.Element => {
   const t = useTranslations("pages.auth.reset-password")
@@ -41,7 +41,7 @@ const ResetPasswordPage = (): JSX.Element => {
                 "h-11 w-full gap-2 px-5 text-body-sm font-semibold transition-[background-color,color,transform]",
               )}
               search={{ redirect }}
-              to={ROUTES.FORGOT_PASSWORD}
+              to={ROUTES.AUTH.FORGOT_PASSWORD}
             >
               {t("form.requestNewLink")}
             </Link>
@@ -68,7 +68,7 @@ export const Route = createFileRoute("/auth/reset-password")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.RESET_PASSWORD),
+  head: pageHead(ROUTES.AUTH.RESET_PASSWORD),
   pendingComponent: ResetPasswordPending,
   staticData: { namespaces: [NAMESPACE] },
 })

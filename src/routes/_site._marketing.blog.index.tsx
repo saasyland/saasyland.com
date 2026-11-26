@@ -32,7 +32,7 @@ import { PostFinderLayout } from "~/src/presentation/components/custom/blog/post
 import { RecentPosts } from "~/src/presentation/components/custom/blog/recent-posts"
 import { ContentPage } from "~/src/presentation/components/custom/content-page"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const BlogIndexPage = (): JSX.Element => {
   const t = useTranslations("pages.blog")
@@ -44,7 +44,7 @@ const BlogIndexPage = (): JSX.Element => {
     listed: blogArchivePage(posts, BLOG_ARCHIVE.FIRST_PAGE),
     locale,
     offset: 0,
-    pathname: ROUTES.BLOG,
+    pathname: ROUTES.BLOG.INDEX,
     posts,
     title: metadata.title,
     total: posts.length,
@@ -124,7 +124,7 @@ export const Route = createFileRoute("/_site/_marketing/blog/")({
     buildPageHead({
       ...loaderData?.metadata,
       locale: loaderData?.locale,
-      pathname: ROUTES.BLOG,
+      pathname: ROUTES.BLOG.INDEX,
       sequence: blogArchiveSequence({ page: BLOG_ARCHIVE.FIRST_PAGE, pages: loaderData?.pages ?? BLOG_ARCHIVE.FIRST_PAGE }),
     }),
   pendingComponent: BlogIndexPending,

@@ -20,7 +20,7 @@ import { OrderPolar } from "~/src/presentation/components/custom/admin/payments/
 import { OrderStatusBadge } from "~/src/presentation/components/custom/admin/payments/order-status-badge"
 import { OrderAccount, OrderSummary } from "~/src/presentation/components/custom/admin/payments/order-summary"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const OrderPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.orders.detail")
@@ -37,7 +37,7 @@ const OrderPage = (): JSX.Element => {
             {t("openInPolar")}
           </AnchorButton>
         }
-        back={{ label: t("back"), to: ROUTES.ADMIN_ORDERS }}
+        back={{ label: t("back"), to: ROUTES.ADMIN.ORDERS }}
         title={order.description}
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -67,9 +67,9 @@ export const Route = createFileRoute("/admin/orders/$orderId")({
       context.queryClient.query(getOrderQuery({ orderId: params.orderId })).catch(rethrowAsNotFound),
       preloadNamespaces({ locale, namespaces: NAMESPACES, queryClient: context.queryClient }),
     ])
-    return { locale, pathname: `${ROUTES.ADMIN_ORDERS}/${order.id}`, title: order.description }
+    return { locale, pathname: `${ROUTES.ADMIN.ORDERS}/${order.id}`, title: order.description }
   },
-  head: recordHead(ROUTES.ADMIN_ORDERS),
+  head: recordHead(ROUTES.ADMIN.ORDERS),
   pendingComponent: AdminOrderPending,
   staticData: { namespaces: NAMESPACES },
 })

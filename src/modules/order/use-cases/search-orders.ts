@@ -13,7 +13,7 @@ import type { Order } from "~/src/modules/order/order.types"
 import { orderZodSchemas } from "~/src/modules/order/order.zod"
 import { user } from "~/src/modules/user/user.schema"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const DETAIL_SEPARATOR = " · "
 
@@ -39,7 +39,7 @@ export const searchOrders = createServerFn({ method: "GET" })
       detail: [id, description].join(DETAIL_SEPARATOR),
       id,
       title: name ?? email ?? customerId,
-      to: `${ROUTES.ADMIN_ORDERS}/${id}`,
+      to: `${ROUTES.ADMIN.ORDERS}/${id}`,
     }))
   })
 

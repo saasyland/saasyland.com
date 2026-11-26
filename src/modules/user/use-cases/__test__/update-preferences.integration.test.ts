@@ -14,7 +14,7 @@ import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { updatePreferencesMutation } from "~/src/modules/user/use-cases/update-preferences"
 import { user } from "~/src/modules/user/user.schema"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const PASSWORD = "PreferencesPassword1!"
 const CHOSEN_TIMEZONE = "Asia/Tokyo"
@@ -38,7 +38,7 @@ const signIn = async (): Promise<string> => {
     userId: created.id,
   })
   const response = await auth.handler(
-    new Request(createTestRequestUrl(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`), {
+    new Request(createTestRequestUrl(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_EMAIL}`), {
       body: JSON.stringify({ email, password: PASSWORD }),
       headers: { [IP_ADDRESS_HEADER]: "203.0.113.20", "content-type": "application/json", origin: TEST_APP_URL },
       method: "POST",

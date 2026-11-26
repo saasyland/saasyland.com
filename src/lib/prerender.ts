@@ -1,4 +1,4 @@
-import * as ROUTES from "../routes.ts"
+import { isRequestRenderedRoute } from "../routes.ts"
 
 const LOCALE_PREFIX = /^\/[a-z]{2}-[A-Z]{2}(?=\/|$)/u
 const FILE_EXTENSION = /\.\w+$/u
@@ -8,5 +8,5 @@ export const shouldPrerender = ({ path }: { path: string }): boolean => {
     return false
   }
 
-  return !ROUTES.isRequestRenderedRoute(path.replace(LOCALE_PREFIX, ""))
+  return !isRequestRenderedRoute(path.replace(LOCALE_PREFIX, ""))
 }

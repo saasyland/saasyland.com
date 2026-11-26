@@ -184,7 +184,7 @@ import {
   CHECKOUT_CONFIRMATION_TIMEOUT_MS,
 } from "~/src/presentation/components/custom/billing/checkout-confirmation"
 
-import * as ROUTES from "~/src/routes"
+import { REQUEST_RENDERED_ROUTES } from "~/src/routes"
 
 type Value = number | string | readonly string[]
 
@@ -374,7 +374,7 @@ const FACTS = {
   recipientEmailsPerHour: RECIPIENT_EMAILS_PER_HOUR,
   refundReimbursementDays: REFUND_TERMS.REIMBURSEMENT_DAYS,
   refundWithdrawalDays: REFUND_TERMS.WITHDRAWAL_DAYS,
-  requestRenderedRoutes: ROUTES.REQUEST_RENDERED_ROUTES,
+  requestRenderedRoutes: REQUEST_RENDERED_ROUTES,
   resendCooldownSeconds: RESEND_COOLDOWN_SECONDS,
   revenueOrderStatuses: REVENUE_ORDER_STATUSES,
   routerPreloadStaleTimeMs: ROUTER_PRELOAD_STALE_TIME_MS,

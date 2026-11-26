@@ -18,7 +18,7 @@ import { REFUND_TERMS } from "~/src/data/refunds"
 import { PolarCheckoutButton } from "~/src/presentation/components/custom/billing/checkout-button"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LINK_CLASSNAME = "underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 
@@ -72,7 +72,7 @@ export const CheckoutButton = ({ children, featured, tier }: CheckoutButtonProps
       }}
       className="h-11 w-full px-5 text-body-sm font-semibold"
       onPaid={(checkoutId) => {
-        void navigate({ search: { checkoutId, redirect, tier }, to: ROUTES.APP })
+        void navigate({ search: { checkoutId, redirect, tier }, to: ROUTES.APP.INDEX })
       }}
       variables={(place) => ({ ...place, redirect, tier })}
       variant={featured ? "default" : "outline"}

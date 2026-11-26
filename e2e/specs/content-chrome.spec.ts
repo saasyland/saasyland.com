@@ -8,7 +8,7 @@ import { DOCS_CONTENT_ID, SITE_CONTENT_ID } from "../../src/data/navigation.cons
 import { I18N, type SupportedLocale } from "../../src/integrations/use-intl/i18n.config"
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { APP_NAME } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
@@ -34,8 +34,8 @@ const READING_MEASURE = { MAX: 80, MIN: 60 } as const
 const MEASURE_SAMPLE = 100
 const DOCS_SIDEBAR = "#nd-sidebar"
 const DOCS_TABLE_OF_CONTENTS = "#nd-toc"
-const DOCS_PAGE = `${ROUTES.DOCS}/features/authentication`
-const BLOG_POST = `${ROUTES.BLOG}/better-t-stack-vs-saas-starter-kit`
+const DOCS_PAGE = `${ROUTES.DOCS.INDEX}/features/authentication`
+const BLOG_POST = `${ROUTES.BLOG.INDEX}/better-t-stack-vs-saas-starter-kit`
 const TAGGED_POST = "ai-coding-agents-repository-readiness"
 const DOCS_MENU = "nd-sidebar-mobile"
 const SONNER_HOTKEY = "alt+T"
@@ -220,7 +220,7 @@ for (const locale of LOCALES) {
       const labels = tagsOf(TAGGED_POST, locale).map((tag) => tags[tag])
       expect(labels.length).toBeGreaterThan(0)
       const search = new URLSearchParams({ q: titleOf(TAGGED_POST, locale) })
-      await visit(page, `${localizePathname({ locale, pathname: ROUTES.BLOG })}?${search.toString()}`)
+      await visit(page, `${localizePathname({ locale, pathname: ROUTES.BLOG.INDEX })}?${search.toString()}`)
       await expect(page.getByText(labels.join(" · "), { exact: true }).first()).toBeVisible()
     })
   })

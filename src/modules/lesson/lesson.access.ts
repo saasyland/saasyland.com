@@ -9,7 +9,7 @@ import { recordLessonOpened } from "~/src/modules/license/use-cases/record-lesso
 
 import { TIER_PRICES } from "~/src/data/license"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 interface SignedInViewer {
   readonly entitled: boolean
@@ -63,7 +63,7 @@ export const COURSE_ACCESS_GRANTS: readonly CourseAccessGrant[] = [
     offer: `components.custom.pricing.tiers.${OFFERED_COURSE_TIER}.name`,
     price: TIER_PRICES[OFFERED_COURSE_TIER],
     recordUse: createServerOnlyFn((use: CourseAccessUse) => recordLessonOpened({ ...use, tiers: COURSE_LICENSE_TIERS })),
-    unlock: (redirect) => linkOptions({ search: { redirect, tier: OFFERED_COURSE_TIER }, to: ROUTES.APP_LICENSE }),
+    unlock: (redirect) => linkOptions({ search: { redirect, tier: OFFERED_COURSE_TIER }, to: ROUTES.APP.LICENSE }),
   },
 ]
 

@@ -14,7 +14,7 @@ import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const searchLessons = createServerFn({ method: "GET" })
   .middleware([authorized({ course: ["read"] })])
@@ -31,7 +31,7 @@ export const searchLessons = createServerFn({ method: "GET" })
       detail: localize(row.course, data.locale),
       id: row.id,
       title: localize(row.title, data.locale),
-      to: `${ROUTES.ADMIN_COURSES}/${row.courseId}/lessons/${row.id}`,
+      to: `${ROUTES.ADMIN.COURSES.INDEX}/${row.courseId}/lessons/${row.id}`,
     }))
   })
 

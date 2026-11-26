@@ -25,7 +25,7 @@ import { Navigation } from "~/src/presentation/components/custom/navigation"
 import navigationMessages from "~/messages/en-US/components.custom.navigation.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import { APP_NAME } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 interface ResizeEntry {
   contentRect: Pick<DOMRectReadOnly, "height">
@@ -386,7 +386,7 @@ describe("header preloading", () => {
     renderNavigation(<Navigation />, { router })
     becomeIdle()
 
-    await act(() => router.navigate({ to: ROUTES.BLOG }))
+    await act(() => router.navigate({ to: ROUTES.BLOG.INDEX }))
     becomeIdle()
 
     expect(preloadedPaths(preloadRoute)).toStrictEqual([...HEADER_NAVIGATION, ...HEADER_NAVIGATION].map(({ to }) => ({ to })))
@@ -419,7 +419,7 @@ describe("signed-in visitors", () => {
 
   it("shows only the label the page's mark selects, so the link is as wide as the label it shows", () => {
     renderNavigation()
-    const link = accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.SIGN_IN)
+    const link = accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.AUTH.SIGN_IN)
 
     expect([...(link?.children ?? [])].map((label) => [label.textContent, label.className])).toStrictEqual([
       [signInLabel, "signed-in:hidden"],
@@ -428,8 +428,8 @@ describe("signed-in visitors", () => {
   })
 
   it.each([
-    { role: ROLE_CODES.CUSTOMER, workspace: ROUTES.APP },
-    { role: ROLE_CODES.ADMIN, workspace: ROUTES.ADMIN },
+    { role: ROLE_CODES.CUSTOMER, workspace: ROUTES.APP.INDEX },
+    { role: ROLE_CODES.ADMIN, workspace: ROUTES.ADMIN.INDEX },
   ])(
     "asks a page the Worker marked as signed in for its session, and leads a $role from its account link to $workspace",
     async ({ role, workspace }) => {
@@ -441,7 +441,7 @@ describe("signed-in visitors", () => {
       await waitFor(() => {
         expect(accountLink(nav, workspace)).toHaveTextContent(accountLabel)
       })
-      expect(accountLink(nav, ROUTES.SIGN_IN)).toBeUndefined()
+      expect(accountLink(nav, ROUTES.AUTH.SIGN_IN)).toBeUndefined()
       await userEvent.setup({ delay: null }).click(menuButton())
       expect(accountLink(menu(), workspace)).toHaveTextContent(accountLabel)
       expect(document.documentElement).toHaveAttribute(SESSION_ATTRIBUTE)
@@ -454,15 +454,15 @@ describe("signed-in visitors", () => {
     sessionRequest.mockReturnValue(session.promise)
     renderNavigation()
     const nav = screen.getByRole("navigation", { name: navigationMessages.ariaLabel })
-    const headerLink = accountLink(nav, ROUTES.SIGN_IN)
+    const headerLink = accountLink(nav, ROUTES.AUTH.SIGN_IN)
     await userEvent.setup({ delay: null }).click(menuButton())
-    const menuLink = accountLink(menu(), ROUTES.SIGN_IN)
+    const menuLink = accountLink(menu(), ROUTES.AUTH.SIGN_IN)
     session.resolve(createAuthSessionFixture())
 
     await waitFor(() => {
-      expect(accountLink(nav, ROUTES.APP)).toBe(headerLink)
+      expect(accountLink(nav, ROUTES.APP.INDEX)).toBe(headerLink)
     })
-    expect(accountLink(menu(), ROUTES.APP)).toBe(menuLink)
+    expect(accountLink(menu(), ROUTES.APP.INDEX)).toBe(menuLink)
   })
 
   it("removes the mark of a page whose session has ended, and keeps its link on sign-in", async () => {
@@ -474,14 +474,14 @@ describe("signed-in visitors", () => {
       expect(document.documentElement).not.toHaveAttribute(SESSION_ATTRIBUTE)
     })
     expect(sessionRequest).toHaveBeenCalledOnce()
-    expect(accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.SIGN_IN)).toBeVisible()
+    expect(accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.AUTH.SIGN_IN)).toBeVisible()
   })
 
   it("keeps sign-in, and asks for no session, on a page the Worker left unmarked", () => {
     sessionRequest.mockResolvedValue(createAuthSessionFixture())
     renderNavigation()
 
-    expect(accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.SIGN_IN)).toBeVisible()
+    expect(accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.AUTH.SIGN_IN)).toBeVisible()
     expect(sessionRequest).not.toHaveBeenCalled()
   })
 })

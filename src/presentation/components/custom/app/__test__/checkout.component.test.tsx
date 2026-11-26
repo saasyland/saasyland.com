@@ -16,7 +16,7 @@ import type { openCheckoutOverlay } from "~/src/lib/checkout-overlay"
 import { CheckoutButton } from "~/src/presentation/components/custom/app/checkout"
 
 import checkoutButtonMessages from "~/messages/en-US/components.custom.checkout-button.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const CHECKOUT_ID = "4b1f1a63-6d4e-4c3f-9d8e-2f6a0b7c9d10"
 const CHECKOUT_URL = "#polar-checkout"
@@ -32,7 +32,7 @@ vi.mock(import("~/src/modules/license/use-cases/start-checkout"), () => ({
 }))
 vi.mock(import("~/src/lib/checkout-overlay"), () => ({ openCheckoutOverlay: overlayMock }))
 
-const renderButtons = async (path: string = ROUTES.APP_LICENSE) => {
+const renderButtons = async (path: string = ROUTES.APP.LICENSE) => {
   const router = createTestRouter(path)
   renderWithRouter(
     <IntlProvider formats={I18N.FORMATS} locale="en-US" messages={getTestMessages("en-US")} timeZone={I18N.DEFAULT_TIMEZONE}>
@@ -73,7 +73,7 @@ describe("opening Polar's checkout over the page", () => {
         expect.objectContaining({ title: checkoutButtonMessages.overlay, url: CHECKOUT_URL }),
       )
     })
-    expect(router.state.location.href).toBe(ROUTES.APP_LICENSE)
+    expect(router.state.location.href).toBe(ROUTES.APP.LICENSE)
   })
 
   it("keeps the button pending and the other tier buttons off until Polar's checkout is open", async () => {
@@ -112,7 +112,7 @@ describe("leaving Polar's checkout", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: BUY_CORE })).toHaveFocus()
     })
-    expect(router.state.location.href).toBe(ROUTES.APP_LICENSE)
+    expect(router.state.location.href).toBe(ROUTES.APP.LICENSE)
   })
 
   it("shows the payment on the success URL in place, with the tier it bought and the page the buyer came from", async () => {
@@ -122,10 +122,10 @@ describe("leaving Polar's checkout", () => {
       return Promise.resolve()
     })
 
-    const { router } = await pressBuy(`${ROUTES.APP_LICENSE}?redirect=${encodeURIComponent(lesson)}&tier=${LICENSE_TIER.CORE}`)
+    const { router } = await pressBuy(`${ROUTES.APP.LICENSE}?redirect=${encodeURIComponent(lesson)}&tier=${LICENSE_TIER.CORE}`)
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(ROUTES.APP)
+      expect(router.state.location.pathname).toBe(ROUTES.APP.INDEX)
     })
     expect(router.state.location.search).toEqual({ checkoutId: CHECKOUT_ID, redirect: lesson, tier: LICENSE_TIER.CORE })
   })

@@ -24,7 +24,7 @@ import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const ForgotPasswordForm = (): JSX.Element => {
   const t = useTranslations("pages.auth.forgot-password")
@@ -36,7 +36,7 @@ export const ForgotPasswordForm = (): JSX.Element => {
 
   const request = (email: string) => {
     setRequestedFor(email)
-    resetLink.send({ email, redirectTo: hrefWithRedirect(ROUTES.RESET_PASSWORD) })
+    resetLink.send({ email, redirectTo: hrefWithRedirect(ROUTES.AUTH.RESET_PASSWORD) })
   }
 
   const form = useForm({

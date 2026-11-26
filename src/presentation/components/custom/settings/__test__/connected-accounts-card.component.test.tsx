@@ -29,7 +29,7 @@ import { ConnectedAccountsCard } from "~/src/presentation/components/custom/sett
 import authErrorsMessages from "~/messages/en-US/auth.errors.json"
 import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type Linked = Awaited<ReturnType<typeof AuthClient.authClient.linkSocial>>
 type Unlinked = Awaited<ReturnType<NonNullable<typeof UnlinkAccountUseCase.unlinkAccountMutation.mutationFn>>>
@@ -74,7 +74,7 @@ const linkErrorContext = (): ErrorContext => {
       headers: new Headers(),
       method: "POST",
       signal: new AbortController().signal,
-      url: createTestRequestUrl(ROUTES.API_AUTH_BASE),
+      url: createTestRequestUrl(ROUTES.API.AUTH.BASE),
     },
     response: new Response(null, { status: error.status }),
   }
@@ -125,24 +125,27 @@ describe("connected accounts", () => {
     { code: LINK_ERROR_CODE.toLowerCase(), message: authErrorsMessages[AUTH_ERRORS.UNABLE_TO_LINK_ACCOUNT] },
     { code: "not_a_better_auth_code", message: authErrorsMessages[AUTH_ERRORS.UNKNOWN_ERROR] },
   ])("explains a failed connection that returned with ?error=$code", ({ code, message }) => {
-    renderSettings(<ConnectedAccountsCard />, { path: `${ROUTES.APP_SETTINGS}?tab=${SETTINGS_TAB.SECURITY}&error=${code}` })
+    renderSettings(<ConnectedAccountsCard />, { path: `${ROUTES.APP.SETTINGS.INDEX}?tab=${SETTINGS_TAB.SECURITY}&error=${code}` })
 
     expect(screen.getByRole("alert")).toHaveTextContent(message)
   })
 })
 
 describe("connecting a provider", () => {
-  it.each([ROUTES.APP_SETTINGS, ROUTES.ADMIN_SETTINGS])("returns to the security tab of %s, after success or failure", async (page) => {
-    const { user } = renderSettings(<ConnectedAccountsCard />, { path: `${page}?tab=${SETTINGS_TAB.GENERAL}&error=${LINK_ERROR_CODE}` })
-    await user.click(within(rowOf(GOOGLE.name)).getByRole("button", { name: connectLabel(GOOGLE.name) }))
+  it.each([ROUTES.APP.SETTINGS.INDEX, ROUTES.ADMIN.SETTINGS])(
+    "returns to the security tab of %s, after success or failure",
+    async (page) => {
+      const { user } = renderSettings(<ConnectedAccountsCard />, { path: `${page}?tab=${SETTINGS_TAB.GENERAL}&error=${LINK_ERROR_CODE}` })
+      await user.click(within(rowOf(GOOGLE.name)).getByRole("button", { name: connectLabel(GOOGLE.name) }))
 
-    const callbackURL = `${page}?tab=${SETTINGS_TAB.SECURITY}`
-    await waitFor(() => {
-      expect(linkSocialMock).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({ callbackURL, errorCallbackURL: callbackURL, provider: AUTH_PROVIDER.GOOGLE }),
-      )
-    })
-  })
+      const callbackURL = `${page}?tab=${SETTINGS_TAB.SECURITY}`
+      await waitFor(() => {
+        expect(linkSocialMock).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({ callbackURL, errorCallbackURL: callbackURL, provider: AUTH_PROVIDER.GOOGLE }),
+        )
+      })
+    },
+  )
 
   it("marks only the provider being connected as pending", async () => {
     const pending = Promise.withResolvers<Linked>()

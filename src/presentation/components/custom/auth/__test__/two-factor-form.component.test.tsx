@@ -14,7 +14,7 @@ import { TwoFactorForm } from "~/src/presentation/components/custom/auth/two-fac
 
 import errorsMessages from "~/messages/en-US/errors.json"
 import pagesAuthTwoFactorMessages from "~/messages/en-US/pages.auth.two-factor.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const verifyTotp = vi.hoisted(() => vi.fn())
 const verifyBackupCode = vi.hoisted(() => vi.fn())
@@ -32,7 +32,7 @@ const code = "123456"
 const backupCode = "recover123"
 
 const setup = () => {
-  const router = createTestRouter(ROUTES.TWO_FACTOR)
+  const router = createTestRouter(ROUTES.AUTH.TWO_FACTOR)
   const navigate = vi.spyOn(router, "navigate").mockResolvedValue()
   const clearCache = vi.spyOn(router, "clearCache")
   const result = renderWithRouter(
@@ -104,7 +104,7 @@ describe("two-factor verification", () => {
         await request.promise
       })
       await waitFor(() => {
-        expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ replace: true, to: ROUTES.AUTH_CALLBACK }))
+        expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ replace: true, to: ROUTES.AUTH.CALLBACK }))
       })
       expect(queryClient.getQueryData(["private-session"])).toBeUndefined()
       expect(clearCache).toHaveBeenCalledOnce()

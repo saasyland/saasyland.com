@@ -8,7 +8,7 @@ import { BLOG_ARCHIVE, BLOG_SORT, type BlogSort, type BlogTag } from "~/src/data
 
 import { filterBlogPosts, sortBlogPosts } from "~/src/lib/blog-archive"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export interface BlogView {
   readonly page?: number | undefined
@@ -71,12 +71,12 @@ export const useBlogView = ({ locale, posts, query }: BlogViewOptions): BlogView
 
   const update = (next: Partial<BlogView>): void => {
     if (search === undefined) {
-      void navigate({ hash: BLOG_ARCHIVE.SECTION_ID, search: { ...STATIC_VIEW, ...next }, to: ROUTES.BLOG })
+      void navigate({ hash: BLOG_ARCHIVE.SECTION_ID, search: { ...STATIC_VIEW, ...next }, to: ROUTES.BLOG.INDEX })
       return
     }
 
     revealArchive()
-    void navigate({ replace: true, resetScroll: false, search: { ...search, page: undefined, ...next }, to: ROUTES.BLOG })
+    void navigate({ replace: true, resetScroll: false, search: { ...search, page: undefined, ...next }, to: ROUTES.BLOG.INDEX })
   }
 
   return {

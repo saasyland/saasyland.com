@@ -11,7 +11,7 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 import { SignOutButton } from "~/src/presentation/components/custom/admin/sign-out-button"
 
 import authSessionMessages from "~/messages/en-US/auth.session.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const signOut = vi.hoisted(() => vi.fn<() => Promise<{ success: boolean }>>())
 vi.mock("~/src/modules/account/use-cases/sign-out-user", () => ({ signOutUserMutation: { mutationFn: signOut } }))
@@ -58,7 +58,7 @@ describe("sign out", () => {
       await pending.promise
     })
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledExactlyOnceWith({ replace: true, to: ROUTES.SIGN_IN })
+      expect(navigate).toHaveBeenCalledExactlyOnceWith({ replace: true, to: ROUTES.AUTH.SIGN_IN })
     })
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
     expect(clearCache).toHaveBeenCalledOnce()

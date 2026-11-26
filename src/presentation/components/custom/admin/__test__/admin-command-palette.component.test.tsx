@@ -20,11 +20,11 @@ import authNavigation from "~/messages/en-US/navigation.auth.json"
 import coursesNavigation from "~/messages/en-US/navigation.courses.json"
 import paymentsNavigation from "~/messages/en-US/navigation.payments.json"
 import labels from "~/messages/en-US/pages.admin.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const copy = labels.components.commandPalette
 const RECENT_STORAGE_KEY = "admin-command-palette-recent"
-const ADA: SearchHit = { detail: "ada@example.test", id: "user-ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN_USERS}/user-ada` }
+const ADA: SearchHit = { detail: "ada@example.test", id: "user-ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN.USERS.INDEX}/user-ada` }
 
 const seedSearch = (
   text: string,
@@ -119,7 +119,7 @@ describe("admin command palette", () => {
   })
 
   it("moves through results with the arrow keys and opens an order with Enter", async () => {
-    const order: SearchHit = { detail: "ord_ada · Core", id: "ord_ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN_ORDERS}/ord_ada` }
+    const order: SearchHit = { detail: "ord_ada · Core", id: "ord_ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN.ORDERS}/ord_ada` }
     const { navigate, user } = renderPalette(seedSearch("ord_ada", { orders: [order] }))
 
     const dialog = await openPalette(user)
@@ -133,7 +133,7 @@ describe("admin command palette", () => {
   })
 
   it("loads a result's page when the pointer rests on it", async () => {
-    const order: SearchHit = { detail: "ord_ada · Core", id: "ord_ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN_ORDERS}/ord_ada` }
+    const order: SearchHit = { detail: "ord_ada · Core", id: "ord_ada", title: "Ada Lovelace", to: `${ROUTES.ADMIN.ORDERS}/ord_ada` }
     const { preloadRoute, user } = renderPalette(seedSearch("ord_ada", { orders: [order] }))
 
     const dialog = await openPalette(user)
@@ -144,7 +144,7 @@ describe("admin command palette", () => {
   })
 
   it("keeps the pages and actions that match beside the records, and drops the records below two letters", async () => {
-    const course: SearchHit = { detail: "shipping", id: "course-1", title: "Shipping", to: `${ROUTES.ADMIN_COURSES}/course-1` }
+    const course: SearchHit = { detail: "shipping", id: "course-1", title: "Shipping", to: `${ROUTES.ADMIN.COURSES.INDEX}/course-1` }
     const { user } = renderPalette(seedSearch("sh", { courses: [course] }))
 
     const dialog = await openPalette(user)
@@ -186,7 +186,7 @@ describe("admin command palette history", () => {
     globalThis.localStorage.setItem(
       RECENT_STORAGE_KEY,
       JSON.stringify([
-        { detail: "", group: "pages", title: "Settings", to: ROUTES.ADMIN_SETTINGS },
+        { detail: "", group: "pages", title: "Settings", to: ROUTES.ADMIN.SETTINGS },
         { detail: ADA.detail, group: "auth.users", title: ADA.title, to: ADA.to },
         { detail: "", group: "retired", title: "Old page", to: "/admin/retired" },
       ]),
@@ -200,7 +200,7 @@ describe("admin command palette history", () => {
     expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: ADA.to })
     expect(JSON.parse(globalThis.localStorage.getItem(RECENT_STORAGE_KEY) ?? "[]")).toMatchObject([
       { to: ADA.to },
-      { to: ROUTES.ADMIN_SETTINGS },
+      { to: ROUTES.ADMIN.SETTINGS },
       { to: "/admin/retired" },
     ])
     await waitFor(() => {
@@ -226,7 +226,7 @@ describe("admin command palette history", () => {
     const dialog = await openPalette(user)
     await user.click(within(dialog).getByRole("menuitem", { name: /^Settings/u }))
 
-    expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: ROUTES.ADMIN_SETTINGS })
+    expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: ROUTES.ADMIN.SETTINGS })
   })
 })
 
@@ -252,7 +252,7 @@ describe("admin command palette sessions", () => {
     const dialog = await openPalette(user)
     await user.keyboard("sett")
     await user.click(within(dialog).getByRole("menuitem", { name: /^Settings/u }))
-    expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: ROUTES.ADMIN_SETTINGS })
+    expect(navigate).toHaveBeenCalledExactlyOnceWith({ href: ROUTES.ADMIN.SETTINGS })
     fireEvent.keyDown(document, { ctrlKey: true, key: "k" })
 
     const search = await screen.findByRole("searchbox", { name: copy.placeholder })

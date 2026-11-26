@@ -28,7 +28,7 @@ import notFoundMessages from "~/messages/en-US/errors.not-found.json"
 import contentNavigationMessages from "~/messages/en-US/navigation.content.json"
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO, APP_GITHUB_URL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LAYOUT_DATA: typeof DocsRoute.types.loaderData = {
   tree: { $fumadocs_loader: "page-tree", data: { children: [], name: "Documentation" } },
@@ -134,7 +134,7 @@ it.each([
     within(screen.getByRole("navigation", { name: "Documentation navigation" })).getByRole("link", {
       name: contentNavigationMessages.header.docs,
     }),
-  ).toHaveAttribute("href", ROUTES.DOCS)
+  ).toHaveAttribute("href", ROUTES.DOCS.INDEX)
   expect(screen.getByRole("link", { name: `${APP_GITHUB_OWNER}/${APP_GITHUB_REPO}` })).toHaveAttribute("href", APP_GITHUB_URL)
   expect(screen.getByRole("button", { name: selectTriggerNamed(localeSwitcherMessages.label) })).toHaveTextContent("English")
   expect(screen.getByTestId("builtin-theme-switch")).toHaveTextContent("false")

@@ -16,7 +16,7 @@ import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 
 import type deleteAccountMessages from "~/messages/en-US/emails.delete-account-email.json"
 import { DELETE_ACCOUNT_EMAIL_NAMESPACE, DeleteAccountEmail } from "~/src/presentation/emails/delete-account-email"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const sendDeleteAccountEmail = async ({
   token,
@@ -33,7 +33,7 @@ export const sendDeleteAccountEmail = async ({
   }
 
   const locale = extractLocaleFromCallbackURL(url) ?? I18N.DEFAULT_LOCALE
-  const confirmUrl = new URL(localizePathname({ locale, pathname: ROUTES.APP_DELETE_ACCOUNT }), getRequest().url)
+  const confirmUrl = new URL(localizePathname({ locale, pathname: ROUTES.APP.SETTINGS.DELETE_ACCOUNT }), getRequest().url)
   confirmUrl.searchParams.set("token", token)
   const messages = await loadNamespace<typeof deleteAccountMessages>({ locale, namespace: DELETE_ACCOUNT_EMAIL_NAMESPACE })
 

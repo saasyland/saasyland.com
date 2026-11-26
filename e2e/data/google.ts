@@ -1,13 +1,13 @@
 import * as zod from "zod"
 
 import { AUTH_PROVIDER } from "../../src/integrations/better-auth/auth.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 
 export const GOOGLE_AUTHORIZE_PATH = "/o/oauth2/v2/auth"
 
 export const GOOGLE_AUTHORIZE_TEST_PATH = "/__test/google/authorize"
 
-export const GOOGLE_CALLBACK_PATH = `${ROUTES.API_AUTH_BASE}/callback/${AUTH_PROVIDER.GOOGLE}`
+export const GOOGLE_CALLBACK_PATH = `${ROUTES.API.AUTH.BASE}/callback/${AUTH_PROVIDER.GOOGLE}`
 
 export const GOOGLE_IDENTITY_PARAM = "identity"
 

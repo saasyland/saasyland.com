@@ -1,6 +1,6 @@
 import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 interface OAuthClient {
   readonly authorizeOrigin: string
@@ -43,4 +43,4 @@ export const OAUTH_CLIENTS = {
   },
 } as const satisfies Record<(typeof OAUTH_PROVIDERS)[number]["id"], OAuthClient>
 
-export const SOCIAL_SIGN_IN_PATH = `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_SOCIAL}`
+export const SOCIAL_SIGN_IN_PATH = `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_SOCIAL}`

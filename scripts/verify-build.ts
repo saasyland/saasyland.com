@@ -15,7 +15,7 @@ import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
 import { CLIENT_DIR } from "./prerendered-pages.ts"
 import { scriptArguments } from "./run-command.ts"
 import { readWranglerEnvironment } from "./wrangler-config.ts"
-import * as ROUTES from "~/src/routes"
+import { REQUEST_RENDERED_ROUTES, ROUTES } from "~/src/routes"
 
 const ASSETS_DIR = join(CLIENT_DIR, "assets")
 const DEPLOY_CONFIG_PATH = ".wrangler/deploy/config.json"
@@ -45,8 +45,8 @@ interface ContentRoute {
 }
 
 const CONTENT_ROUTES: readonly ContentRoute[] = [
-  { directory: DOCS_DIRECTORY, route: ROUTES.DOCS, searched: true },
-  { directory: BLOG_DIRECTORY, route: ROUTES.BLOG, searched: false },
+  { directory: DOCS_DIRECTORY, route: ROUTES.DOCS.INDEX, searched: true },
+  { directory: BLOG_DIRECTORY, route: ROUTES.BLOG.INDEX, searched: false },
 ]
 const CONTENT_PAGE = /^(?<slug>.*?)(?:(?:^|\/)index)?\.(?<locale>[a-zA-Z-]+)\.mdx$/u
 const FRONTMATTER = /^---\r?\n(?<yaml>[\s\S]*?)\r?\n---/u
@@ -120,7 +120,7 @@ for (const alias of LOCALE_ALIASES) {
   }
 }
 
-for (const route of ROUTES.REQUEST_RENDERED_ROUTES) {
+for (const route of REQUEST_RENDERED_ROUTES) {
   const prerendered = globSync("**/index.html", { cwd: join(CLIENT_DIR, route) })
 
   if (prerendered.length > 0) {

@@ -11,7 +11,7 @@ import { toMinorUnits } from "../../src/modules/_core/constants/currency"
 import { DEFAULT_CURRENCY_CODE } from "../../src/modules/_core/constants/pricing"
 import { LICENSE_ACTIVATION_LIMITS, LICENSE_EMAIL_PURPOSE, LICENSE_TIER, type LicenseTier } from "../../src/modules/license/license.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_POLAR } from "../data/polar-settings"
 import { expect, test } from "../fixtures/auth"
 import { signUpBuyer, signUpVerifiedBuyer } from "../fixtures/buyer"
@@ -46,7 +46,7 @@ const isConfirmation = ({ idempotencyKey }: { idempotencyKey: string }): boolean
 const purchaseConfirmations = async (request: APIRequestContext, email: string) => (await getSentEmails(request, email)).filter(isConfirmation)
 
 const openLicence = async (appPage: BasePage, page: Page): Promise<void> => {
-  await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
 }
 
@@ -217,7 +217,7 @@ test.describe("licence webhooks", () => {
   }) => {
     const { userId } = await signUpVerifiedBuyer(page, request, baseURL)
     const { key } = await buyLicense(request, { tier: LICENSE_TIER.CORE, userId })
-    await page.goto(`${ROUTES.APP_LICENSE}?tier=${LICENSE_TIER.COMPLETE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`${ROUTES.APP.LICENSE}?tier=${LICENSE_TIER.COMPLETE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await page.getByRole("region", { name: "Upgrade to Complete" }).getByRole("button", { name: "Upgrade to Complete" }).click()
     await payInCheckoutOverlay(page)

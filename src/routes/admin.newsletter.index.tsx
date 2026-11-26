@@ -21,7 +21,7 @@ import {
 } from "~/src/presentation/components/custom/admin/newsletter/newsletter-subscriber-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NewsletterSubscribersPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.newsletter.subscribers")
@@ -56,7 +56,7 @@ export const Route = createFileRoute("/admin/newsletter/")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_NEWSLETTER),
+  head: pageHead(ROUTES.ADMIN.NEWSLETTER.INDEX),
   pendingComponent: AdminNewsletterSubscribersPending,
   staticData: { namespaces: [NAMESPACE] },
 })

@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router"
 
 import { Wordmark } from "~/src/presentation/components/custom/wordmark"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const HomeLink = ({ onClick }: { readonly onClick?: () => void }): JSX.Element => {
   const navigate = useNavigate()

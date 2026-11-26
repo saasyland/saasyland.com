@@ -18,7 +18,7 @@ import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 import type { Account } from "~/src/modules/account/account.types"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type SettingsSession = ReturnType<typeof createAuthSessionFixture>
 
@@ -53,7 +53,9 @@ export const settingsSession = ({ emailVerified = true, twoFactorEnabled = false
 
 const settingsRouter = (path: string) => {
   const rootRoute = createRootRoute()
-  const pages = [ROUTES.ADMIN_SETTINGS, ROUTES.APP_SETTINGS].map((page) => createRoute({ getParentRoute: () => rootRoute, path: page }))
+  const pages = [ROUTES.ADMIN.SETTINGS, ROUTES.APP.SETTINGS.INDEX].map((page) =>
+    createRoute({ getParentRoute: () => rootRoute, path: page }),
+  )
 
   return createRouter({
     history: createMemoryHistory({ initialEntries: [path] }),
@@ -75,7 +77,7 @@ const settingsQueryClient = ({
 }
 
 export const renderSettings = (ui: ReactElement, options: SettingsRenderOptions = {}) => {
-  const { locale = "en-US", messages = settingsMessages, path = ROUTES.APP_SETTINGS } = options
+  const { locale = "en-US", messages = settingsMessages, path = ROUTES.APP.SETTINGS.INDEX } = options
   const queryClient = settingsQueryClient(options)
   const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
   const result = render(

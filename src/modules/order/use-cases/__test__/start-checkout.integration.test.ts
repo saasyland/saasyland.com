@@ -24,7 +24,7 @@ import type { Order } from "~/src/modules/order/order.types"
 import { orderZodSchemas } from "~/src/modules/order/order.zod"
 import { startCheckoutMutation } from "~/src/modules/order/use-cases/start-checkout"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const RETURN_PATH = "/pl-PL/pricing?plan=team"
 
@@ -56,7 +56,7 @@ const checkoutInput = (input: Partial<Order["startCheckout"]> = {}): Order["star
   locale: "en-US",
   productId: STARTER_KIT.id,
   returnPath: RETURN_PATH,
-  successPath: ROUTES.APP,
+  successPath: ROUTES.APP.INDEX,
   ...input,
 })
 
@@ -101,7 +101,7 @@ describe("start-checkout", () => {
       net_amount: STARTER_KIT.price.amount,
       product_id: STARTER_KIT.id,
       return_url: `${TEST_APP_URL}${RETURN_PATH}`,
-      success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${checkout.id}`,
+      success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP.INDEX}?checkoutId=${checkout.id}`,
     })
     expect(new URL(checkout.url).origin).toBe(polarCheckoutOrigin(env.POLAR_SERVER))
   })
@@ -117,9 +117,9 @@ describe("start-checkout", () => {
   it("comes back to the page the caller names after paying, keeping its own search params after the checkout ID", async () => {
     const buyer = await signUpAndVerify()
 
-    const checkout = await startCheckout(buyer, { successPath: `${ROUTES.APP}?plan=team&seats=3` })
+    const checkout = await startCheckout(buyer, { successPath: `${ROUTES.APP.INDEX}?plan=team&seats=3` })
 
-    expect(checkout.success_url).toBe(`${TEST_APP_URL}${ROUTES.APP}?checkoutId=${checkout.id}&plan=team&seats=3`)
+    expect(checkout.success_url).toBe(`${TEST_APP_URL}${ROUTES.APP.INDEX}?checkoutId=${checkout.id}&plan=team&seats=3`)
   })
 
   it.each([

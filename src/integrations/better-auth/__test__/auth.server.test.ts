@@ -13,7 +13,7 @@ import { rateLimit } from "~/src/modules/rate-limit/rate-limit.schema"
 import { SECONDS_PER_HOUR } from "~/src/lib/duration"
 
 import { APP_SLUG } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -44,9 +44,9 @@ describe("Cloudflare auth configuration", () => {
   it("rate limits auth endpoints through the atomic D1 store", () => {
     expect(auth.options.rateLimit).toMatchObject({
       customRules: {
-        [ROUTES.API_AUTH.GET_SESSION]: false,
-        [ROUTES.API_AUTH.SIGN_OUT]: false,
-        [ROUTES.API_AUTH_POLAR.WEBHOOKS]: false,
+        [ROUTES.API.AUTH.GET_SESSION]: false,
+        [ROUTES.API.AUTH.SIGN_OUT]: false,
+        [ROUTES.API.AUTH.POLAR.WEBHOOKS]: false,
       },
       enabled: true,
     })
@@ -92,10 +92,10 @@ describe("Cloudflare auth configuration", () => {
     expect(auth.options.baseURL.allowedHosts.some((host) => host.includes("*") || host.includes("workers.dev"))).toBe(false)
   })
   it("serves its endpoints under the auth routes' base path", () => {
-    expect(auth.options.basePath).toBe(ROUTES.API_AUTH_BASE)
+    expect(auth.options.basePath).toBe(ROUTES.API.AUTH.BASE)
   })
   it("sends API errors to the sign-in page", () => {
-    expect(auth.options.onAPIError.errorURL).toBe(ROUTES.SIGN_IN)
+    expect(auth.options.onAPIError.errorURL).toBe(ROUTES.AUTH.SIGN_IN)
   })
   it("hashes verification identifiers in D1", () => {
     expect(auth.options.verification).toEqual({ storeIdentifier: "hashed" })
@@ -122,7 +122,7 @@ describe("Cloudflare auth configuration", () => {
 })
 
 describe("Better Auth rate-limit storage", () => {
-  const key = `203.0.113.9|${ROUTES.API_AUTH.SIGN_IN_EMAIL}`
+  const key = `203.0.113.9|${ROUTES.API.AUTH.SIGN_IN_EMAIL}`
   const rule = { max: 3, window: 10 }
   const { customStorage } = auth.options.rateLimit
 

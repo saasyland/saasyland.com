@@ -1,5 +1,5 @@
 import { AFFONSO } from "../../src/integrations/affonso/affonso.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/auth"
 import { startedCheckouts } from "../fixtures/license"
 import { checkoutOverlay } from "../fixtures/polar-checkout"
@@ -19,7 +19,7 @@ test("a buyer whose visit through an affiliate link left Affonso's referral cook
   const { userId } = await signUpAndVerify({ authPage, page, request })
   await context.addCookies([{ name: AFFONSO.REFERRAL_COOKIE, url: baseURL ?? "", value: REFERRAL_ID }])
 
-  await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   await page.getByRole("button", { exact: true, name: "Get Core" }).click()
   await expect(checkoutOverlay(page)).toBeAttached()

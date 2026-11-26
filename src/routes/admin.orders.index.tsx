@@ -17,7 +17,7 @@ import { AdminOrdersPending } from "~/src/presentation/components/custom/admin/p
 import { ORDER_GRID_ID, useOrderColumns } from "~/src/presentation/components/custom/admin/payments/order-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const OrdersPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.orders")
@@ -56,7 +56,7 @@ export const Route = createFileRoute("/admin/orders/")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_ORDERS),
+  head: pageHead(ROUTES.ADMIN.ORDERS),
   pendingComponent: AdminOrdersPending,
   staticData: { namespaces: NAMESPACES },
 })

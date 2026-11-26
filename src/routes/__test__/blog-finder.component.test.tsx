@@ -9,7 +9,7 @@ import { renderBlog, section, useBlogTestEnvironment } from "~/src/routes/__test
 import { BLOG_ARCHIVE, BLOG_FINDER_TOPICS, BLOG_SORT, BLOG_TAG, BLOG_TAGS } from "~/src/data/blog"
 
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
@@ -80,7 +80,7 @@ const placeArchive = (top: number) => {
 describe("the post finder beside the blog", () => {
   it("indexes every post and narrows the index with the search, counting the matches", async () => {
     const user = userEvent.setup({ delay: null })
-    await renderBlog({ locale: "en-US", path: ROUTES.BLOG, posts: POSTS })
+    await renderBlog({ locale: "en-US", path: ROUTES.BLOG.INDEX, posts: POSTS })
 
     expect(indexTitles()).toStrictEqual(["Better Auth guide", "Polar payments", "Release notes"])
     expect(postIndex().getByRole("link", { name: "Polar payments" })).toHaveAttribute("href", "/blog/polar")
@@ -96,7 +96,7 @@ describe("the post finder beside the blog", () => {
 
   it("orders the index like the archive", async () => {
     const user = userEvent.setup({ delay: null })
-    await renderBlog({ locale: "en-US", path: ROUTES.BLOG, posts: POSTS })
+    await renderBlog({ locale: "en-US", path: ROUTES.BLOG.INDEX, posts: POSTS })
 
     await user.click(finder().getByRole("radio", { name: archive.sorts["reading-time"] }))
 
@@ -107,7 +107,7 @@ describe("the post finder beside the blog", () => {
 
   it("shows the largest topics first and keeps the chosen one in view in their place", async () => {
     const chosen = BLOG_TAG.PAYMENTS
-    await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG}?tag=${chosen}`, posts: MANY_TOPICS })
+    await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG.INDEX}?tag=${chosen}`, posts: MANY_TOPICS })
     const topics = within(finder().getByRole("radiogroup", { name: archive.topics })).getAllByRole("radio")
 
     expect(topics.map((radio) => radio.textContent)).toStrictEqual([
@@ -120,7 +120,7 @@ describe("the post finder beside the blog", () => {
 
   it("opens every topic in a popover that closes on the topic the reader picks", async () => {
     const user = userEvent.setup({ delay: null })
-    const router = await renderBlog({ locale: "en-US", path: ROUTES.BLOG, posts: MANY_TOPICS })
+    const router = await renderBlog({ locale: "en-US", path: ROUTES.BLOG.INDEX, posts: MANY_TOPICS })
 
     expect(within(finder().getByRole("radiogroup", { name: archive.topics })).getAllByRole("radio")).toHaveLength(BLOG_FINDER_TOPICS + 1)
 
@@ -142,7 +142,7 @@ describe("the post finder beside the blog", () => {
     const user = userEvent.setup({ delay: null })
     const router = await renderBlog({
       locale: "en-US",
-      path: `${ROUTES.BLOG}?q=guide&sort=${BLOG_SORT.UPDATED}&tag=${BLOG_TAG.AUTH}`,
+      path: `${ROUTES.BLOG.INDEX}?q=guide&sort=${BLOG_SORT.UPDATED}&tag=${BLOG_TAG.AUTH}`,
       posts: POSTS,
     })
     const active = () => within(finder().getByRole("group", { name: archive.activeFilters }))
@@ -165,7 +165,7 @@ describe("the post finder beside the blog", () => {
     const user = userEvent.setup({ delay: null })
     const router = await renderBlog({
       locale: "en-US",
-      path: `${ROUTES.BLOG}?q=guide&sort=${BLOG_SORT.UPDATED}&tag=${BLOG_TAG.AUTH}`,
+      path: `${ROUTES.BLOG.INDEX}?q=guide&sort=${BLOG_SORT.UPDATED}&tag=${BLOG_TAG.AUTH}`,
       posts: POSTS,
     })
 
@@ -185,7 +185,7 @@ describe("bringing the reader to the results", () => {
     { position: "scrolled past", top: -40 },
   ])("scrolls the archive into view when it is $position", async ({ top }) => {
     const user = userEvent.setup({ delay: null })
-    await renderBlog({ locale: "en-US", path: ROUTES.BLOG, posts: POSTS })
+    await renderBlog({ locale: "en-US", path: ROUTES.BLOG.INDEX, posts: POSTS })
     const scrollIntoView = placeArchive(top)
 
     await user.click(finder().getByRole("radio", { name: `${tags[BLOG_TAG.PAYMENTS]}, 1 post` }))
@@ -195,7 +195,7 @@ describe("bringing the reader to the results", () => {
 
   it("leaves the page where it is while the archive is in view", async () => {
     const user = userEvent.setup({ delay: null })
-    await renderBlog({ locale: "en-US", path: ROUTES.BLOG, posts: POSTS })
+    await renderBlog({ locale: "en-US", path: ROUTES.BLOG.INDEX, posts: POSTS })
     const scrollIntoView = placeArchive(120)
 
     await user.click(finder().getByRole("radio", { name: `${tags[BLOG_TAG.PAYMENTS]}, 1 post` }))
@@ -205,7 +205,7 @@ describe("bringing the reader to the results", () => {
 
   it("filters without scrolling when the page has no archive to show", async () => {
     const user = userEvent.setup({ delay: null })
-    const router = await renderBlog({ locale: "en-US", path: ROUTES.BLOG, posts: POSTS })
+    const router = await renderBlog({ locale: "en-US", path: ROUTES.BLOG.INDEX, posts: POSTS })
     archiveSection().removeAttribute("id")
 
     await user.click(finder().getByRole("radio", { name: `${tags[BLOG_TAG.PAYMENTS]}, 1 post` }))
@@ -219,7 +219,7 @@ describe("bringing the reader to the results", () => {
 describe("the filters sheet on small screens", () => {
   it("names the active filters on its button, changes the topic and the sort as they are picked and shows the matches", async () => {
     const user = userEvent.setup({ delay: null })
-    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG}?tag=${BLOG_TAG.AUTH}`, posts: POSTS })
+    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG.INDEX}?tag=${BLOG_TAG.AUTH}`, posts: POSTS })
 
     await user.click(finder().getByRole("button", { name: /^Filters.*1 active$/u }))
 
@@ -244,7 +244,7 @@ describe("the filters sheet on small screens", () => {
 
   it("clears every filter from the sheet and has nothing to clear afterwards", async () => {
     const user = userEvent.setup({ delay: null })
-    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG}?q=polar&tag=${BLOG_TAG.PAYMENTS}`, posts: POSTS })
+    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG.INDEX}?q=polar&tag=${BLOG_TAG.PAYMENTS}`, posts: POSTS })
 
     await user.click(finder().getByRole("button", { name: /^Filters/u }))
     const sheet = within(await screen.findByRole("dialog", { name: archive.filters }))
@@ -261,18 +261,18 @@ describe("the filters sheet on small screens", () => {
 describe("the post finder beside an archive page", () => {
   it("narrows its index as the reader types and opens the blog's archive with the search on Enter", async () => {
     const user = userEvent.setup({ delay: null })
-    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG}/page/2`, posts: POSTS })
+    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG.INDEX}/page/2`, posts: POSTS })
     const search = finder().getByRole("searchbox", { name: archive.search })
 
     await user.type(search, "polar")
 
     expect(indexTitles()).toStrictEqual(["Polar payments"])
-    expect(router.state.location.pathname).toBe(`${ROUTES.BLOG}/page/2`)
+    expect(router.state.location.pathname).toBe(`${ROUTES.BLOG.INDEX}/page/2`)
 
     await user.type(search, "{Enter}")
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(ROUTES.BLOG)
+      expect(router.state.location.pathname).toBe(ROUTES.BLOG.INDEX)
     })
     expect(router.state.location.search).toEqual({ q: "polar" })
     expect(router.state.location.hash).toBe(BLOG_ARCHIVE.SECTION_ID)
@@ -280,25 +280,25 @@ describe("the post finder beside an archive page", () => {
 
   it("opens the blog's archive on the topic the reader picks", async () => {
     const user = userEvent.setup({ delay: null })
-    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG}/page/2`, posts: POSTS })
+    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG.INDEX}/page/2`, posts: POSTS })
 
     await user.click(finder().getByRole("radio", { name: `${tags[BLOG_TAG.RELEASE]}, 1 post` }))
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(ROUTES.BLOG)
+      expect(router.state.location.pathname).toBe(ROUTES.BLOG.INDEX)
     })
     expect(router.state.location.search).toEqual({ tag: BLOG_TAG.RELEASE })
   })
 
   it("opens the blog's archive from the sheet", async () => {
     const user = userEvent.setup({ delay: null })
-    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG}/page/2`, posts: POSTS })
+    const router = await renderBlog({ locale: "en-US", path: `${ROUTES.BLOG.INDEX}/page/2`, posts: POSTS })
 
     await user.click(finder().getByRole("button", { name: archive.filters }))
     await user.click(within(await screen.findByRole("dialog", { name: archive.filters })).getByRole("button", { name: "Show 3 posts" }))
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(ROUTES.BLOG)
+      expect(router.state.location.pathname).toBe(ROUTES.BLOG.INDEX)
     })
     expect(router.state.location.hash).toBe(BLOG_ARCHIVE.SECTION_ID)
   })

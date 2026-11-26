@@ -16,7 +16,7 @@ import { AUTH_PROVIDER } from "~/src/integrations/better-auth/auth.constants"
 import { DEFAULT_ROLE_CODE } from "~/src/integrations/better-auth/auth.roles"
 import { auth } from "~/src/integrations/better-auth/auth.server"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 describe("auth email and password credentials", () => {
   it("signs up a new user with the default customer role and emails a verification link", async () => {
@@ -82,7 +82,7 @@ describe("auth social providers", () => {
     [AUTH_PROVIDER.GOOGLE, "https://accounts.google.com/o/oauth2/v2/auth"],
   ])("starts %s OAuth with a redirect to the provider", async (provider, authorizationUrl) => {
     const response = await auth.api.signInSocial({
-      body: { callbackURL: `${TEST_APP_URL}${ROUTES.AUTH_CALLBACK}`, provider },
+      body: { callbackURL: `${TEST_APP_URL}${ROUTES.AUTH.CALLBACK}`, provider },
       headers: browserHeaders(),
     })
 

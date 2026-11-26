@@ -49,7 +49,7 @@ import { RepositoryFact, RepositoryTable } from "~/src/presentation/components/c
 import { TEST_ACCOUNTS } from "~/e2e/data/accounts"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "~/e2e/data/licenses"
 import { COMMIT_EMOJIS } from "~/scripts/commit-msg"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const renderInLocale = (locale: SupportedLocale, children: ReactNode) =>
   render(
@@ -384,7 +384,7 @@ describe("OAuth callbacks", () => {
       </ul>,
     )
 
-    const callback = `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}`
+    const callback = `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.CALLBACK}`
     const list = new Intl.ListFormat("en-US")
     expect(listItems()).toEqual([
       `${callback}/<provider>`,
@@ -409,7 +409,7 @@ describe("OAuth callbacks", () => {
 
     expect(listItems()).toEqual([
       new Intl.ListFormat("en-US").format(OAUTH_PROVIDERS.map(({ id }) => id)),
-      `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_SOCIAL}`,
+      `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_SOCIAL}`,
     ])
   })
 })

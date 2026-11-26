@@ -15,7 +15,7 @@ import { AdminCustomersPending } from "~/src/presentation/components/custom/admi
 import { CUSTOMER_GRID_ID, useCustomerColumns } from "~/src/presentation/components/custom/admin/payments/customer-columns"
 import { DataGrid } from "~/src/presentation/components/custom/data-grid"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const CustomersPage = (): JSX.Element => {
   const t = useTranslations("pages.admin.customers")
@@ -51,7 +51,7 @@ export const Route = createFileRoute("/admin/users/customers")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_USERS_CUSTOMERS),
+  head: pageHead(ROUTES.ADMIN.USERS.CUSTOMERS),
   pendingComponent: AdminCustomersPending,
   staticData: { namespaces: [NAMESPACE] },
 })

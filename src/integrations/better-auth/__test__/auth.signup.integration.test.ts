@@ -22,7 +22,7 @@ import { user } from "~/src/modules/user/user.schema"
 import { VERIFICATION_EMAIL_PURPOSE } from "~/src/modules/verification/verification.constants"
 
 import { APP_SLUG } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const ORIGIN = "http://127.0.0.1:3000"
 const RESEND_LIMIT = 256
@@ -140,7 +140,7 @@ describe("production signup verification delivery", () => {
       const fields = { ...callback, email, name, password }
       const body = contentType === "application/json" ? JSON.stringify(fields) : new URLSearchParams(fields).toString()
       const signUpDirectly = async () => {
-        const request = new Request(`${ORIGIN}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_UP_EMAIL}`, {
+        const request = new Request(`${ORIGIN}${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_UP_EMAIL}`, {
           body,
           headers: {
             [IP_ADDRESS_HEADER]: "203.0.113.10",
@@ -239,7 +239,7 @@ describe("repeated sign-up of an existing account", () => {
     await signUp(unverified)
     aMinuteLater()
     const postSignUp = async ({ callbackURL, email, name, password }: ReturnType<typeof createSignUp>, client: number) => {
-      const request = new Request(`${ORIGIN}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_UP_EMAIL}`, {
+      const request = new Request(`${ORIGIN}${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_UP_EMAIL}`, {
         body: JSON.stringify({ callbackURL, email, name, password }),
         headers: { [IP_ADDRESS_HEADER]: `203.0.113.${String(client)}`, "content-type": "application/json", origin: ORIGIN },
         method: "POST",
@@ -323,15 +323,15 @@ describe("verification email link", () => {
 
   it("links to the verification page in the default locale when Better Auth's link names no callback", async () => {
     const email = `signup-${crypto.randomUUID()}@example.test`
-    vi.mocked(getRequest).mockReturnValue(new Request(`${ORIGIN}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_UP_EMAIL}`))
+    vi.mocked(getRequest).mockReturnValue(new Request(`${ORIGIN}${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_UP_EMAIL}`))
 
     await auth.options.emailVerification.sendVerificationEmail({
       token: "verification-token",
-      url: `${ORIGIN}${ROUTES.API_AUTH_VERIFY_EMAIL}?token=verification-token`,
+      url: `${ORIGIN}${ROUTES.API.AUTH.VERIFY_EMAIL}?token=verification-token`,
       user: { createdAt: new Date(), email, emailVerified: false, id: "user-id", name: "Ada Lovelace", updatedAt: new Date() },
     })
 
-    expect(getSentEmails(email)[0]?.html).toContain(`href="${ORIGIN}${ROUTES.VERIFY_EMAIL}?token=verification-token"`)
+    expect(getSentEmails(email)[0]?.html).toContain(`href="${ORIGIN}${ROUTES.AUTH.VERIFY_EMAIL}?token=verification-token"`)
   })
 })
 

@@ -69,12 +69,12 @@ import { CLI_INIT_COMMAND } from "~/src/data/cli"
 import { TIER_PRICES } from "~/src/data/license"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const STALE_SIGNATURE_MS = 600_000
 const INCLUDED_VAT_RATE = 0.23
 const CONSENT = { [LICENSE_CHECKOUT_FIELD.WITHDRAWAL_CONSENT]: true }
-const WEBHOOKS_URL = new URL(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH_POLAR.WEBHOOKS}`, TEST_APP_URL)
+const WEBHOOKS_URL = new URL(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.POLAR.WEBHOOKS}`, TEST_APP_URL)
 
 const postWebhook = async (body: string, headers: Record<string, string>): Promise<number> => {
   const response = await auth.handler(new Request(WEBHOOKS_URL, { body, headers, method: "POST" }))
@@ -136,7 +136,7 @@ describe("checkout", () => {
       net_amount: listPrice(LICENSE_TIER.COMPLETE),
       product_id: POLAR_PRODUCT_IDS[LICENSE_TIER.COMPLETE],
       return_url: `${TEST_APP_URL}${RETURN_PATH}`,
-      success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP}?checkoutId=${checkout.id}&tier=${LICENSE_TIER.COMPLETE}`,
+      success_url: `${TEST_APP_URL}/pl-PL${ROUTES.APP.INDEX}?checkoutId=${checkout.id}&tier=${LICENSE_TIER.COMPLETE}`,
     })
   })
 
@@ -169,7 +169,7 @@ describe("checkout", () => {
     const checkout = await startCheckout(buyer, { redirect: "/courses/the-walkthrough/billing", tier: LICENSE_TIER.COMPLETE })
 
     expect(checkout.success_url).toBe(
-      `${TEST_APP_URL}${ROUTES.APP}?checkoutId=${checkout.id}&redirect=%2Fcourses%2Fthe-walkthrough%2Fbilling&tier=${LICENSE_TIER.COMPLETE}`,
+      `${TEST_APP_URL}${ROUTES.APP.INDEX}?checkoutId=${checkout.id}&redirect=%2Fcourses%2Fthe-walkthrough%2Fbilling&tier=${LICENSE_TIER.COMPLETE}`,
     )
   })
 

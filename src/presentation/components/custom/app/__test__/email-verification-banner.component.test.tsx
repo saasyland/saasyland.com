@@ -24,7 +24,7 @@ import changeEmailMessages from "~/messages/en-US/components.custom.change-email
 import resendMessages from "~/messages/en-US/components.custom.email-link-resend.json"
 import messages from "~/messages/en-US/components.custom.email-verification-banner.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NEW_EMAIL = "new@example.com"
 
@@ -96,7 +96,7 @@ describe("email verification banner", () => {
       expect(within(banner).getByRole("status")).toHaveTextContent(resendMessages.sent.replace("{email}", confirmedSession.user.email))
     })
     expect(resendMock).toHaveBeenCalledExactlyOnceWith(
-      { callbackURL: ROUTES.AUTH_CALLBACK, email: confirmedSession.user.email },
+      { callbackURL: ROUTES.AUTH.CALLBACK, email: confirmedSession.user.email },
       expect.anything(),
     )
   })

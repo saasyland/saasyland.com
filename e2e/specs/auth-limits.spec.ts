@@ -9,7 +9,7 @@ import { ERROR_CODES } from "../../src/modules/_core/constants/errors"
 import { NEWSLETTER_EMAIL_PURPOSE } from "../../src/modules/newsletter-subscriber/newsletter-subscriber.constants"
 import { RECIPIENT_EMAILS_PER_HOUR } from "../../src/modules/rate-limit/rate-limit.constants"
 import { VERIFICATION_EMAIL_PURPOSE } from "../../src/modules/verification/verification.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import { getSentEmails } from "../fixtures/emails"
@@ -38,7 +38,7 @@ const askForResetLink = async (authPage: AuthPage, page: Page, email: string, ad
 
 const subscribe = async (appPage: BasePage, page: Page, email: string): Promise<void> => {
   await page.setExtraHTTPHeaders({ "CF-Connecting-IP": ownAddress() })
-  await page.goto(ROUTES.BLOG, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  await page.goto(ROUTES.BLOG.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
   const footer = page.getByRole("contentinfo")
   await footer.getByRole("textbox", { exact: true, name: newsletterMessages.label }).fill(email)
@@ -101,21 +101,21 @@ test.describe("auth limits", () => {
   })
 
   test("a sign-in or a sign-out from another origin is refused", async ({ authPage, baseURL, page }) => {
-    const signIn = `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_IN_EMAIL}`
+    const signIn = `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_IN_EMAIL}`
     const credentials = { email: customer.email, password: TEST_PASSWORD }
     const refused = await page.request.post(signIn, { data: credentials, headers: { "CF-Connecting-IP": ownAddress(), Origin: OTHER_ORIGIN } })
     expect(refused.status()).toBe(HTTP_STATUS.FORBIDDEN)
-    expect(sessionSchema.parse(await (await page.request.get(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}`)).json())).toBeNull()
+    expect(sessionSchema.parse(await (await page.request.get(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.GET_SESSION}`)).json())).toBeNull()
 
     await authPage.signIn(customer.email)
-    await expect(page).toHaveURL(ROUTES.APP)
-    const signOut = await page.request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_OUT}`, { headers: { Origin: OTHER_ORIGIN } })
+    await expect(page).toHaveURL(ROUTES.APP.INDEX)
+    const signOut = await page.request.post(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_OUT}`, { headers: { Origin: OTHER_ORIGIN } })
     expect(signOut.status()).toBe(HTTP_STATUS.FORBIDDEN)
-    const session = sessionSchema.parse(await (await page.request.get(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}`)).json())
+    const session = sessionSchema.parse(await (await page.request.get(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.GET_SESSION}`)).json())
     expect(session?.user.email).toBe(customer.email)
 
-    const accepted = await page.request.post(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.SIGN_OUT}`, { headers: { Origin: new URL(baseURL ?? "").origin } })
+    const accepted = await page.request.post(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.SIGN_OUT}`, { headers: { Origin: new URL(baseURL ?? "").origin } })
     expect(accepted.ok()).toBe(true)
-    expect(sessionSchema.parse(await (await page.request.get(`${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.GET_SESSION}`)).json())).toBeNull()
+    expect(sessionSchema.parse(await (await page.request.get(`${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.GET_SESSION}`)).json())).toBeNull()
   })
 })

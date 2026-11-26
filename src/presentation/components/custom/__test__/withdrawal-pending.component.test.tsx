@@ -5,7 +5,7 @@ import { renderWithRouter } from "~/src/platform/testing/lib/render"
 import { expectMarketingSkeleton, stubMarketingObservers } from "~/src/presentation/components/custom/__test__/fixtures/marketing-pending"
 import { WithdrawalPending } from "~/src/presentation/components/custom/withdrawal-pending"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 stubMarketingObservers()
 

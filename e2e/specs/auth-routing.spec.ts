@@ -2,7 +2,7 @@ import { LOCAL_SERVER_ORIGIN } from "../../src/data/local-server"
 import { SESSION_EXPIRED_CODE } from "../../src/integrations/better-auth/auth.errors"
 import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { SESSION_STALE_TIME_MS } from "../../src/modules/session/session.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { expect, test } from "../fixtures/auth"
 import { BasePage } from "../pages"
@@ -69,11 +69,11 @@ for (const account of TEST_ACCOUNTS) {
       }
     }
     const fromForgotPassword = await context.newPage()
-    await fromForgotPassword.goto(ROUTES.FORGOT_PASSWORD, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await fromForgotPassword.goto(ROUTES.AUTH.FORGOT_PASSWORD, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     const forgotPasswordPage = new BasePage(fromForgotPassword)
     await forgotPasswordPage.waitForAppReady()
     await forgotPasswordPage.waitForHydration(fromForgotPassword.getByRole("main"))
-    await fromForgotPassword.locator(`a[href^="${ROUTES.SIGN_IN}"]`).first().click()
+    await fromForgotPassword.locator(`a[href^="${ROUTES.AUTH.SIGN_IN}"]`).first().click()
     await expect(fromForgotPassword).toHaveURL(new RegExp(`${workspace}/?$`, "u"))
     await forgotPasswordPage.waitForAppReady()
     await expect(fromForgotPassword.locator("#sign-in-form, #sign-up-form")).toHaveCount(0)
@@ -103,8 +103,8 @@ test("a client navigation once the cached session is stale rechecks an ended ses
   await page.getByRole("navigation", { name: "App navigation", exact: true }).getByRole("link", { name: "Settings", exact: true }).click()
   await expect(page).toHaveURL(
     (url) =>
-      url.pathname === ROUTES.SIGN_IN &&
-      url.searchParams.get("redirect") === ROUTES.APP_SETTINGS &&
+      url.pathname === ROUTES.AUTH.SIGN_IN &&
+      url.searchParams.get("redirect") === ROUTES.APP.SETTINGS.INDEX &&
       url.searchParams.get("error") === SESSION_EXPIRED_CODE,
   )
   await appPage.waitForAppReady()
@@ -153,8 +153,8 @@ test("a workspace link pressed after hovering it, which already found the ended 
 
   await expect(page).toHaveURL(
     (url) =>
-      url.pathname === ROUTES.SIGN_IN &&
-      url.searchParams.get("redirect") === ROUTES.APP_SETTINGS &&
+      url.pathname === ROUTES.AUTH.SIGN_IN &&
+      url.searchParams.get("redirect") === ROUTES.APP.SETTINGS.INDEX &&
       url.searchParams.get("error") === SESSION_EXPIRED_CODE,
   )
   await appPage.waitForAppReady()

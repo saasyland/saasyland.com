@@ -47,7 +47,7 @@ import pagesLegalRefundsMessages from "~/messages/en-US/pages.legal.refunds.json
 import pagesLegalTermsMessages from "~/messages/en-US/pages.legal.terms.json"
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const messages = getTestMessages("en-US")
 

@@ -17,18 +17,18 @@ import { auth } from "~/src/integrations/better-auth/auth.server"
 
 import { ACCOUNT_EMAIL_PURPOSE } from "~/src/modules/account/account.constants"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const RESET_TOKEN = /\/reset-password\/(?<token>[^/]+)$/u
 const NEW_PASSWORD = "NewSecretPass1!"
 
 const requestPasswordReset = async (email: string): Promise<void> => {
-  await auth.api.requestPasswordReset({ body: { email, redirectTo: ROUTES.RESET_PASSWORD }, headers: browserHeaders() })
+  await auth.api.requestPasswordReset({ body: { email, redirectTo: ROUTES.AUTH.RESET_PASSWORD }, headers: browserHeaders() })
   await flushWaitUntil()
 }
 
 const resetToken = (email: string): string => {
-  const link = emailLink(email, `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.RESET_PASSWORD}/`)
+  const link = emailLink(email, `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.RESET_PASSWORD}/`)
   return RESET_TOKEN.exec(link.pathname)?.groups?.["token"] ?? ""
 }
 
@@ -42,8 +42,8 @@ describe("auth password reset", () => {
 
     await requestPasswordReset(account.email)
 
-    const link = emailLink(account.email, `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.RESET_PASSWORD}/`)
-    expect(link.searchParams.get("callbackURL")).toBe(ROUTES.RESET_PASSWORD)
+    const link = emailLink(account.email, `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.RESET_PASSWORD}/`)
+    expect(link.searchParams.get("callbackURL")).toBe(ROUTES.AUTH.RESET_PASSWORD)
   })
 
   it("sets the new password with the emailed token and retires the old one", async () => {
@@ -83,10 +83,10 @@ describe("auth password reset", () => {
   it.each([
     {
       locale: "pl-PL",
-      referer: `${TEST_APP_URL}/pl-PL${ROUTES.RESET_PASSWORD}?token=reset`,
-      signIn: `${TEST_APP_URL}/pl-PL${ROUTES.SIGN_IN}`,
+      referer: `${TEST_APP_URL}/pl-PL${ROUTES.AUTH.RESET_PASSWORD}?token=reset`,
+      signIn: `${TEST_APP_URL}/pl-PL${ROUTES.AUTH.SIGN_IN}`,
     },
-    { locale: "en-US", referer: undefined, signIn: `${TEST_APP_URL}${ROUTES.SIGN_IN}` },
+    { locale: "en-US", referer: undefined, signIn: `${TEST_APP_URL}${ROUTES.AUTH.SIGN_IN}` },
   ])(
     "tells the account its password changed, in the language of the reset page $referer",
     async ({ locale, referer, signIn: signInUrl }) => {

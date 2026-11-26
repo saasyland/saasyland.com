@@ -32,7 +32,7 @@ const CoursesPage = (): JSX.Element => {
           <>
             <ImportCoursesDialog />
             <ExportCoursesButton />
-            <LinkButton className="h-9 gap-2" to={ROUTES.ADMIN_COURSES_CREATE} size="sm">
+            <LinkButton className="h-9 gap-2" to={ROUTES.ADMIN.COURSES.CREATE} size="sm">
               <PlusCircle aria-hidden className="size-4" />
               {t("actions.create")}
             </LinkButton>
@@ -72,7 +72,7 @@ export const Route = createFileRoute("/admin/courses/")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_COURSES),
+  head: pageHead(ROUTES.ADMIN.COURSES.INDEX),
   pendingComponent: AdminCoursesPending,
   staticData: { namespaces: [NAMESPACE] },
 })
@@ -92,9 +92,9 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
   loader: async ({ context, params }) => {
     const locale = getCurrentLocale()
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
-    return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
+    return { locale, pathname: `${ROUTES.ADMIN.COURSES.INDEX}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
-  head: recordHead(ROUTES.ADMIN_COURSES),
+  head: recordHead(ROUTES.ADMIN.COURSES.INDEX),
   pendingComponent: AdminCourseEditorPending,
 })
 ```
@@ -171,14 +171,14 @@ Ogni percorso e ogni voce di menu si scrive una sola volta, in un'unica lista, e
 
 | Cosa                                   | Dichiarato in                                                                                                                                                                                                            | Letto da                                                                                                       |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Percorsi                               | `src/routes.ts`: un `export const` per percorso                                                                                                                                                                          | `import * as ROUTES from "~/src/routes"`                                                                       |
+| Percorsi                               | `src/routes.ts`: un oggetto `ROUTES` con chiavi che seguono l'URL                                                                                                                                                        | `import { ROUTES } from "~/src/routes"`                                                                        |
 | Percorsi renderizzati a ogni richiesta | `REQUEST_RENDERED_ROUTES` in `src/routes.ts`                                                                                                                                                                             | `isRequestRenderedRoute` in `src/routes.ts`                                                                    |
 | Voci di menu                           | `ADMIN_NAVIGATION`, `ADMIN_COMMAND_ACTIONS`, `ADMIN_DASHBOARD_ACTIONS`, `APP_NAVIGATION`, `APP_RESOURCE_NAVIGATION`, `HEADER_NAVIGATION` e `FOOTER_NAVIGATION` in `src/data/navigation.ts`, nell'ordine in cui compaiono | Le barre laterali, l'intestazione, il footer, la palette dei comandi e la dashboard                            |
 | Namespace dei layout                   | `NAMESPACES` nella route del layout                                                                                                                                                                                      | Il loader del layout e `staticData`                                                                            |
 | Liste dell'admin e dell'app clienti    | `DASHBOARD_STATS`, `DASHBOARD_PANELS`, `COMMAND_SEARCHES`, `USER_TABS`, `USER_PROFILE_SECTIONS` e `ACCOUNT_DELETION_NOTICES`, ciascuna nel componente che la renderizza                                                  | Quel componente, il suo scheletro e la route che carica i suoi dati                                            |
 | Controlli del sito online              | `LIVE_SITE_CHECKS` in `src/lib/deployment.ts`                                                                                                                                                                            | `verifyDeployment` ([Piattaforma e test](/docs/architecture/platform-layer#what-the-worker-and-the-build-run)) |
 
-`src/routes.ts` dichiara ogni percorso e non importa nulla, perché lo carica ogni runtime: il browser, il Worker a ogni avvio a freddo, gli script Bun, Playwright, `vite.config.ts` e il progetto Remotion. Ogni file lo importa come un unico namespace, `import * as ROUTES from "~/src/routes"`, così ogni percorso mantiene il suo tipo letterale e `<Link to={ROUTES.COURSES}>` resta verificato rispetto all'albero delle route. Un percorso costruito a partire da un altro, come `BLOG_FEED` da `BLOG`, segue quello da cui è costruito.
+`src/routes.ts` dichiara ogni percorso in un unico oggetto, `ROUTES`, e non importa nulla, perché lo carica ogni runtime: il browser, il Worker a ogni avvio a freddo, gli script Bun, Playwright, `vite.config.ts` e il progetto Remotion. Le sue chiavi seguono l'URL, quindi `ROUTES.ADMIN.USERS.ALL` è `/admin/users/all`; `INDEX` indica un percorso che è insieme una pagina e il genitore di altri, come `ROUTES.BLOG.INDEX`, e `BASE` un genitore che non è una pagina, come `ROUTES.AUTH.BASE`. Ogni file lo importa con `import { ROUTES } from "~/src/routes"` e l'oggetto è dichiarato `as const`, così ogni percorso mantiene il suo tipo letterale e `<Link to={ROUTES.COURSES}>` resta verificato rispetto all'albero delle route. Un segmento condiviso da più percorsi, come `const BLOG = "/blog"`, è una costante del file che non viene esportata, così ogni segmento si scrive una sola volta.
 
 Il Worker e la build tengono le loro liste allo stesso modo: anche `REQUEST_HANDLERS` e `DOCUMENT_REWRITES` in `src/server.ts` e `VITE_PLUGINS` in `vite.config.ts` sono liste letterali, in cui una funzionalità opzionale entra come un elemento.
 
@@ -188,9 +188,9 @@ Il Worker e la build tengono le loro liste allo stesso modo: anche `REQUEST_HAND
 export const HEADER_NAVIGATION: readonly SiteEntry[] = [
   { hash: MARKETING_SECTION_IDS.PRICING, label: "navigation.core.header.pricing", to: ROUTES.HOME },
   { label: "navigation.courses.header.courses", to: ROUTES.COURSES },
-  { label: "navigation.content.header.blog", to: ROUTES.BLOG },
-  { label: "navigation.content.header.docs", to: ROUTES.DOCS },
-  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.SIGN_IN },
+  { label: "navigation.content.header.blog", to: ROUTES.BLOG.INDEX },
+  { label: "navigation.content.header.docs", to: ROUTES.DOCS.INDEX },
+  { label: "navigation.auth.header.signIn", signedIn: { label: "navigation.auth.header.account" }, to: ROUTES.AUTH.SIGN_IN },
 ]
 ```
 

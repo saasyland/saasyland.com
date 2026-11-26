@@ -4,11 +4,11 @@ import { OAUTH_CLIENTS, OAUTH_PROVIDERS } from "~/src/data/auth"
 
 import type { LiveSitePost } from "~/src/lib/deployment"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
 
-export const oauthCallbackPath = (provider: string): string => `${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`
+export const oauthCallbackPath = (provider: string): string => `${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.CALLBACK}/${provider}`
 
 const AUTHORIZE_PARAM = {
   CLIENT_ID: "client_id",
@@ -45,7 +45,7 @@ const findSignInProblems =
   }
 
 export const signInPost = (provider: OAuthProvider): LiveSitePost => ({
-  body: { callbackURL: ROUTES.AUTH_CALLBACK, errorCallbackURL: ROUTES.SIGN_IN, provider: provider.id },
+  body: { callbackURL: ROUTES.AUTH.CALLBACK, errorCallbackURL: ROUTES.AUTH.SIGN_IN, provider: provider.id },
   findProblems: findSignInProblems(provider),
   name: `${provider.name} sign-in`,
 })

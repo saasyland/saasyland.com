@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import type { Locator, Page } from "@playwright/test"
 
 import { POLAR_ORDER_STATUS } from "../../src/integrations/polar/polar.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import {
   TEST_BUYER_ORDERS,
@@ -83,7 +83,7 @@ test("the admin finds the buyer's orders by search, status and product, and open
 }) => {
   await signInAsAdmin({ appPage, authPage, page })
   await page.getByRole("main").getByRole("link", { exact: true, name: navigationMessages.dashboard.orders }).click()
-  await expect(page).toHaveURL(ROUTES.ADMIN_ORDERS)
+  await expect(page).toHaveURL(ROUTES.ADMIN.ORDERS)
   await expect(page.getByRole("heading", { level: 1, name: ordersMessages.title })).toBeVisible()
 
   const rows = rowsOf(page)
@@ -102,7 +102,7 @@ test("the admin finds the buyer's orders by search, status and product, and open
   await expect(rows).toContainText(TEST_BUYER_SHOWN.paidOrderTotal)
 
   await rows.getByRole("link", { name: new RegExp(paidOrder.id, "u") }).click()
-  await expect(page).toHaveURL(`${ROUTES.ADMIN_ORDERS}/${paidOrder.id}`)
+  await expect(page).toHaveURL(`${ROUTES.ADMIN.ORDERS}/${paidOrder.id}`)
   await expect(page.getByRole("heading", { level: 1, name: TEST_ORDER_PRODUCTS.STARTER.name })).toBeVisible()
   await expect(polarValueOf(page, detail.polar.fields.discountName)).toHaveText(TEST_BUYER_SHOWN.discount)
   await expect(polarValueOf(page, detail.polar.fields.billingCountry)).toHaveText(TEST_ORDER_BILLING.countryName)
@@ -113,7 +113,7 @@ test("the admin finds the buyer's orders by search, status and product, and open
   await expect(page.getByRole("link", { name: detail.polar.invoice })).toHaveAttribute("href", new RegExp(`${paidOrder.id}`, "u"))
 
   await page.getByRole("link", { exact: true, name: TEST_ORDER_BUYER.name }).click()
-  await expect(page).toHaveURL(`${ROUTES.ADMIN_USERS}/${TEST_ORDER_BUYER.id}`)
+  await expect(page).toHaveURL(`${ROUTES.ADMIN.USERS.INDEX}/${TEST_ORDER_BUYER.id}`)
   await expect(page.getByRole("main").getByRole("heading", { exact: true, level: 2, name: customersMessages.profile.title })).toBeVisible()
   await expect(page.getByText(licenseMessages.none)).toBeVisible()
   for (const amount of TEST_BUYER_SHOWN.revenue) {
@@ -123,7 +123,7 @@ test("the admin finds the buyer's orders by search, status and product, and open
 
 test("the admin filters the buyer's orders by discount and billing country, and sees both in the list", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_ORDERS)
+  await page.goto(ROUTES.ADMIN.ORDERS)
   await appPage.waitForAppReady()
 
   const rows = rowsOf(page)
@@ -160,7 +160,7 @@ test("the admin filters the buyer's orders by discount and billing country, and 
 
 test("the admin narrows the buyer's orders by total and day and sorts them by total on the server", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_ORDERS)
+  await page.goto(ROUTES.ADMIN.ORDERS)
   await appPage.waitForAppReady()
 
   const rows = rowsOf(page)
@@ -190,7 +190,7 @@ test("the admin narrows the buyer's orders by total and day and sorts them by to
 
 test("the admin hides, shows, pins and moves columns, keeps the layout after a reload and resets it", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_ORDERS)
+  await page.goto(ROUTES.ADMIN.ORDERS)
   await appPage.waitForAppReady()
 
   const headerNames = page.getByRole("table", { name: ordersMessages.title }).getByRole("columnheader")
@@ -223,7 +223,7 @@ test("the admin hides, shows, pins and moves columns, keeps the layout after a r
 
 test("the admin exports the orders the search finds to a CSV with the visible columns", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_ORDERS)
+  await page.goto(ROUTES.ADMIN.ORDERS)
   await appPage.waitForAppReady()
   await searchForBuyer(page)
 
@@ -240,7 +240,7 @@ test("the admin exports the orders the search finds to a CSV with the visible co
 
 test("the admin filters, hides a column, resizes one and selects a row from the keyboard", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_ORDERS)
+  await page.goto(ROUTES.ADMIN.ORDERS)
   await appPage.waitForAppReady()
   await searchForBuyer(page)
   const rows = rowsOf(page)
@@ -283,7 +283,7 @@ test("the admin filters, hides a column, resizes one and selects a row from the 
 
 test("an order Polar does not answer for shows the saved copy and says Polar could not be reached", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(`${ROUTES.ADMIN_ORDERS}/${revenueOrder.id}`)
+  await page.goto(`${ROUTES.ADMIN.ORDERS}/${revenueOrder.id}`)
   await appPage.waitForAppReady()
 
   await expect(page.getByRole("status").filter({ hasText: detail.polar.unavailable.title })).toBeVisible()
@@ -301,7 +301,7 @@ test("the admin filters the customers by order count and verification, sorts the
   page,
 }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_USERS_CUSTOMERS)
+  await page.goto(ROUTES.ADMIN.USERS.CUSTOMERS)
   await appPage.waitForAppReady()
   const rows = customerRows(page)
   const customerHeaders = customersMessages.table.headers
@@ -354,7 +354,7 @@ test("the customers tab lists the buyer with their orders and what they paid aft
 }) => {
   await signInAsAdmin({ appPage, authPage, page })
   await page.getByRole("main").getByRole("link", { exact: true, name: navigationMessages.dashboard.customers }).click()
-  await expect(page).toHaveURL(ROUTES.ADMIN_USERS_CUSTOMERS)
+  await expect(page).toHaveURL(ROUTES.ADMIN.USERS.CUSTOMERS)
 
   await page.getByRole("searchbox", { name: customersMessages.search }).fill(TEST_ORDER_BUYER.email)
   const row = customerRows(page)
@@ -363,10 +363,10 @@ test("the customers tab lists the buyer with their orders and what they paid aft
   await expect(row.getByRole("cell").nth(4)).toHaveText(TEST_BUYER_SHOWN.revenue.join(""))
 
   await row.getByRole("link", { exact: true, name: TEST_ORDER_BUYER.name }).click()
-  await expect(page).toHaveURL(`${ROUTES.ADMIN_USERS}/${TEST_ORDER_BUYER.id}`)
+  await expect(page).toHaveURL(`${ROUTES.ADMIN.USERS.INDEX}/${TEST_ORDER_BUYER.id}`)
   await expect(page.getByRole("main").getByRole("link", { name: new RegExp(`^${TEST_ORDER_PRODUCTS.STARTER.name}`, "u") })).toHaveAttribute(
     "href",
-    `${ROUTES.ADMIN_ORDERS}/${paidOrder.id}`,
+    `${ROUTES.ADMIN.ORDERS}/${paidOrder.id}`,
   )
 })
 
@@ -376,7 +376,7 @@ test("the admin ticks two statuses and sees each one as a chip and in the result
   page,
 }) => {
   await signInAsAdmin({ appPage, authPage, page })
-  await page.goto(ROUTES.ADMIN_ORDERS)
+  await page.goto(ROUTES.ADMIN.ORDERS)
   await appPage.waitForAppReady()
   await searchForBuyer(page)
   const rows = rowsOf(page)

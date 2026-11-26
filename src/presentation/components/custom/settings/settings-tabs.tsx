@@ -11,9 +11,9 @@ import { PasswordCard } from "~/src/presentation/components/custom/settings/pass
 import { SessionsCard } from "~/src/presentation/components/custom/settings/sessions-card"
 import { TwoFactorCard } from "~/src/presentation/components/custom/settings/two-factor-card"
 
-import type * as ROUTES from "~/src/routes"
+import type { ROUTES } from "~/src/routes"
 
-export const SettingsTabs = ({ to }: { readonly to: typeof ROUTES.ADMIN_SETTINGS | typeof ROUTES.APP_SETTINGS }): JSX.Element => {
+export const SettingsTabs = ({ to }: { readonly to: typeof ROUTES.ADMIN.SETTINGS | typeof ROUTES.APP.SETTINGS.INDEX }): JSX.Element => {
   const t = useTranslations("auth.security.tabs")
 
   return (

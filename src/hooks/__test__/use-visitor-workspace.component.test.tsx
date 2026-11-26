@@ -17,7 +17,7 @@ import { SESSION_ATTRIBUTE } from "~/src/modules/session/session.rewrite"
 
 import { useVisitorWorkspace } from "~/src/hooks/use-visitor-workspace"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const sessionRequest = vi.hoisted(() => vi.fn())
 
@@ -57,7 +57,7 @@ it("hydrates the signed-out text a prerendered page holds, even when the browser
     hydrateRoot(container, withQueries(cached), { onRecoverableError })
   })
 
-  expect(await screen.findByText(ROUTES.ADMIN)).toBeVisible()
+  expect(await screen.findByText(ROUTES.ADMIN.INDEX)).toBeVisible()
   expect(onRecoverableError).not.toHaveBeenCalled()
   expect(isMarked()).toBe(true)
 })
@@ -68,7 +68,7 @@ it("asks a page the Worker marked as signed in for its session, and leads a cust
 
   render(withQueries(new QueryClient()))
 
-  expect(await screen.findByText(ROUTES.APP)).toBeVisible()
+  expect(await screen.findByText(ROUTES.APP.INDEX)).toBeVisible()
   expect(sessionRequest).toHaveBeenCalledOnce()
 })
 
@@ -102,7 +102,7 @@ it("marks the page once the visitor signs in without reloading it", async () => 
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER }))
   })
 
-  expect(await screen.findByText(ROUTES.APP)).toBeVisible()
+  expect(await screen.findByText(ROUTES.APP.INDEX)).toBeVisible()
   expect(isMarked()).toBe(true)
   expect(sessionRequest).not.toHaveBeenCalled()
 })

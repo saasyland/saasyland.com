@@ -12,7 +12,7 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { HTTP_STATUS, IP_ADDRESS_HEADER } from "~/src/modules/_core/constants/api"
 import { user } from "~/src/modules/user/user.schema"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const { host: HOST } = new URL(TEST_APP_URL)
 const PASSWORD = "TimezonePassword1!"
@@ -21,7 +21,7 @@ const VALID_TIMEZONE = "Europe/Warsaw"
 
 const postAuth = (path: string, body: Record<string, unknown>, cookie = ""): Promise<Response> =>
   auth.handler(
-    new Request(createTestRequestUrl(`${ROUTES.API_AUTH_BASE}${path}`), {
+    new Request(createTestRequestUrl(`${ROUTES.API.AUTH.BASE}${path}`), {
       body: JSON.stringify(body),
       headers: { [IP_ADDRESS_HEADER]: "203.0.113.10", "content-type": "application/json", cookie, origin: TEST_APP_URL },
       method: "POST",
@@ -38,7 +38,7 @@ const createSignedInUser = async (): Promise<{ cookie: string; userId: string }>
     providerId: AUTH_PROVIDER.CREDENTIAL,
     userId: created.id,
   })
-  const response = await postAuth(ROUTES.API_AUTH.SIGN_IN_EMAIL, { email, password: PASSWORD })
+  const response = await postAuth(ROUTES.API.AUTH.SIGN_IN_EMAIL, { email, password: PASSWORD })
   expect(response.status).toBe(HTTP_STATUS.OK)
   const cookie = response.headers
     .getSetCookie()
@@ -48,7 +48,7 @@ const createSignedInUser = async (): Promise<{ cookie: string; userId: string }>
 }
 
 const signUp = async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
-  const response = await postAuth(ROUTES.API_AUTH.SIGN_UP_EMAIL, { name: "Timezone Tester", password: PASSWORD, ...body })
+  const response = await postAuth(ROUTES.API.AUTH.SIGN_UP_EMAIL, { name: "Timezone Tester", password: PASSWORD, ...body })
   await flushWaitUntil()
   expect(response.status).toBe(HTTP_STATUS.OK)
   const { user: created } = await response.json<{ user: Record<string, unknown> }>()
@@ -64,7 +64,7 @@ describe("validated user timezone", () => {
   it("rejects an unknown timezone over HTTP without touching the stored value", async () => {
     const { cookie, userId } = await createSignedInUser()
 
-    const response = await postAuth(ROUTES.API_AUTH.UPDATE_USER, { timezone: INVALID_TIMEZONE }, cookie)
+    const response = await postAuth(ROUTES.API.AUTH.UPDATE_USER, { timezone: INVALID_TIMEZONE }, cookie)
 
     expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST)
     await expect(response.json()).resolves.toMatchObject({ code: "VALIDATION_ERROR" })
@@ -84,7 +84,7 @@ describe("validated user timezone", () => {
   it("rejects an unknown timezone at sign-up before creating the account", async () => {
     const email = `timezone-${crypto.randomUUID()}@example.test`
 
-    const response = await postAuth(ROUTES.API_AUTH.SIGN_UP_EMAIL, {
+    const response = await postAuth(ROUTES.API.AUTH.SIGN_UP_EMAIL, {
       email,
       name: "Timezone Tester",
       password: PASSWORD,

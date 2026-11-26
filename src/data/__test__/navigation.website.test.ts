@@ -14,6 +14,7 @@ import {
 import { ADMIN_NAVIGATION_GROUP, FOOTER_COLUMN } from "~/src/data/navigation.constants"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
+import { ROUTE_PATHS } from "~/src/lib/route-paths"
 
 import { COMMAND_SEARCHES } from "~/src/presentation/components/custom/admin/admin-command-palette"
 import { NEWSLETTER_TABS } from "~/src/presentation/components/custom/admin/newsletter/newsletter-tabs"
@@ -21,7 +22,7 @@ import { USER_TABS } from "~/src/presentation/components/custom/admin/users/user
 
 import sidebarMessages from "~/messages/en-US/pages.admin.sidebar.json"
 import { loadLocaleMessages } from "~/scripts/i18n-messages"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NAVIGATION = "navigation"
 const NAVIGATION_MESSAGES = loadLocaleMessages(I18N.DEFAULT_LOCALE)[NAVIGATION]
@@ -36,7 +37,7 @@ const leafKeys = (value: unknown, prefix: string): string[] => {
 
 const LABELS = leafKeys(NAVIGATION_MESSAGES, NAVIGATION)
 
-const PATHS = new Set(Object.values(ROUTES).filter((route) => typeof route === "string"))
+const PATHS = new Set(ROUTE_PATHS.values())
 
 const ADMIN_ITEMS = ADMIN_NAVIGATION.flatMap(({ items }) => items)
 
@@ -61,23 +62,29 @@ const ENTRY_LABELS = [
 describe("the website's navigation", () => {
   it("arranges the website's menus in their order", () => {
     expect(ADMIN_NAVIGATION.map(({ items, key }) => [key, items.map(({ to }) => to)])).toStrictEqual([
-      [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN]],
-      [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN_PRODUCTS]],
-      [ADMIN_NAVIGATION_GROUP.SALES, [ROUTES.ADMIN_ORDERS]],
-      [ADMIN_NAVIGATION_GROUP.CONTENT, [ROUTES.ADMIN_COURSES, ROUTES.ADMIN_NEWSLETTER]],
-      [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN_USERS, ROUTES.ADMIN_SETTINGS]],
+      [ADMIN_NAVIGATION_GROUP.OVERVIEW, [ROUTES.ADMIN.INDEX]],
+      [ADMIN_NAVIGATION_GROUP.OFFERINGS, [ROUTES.ADMIN.PRODUCTS]],
+      [ADMIN_NAVIGATION_GROUP.SALES, [ROUTES.ADMIN.ORDERS]],
+      [ADMIN_NAVIGATION_GROUP.CONTENT, [ROUTES.ADMIN.COURSES.INDEX, ROUTES.ADMIN.NEWSLETTER.INDEX]],
+      [ADMIN_NAVIGATION_GROUP.ADMINISTRATION, [ROUTES.ADMIN.USERS.INDEX, ROUTES.ADMIN.SETTINGS]],
     ])
-    expect(ADMIN_DASHBOARD_ACTIONS.map(({ to }) => to)).toStrictEqual([ROUTES.ADMIN_ORDERS, ROUTES.ADMIN_USERS_CUSTOMERS])
+    expect(ADMIN_DASHBOARD_ACTIONS.map(({ to }) => to)).toStrictEqual([ROUTES.ADMIN.ORDERS, ROUTES.ADMIN.USERS.CUSTOMERS])
     expect(APP_NAVIGATION.map(({ to }) => to)).toStrictEqual([
-      ROUTES.APP,
-      ROUTES.APP_LICENSE,
-      ROUTES.APP_BILLING,
+      ROUTES.APP.INDEX,
+      ROUTES.APP.LICENSE,
+      ROUTES.APP.BILLING,
       ROUTES.COURSES,
-      ROUTES.APP_SETTINGS,
+      ROUTES.APP.SETTINGS.INDEX,
     ])
-    expect(HEADER_NAVIGATION.map(({ to }) => to)).toStrictEqual([ROUTES.HOME, ROUTES.COURSES, ROUTES.BLOG, ROUTES.DOCS, ROUTES.SIGN_IN])
+    expect(HEADER_NAVIGATION.map(({ to }) => to)).toStrictEqual([
+      ROUTES.HOME,
+      ROUTES.COURSES,
+      ROUTES.BLOG.INDEX,
+      ROUTES.DOCS.INDEX,
+      ROUTES.AUTH.SIGN_IN,
+    ])
     expect(FOOTER_NAVIGATION.map(({ key, links }) => [key, links.map(({ to }) => to)])).toStrictEqual([
-      [FOOTER_COLUMN.PRODUCT, [ROUTES.DOCS, ROUTES.BLOG, ROUTES.AFFILIATES, ROUTES.SIGN_IN]],
+      [FOOTER_COLUMN.PRODUCT, [ROUTES.DOCS.INDEX, ROUTES.BLOG.INDEX, ROUTES.AFFILIATES, ROUTES.AUTH.SIGN_IN]],
       [FOOTER_COLUMN.LEGAL, [ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.WITHDRAWAL, ROUTES.LICENCE]],
     ])
   })

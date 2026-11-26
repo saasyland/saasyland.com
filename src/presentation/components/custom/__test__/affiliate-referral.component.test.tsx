@@ -15,7 +15,7 @@ import { FEATURE_STATUS, type FeatureStatus } from "~/src/data/navigation.consta
 
 import { AffiliateReferral } from "~/src/presentation/components/custom/affiliate-referral"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const affiliateProgram = vi.hoisted(() => vi.fn<() => FeatureStatus>())
 

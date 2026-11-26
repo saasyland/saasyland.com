@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test"
 import labels from "../../messages/en-US/pages.admin.json" with { type: "json" }
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_MACHINES_LICENSE } from "../data/licenses"
@@ -18,30 +18,30 @@ const [admin] = TEST_ACCOUNTS
 const [lessonWithVideo, , , lessonWithoutVideo] = TEST_LESSONS
 
 const ADMIN_PAGES = [
-  `${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}`,
-  `${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}/lessons/${lessonWithVideo.id}`,
-  `${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}/lessons/${lessonWithoutVideo.id}`,
-  ROUTES.ADMIN_COURSES,
-  ROUTES.ADMIN_USERS_ALL,
-  ROUTES.ADMIN_USERS_CUSTOMERS,
-  ROUTES.ADMIN_USERS_INVITATIONS,
-  `${ROUTES.ADMIN_USERS}/${TEST_MACHINES_LICENSE.user.id}`,
-  ROUTES.ADMIN_ORDERS,
-  ROUTES.ADMIN_PRODUCTS,
+  `${ROUTES.ADMIN.COURSES.INDEX}/${TEST_COURSE.id}`,
+  `${ROUTES.ADMIN.COURSES.INDEX}/${TEST_COURSE.id}/lessons/${lessonWithVideo.id}`,
+  `${ROUTES.ADMIN.COURSES.INDEX}/${TEST_COURSE.id}/lessons/${lessonWithoutVideo.id}`,
+  ROUTES.ADMIN.COURSES.INDEX,
+  ROUTES.ADMIN.USERS.ALL,
+  ROUTES.ADMIN.USERS.CUSTOMERS,
+  ROUTES.ADMIN.USERS.INVITATIONS,
+  `${ROUTES.ADMIN.USERS.INDEX}/${TEST_MACHINES_LICENSE.user.id}`,
+  ROUTES.ADMIN.ORDERS,
+  ROUTES.ADMIN.PRODUCTS,
 ] as const
 
 const PAGE_LAYOUT_TIMEOUT_MS = 5_000
 
 const GRID_PAGES = [
-  ROUTES.ADMIN,
-  ROUTES.ADMIN_COURSES,
-  ROUTES.ADMIN_USERS_ALL,
-  ROUTES.ADMIN_USERS_CUSTOMERS,
-  ROUTES.ADMIN_USERS_INVITATIONS,
-  ROUTES.ADMIN_ORDERS,
-  ROUTES.ADMIN_PRODUCTS,
-  `${ROUTES.ADMIN_PRODUCTS}?tab=categories`,
-  `${ROUTES.ADMIN_PRODUCTS}?tab=collections`,
+  ROUTES.ADMIN.INDEX,
+  ROUTES.ADMIN.COURSES.INDEX,
+  ROUTES.ADMIN.USERS.ALL,
+  ROUTES.ADMIN.USERS.CUSTOMERS,
+  ROUTES.ADMIN.USERS.INVITATIONS,
+  ROUTES.ADMIN.ORDERS,
+  ROUTES.ADMIN.PRODUCTS,
+  `${ROUTES.ADMIN.PRODUCTS}?tab=categories`,
+  `${ROUTES.ADMIN.PRODUCTS}?tab=collections`,
 ] as const
 
 const LONGEST_HEADERS_LOCALE = "uk-UA"
@@ -114,7 +114,7 @@ test("the admin course form keeps one language control, and its list reaches eve
 
   for (const viewport of TEXT_LAYOUT_VIEWPORTS) {
     await page.setViewportSize(viewport)
-    await page.goto(`${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`${ROUTES.ADMIN.COURSES.INDEX}/${TEST_COURSE.id}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByRole("tablist")).toHaveCount(0)
     const picker = page.getByRole("button", { name: new RegExp(labels.components.formLanguages.label, "u") })

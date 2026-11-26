@@ -16,7 +16,7 @@ import { ACCOUNT_DELETION_NOTICES, DeleteAccountCard } from "~/src/presentation/
 import authSecurityMessages from "~/messages/en-US/auth.security.json"
 import authValidationsMessages from "~/messages/en-US/auth.validations.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type Requested = Awaited<ReturnType<NonNullable<typeof RequestAccountDeletionUseCase.requestAccountDeletionMutation.mutationFn>>>
 
@@ -93,7 +93,7 @@ describe("delete account card", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent(sentMessage(session.user.email))
     expect(requestDeletionMock).toHaveBeenCalledExactlyOnceWith(
-      { callbackURL: ROUTES.APP_DELETE_ACCOUNT, password: PASSWORD },
+      { callbackURL: ROUTES.APP.SETTINGS.DELETE_ACCOUNT, password: PASSWORD },
       expect.anything(),
     )
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
@@ -107,7 +107,7 @@ describe("delete account card", () => {
     await user.click(within(dialog).getByRole("button", { name: labels.send }))
 
     expect(await screen.findByRole("status")).toBeVisible()
-    expect(requestDeletionMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.APP_DELETE_ACCOUNT }, expect.anything())
+    expect(requestDeletionMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.APP.SETTINGS.DELETE_ACCOUNT }, expect.anything())
   })
 
   it("shows the request as under way until it settles", async () => {

@@ -2,7 +2,7 @@ import type { APIRequestContext, Page } from "@playwright/test"
 
 import { ERROR_CODES } from "../../src/modules/_core/constants/errors"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS, TEST_MATERIALS } from "../data/courses"
 import { expect, test } from "../fixtures/auth"
@@ -57,7 +57,7 @@ for (const { area, modules } of [
     await visitor.dispose()
 
     await authPage.signIn(customer.email)
-    await expect(page).toHaveURL(ROUTES.APP)
+    await expect(page).toHaveURL(ROUTES.APP.INDEX)
     await expectRefused(page.request, origin, functions, ERROR_CODES.FORBIDDEN)
 
     await expectSeededCourseIntact(page)

@@ -8,7 +8,7 @@ import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/m
 
 import { SignUpConsent } from "~/src/presentation/components/custom/sign-up-consent"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 it.each([
   ["Terms of Service", ROUTES.TERMS],

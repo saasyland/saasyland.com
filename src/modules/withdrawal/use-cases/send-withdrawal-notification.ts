@@ -24,7 +24,7 @@ import {
   WITHDRAWAL_NOTIFICATION_EMAIL_NAMESPACE,
   WithdrawalNotificationEmail,
 } from "~/src/presentation/emails/withdrawal-notification-email"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export interface WithdrawalNotification {
   readonly origin: string
@@ -33,7 +33,7 @@ export interface WithdrawalNotification {
 }
 
 const adminUserUrl = (origin: string, userId: string): string =>
-  new URL(localizePathname({ locale: I18N.DEFAULT_LOCALE, pathname: `${ROUTES.ADMIN_USERS}/${userId}` }), origin).toString()
+  new URL(localizePathname({ locale: I18N.DEFAULT_LOCALE, pathname: `${ROUTES.ADMIN.USERS.INDEX}/${userId}` }), origin).toString()
 
 export const sendWithdrawalNotification = async ({ origin, statement, tier }: WithdrawalNotification): Promise<void> => {
   const locale = I18N.DEFAULT_LOCALE

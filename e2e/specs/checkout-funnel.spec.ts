@@ -36,7 +36,7 @@ import { CLI_INIT_COMMAND, CLI_KEY_LINES, CLI_SETUP_LINES } from "../../src/data
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { CHECKOUT_OVERLAY_GRACE_MS } from "../../src/lib/checkout-overlay"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_PRODUCT_IDS } from "../data/polar-settings"
 import pricingMessages from "../../messages/en-US/components.custom.pricing.json" with { type: "json" }
 import polishPricingMessages from "../../messages/pl-PL/components.custom.pricing.json" with { type: "json" }
@@ -178,8 +178,8 @@ test.describe("checkout funnel", () => {
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { name: "Complete", exact: true })).toBeVisible()
     await expect(page.getByText("Your key appears here once you confirm your email address.", { exact: false })).toBeVisible()
-    await expect(page.getByRole("link", { name: "Invoices and receipts" })).toHaveAttribute("href", ROUTES.APP_BILLING)
-    expect((await page.request.get(ROUTES.API_AUTH_CUSTOMER_PORTAL)).status()).toBe(HTTP_STATUS.FORBIDDEN)
+    await expect(page.getByRole("link", { name: "Invoices and receipts" })).toHaveAttribute("href", ROUTES.APP.BILLING)
+    expect((await page.request.get(ROUTES.API.AUTH.CUSTOMER_PORTAL)).status()).toBe(HTTP_STATUS.FORBIDDEN)
     for (const colorScheme of COLOR_SCHEMES) {
       await page.emulateMedia({ colorScheme })
       expect(await accessibilityViolations(page)).toEqual([])
@@ -224,7 +224,7 @@ test.describe("checkout funnel", () => {
     await appPage.waitForAppReady()
     await page.getByRole("region", { name: "Continue with Complete" }).getByRole("button", { name: "Continue to checkout" }).click()
     await payInCheckoutOverlay(page)
-    await expect(page).toHaveURL((url) => url.pathname === ROUTES.APP && url.searchParams.has("checkoutId") && url.searchParams.get("redirect") === lesson)
+    await expect(page).toHaveURL((url) => url.pathname === ROUTES.APP.INDEX && url.searchParams.has("checkoutId") && url.searchParams.get("redirect") === lesson)
     await deliverPaidOrder(request, { tier: LICENSE_TIER.COMPLETE, userId, withdrawalConsent: true })
 
     await expect(page.getByRole("link", { name: "Continue where you left off" })).toHaveAttribute("href", lesson)
@@ -238,7 +238,7 @@ test.describe("checkout funnel", () => {
   }) => {
     await authPage.gotoSignUp()
     const { userId } = await signUpAndVerify({ authPage, page, request })
-    await page.goto(`/pl-PL${ROUTES.APP_LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`/pl-PL${ROUTES.APP.LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     for (const colorScheme of COLOR_SCHEMES) {
       await page.emulateMedia({ colorScheme })
@@ -248,15 +248,15 @@ test.describe("checkout funnel", () => {
     await page.getByRole("button", { name: "Wybierz pakiet Podstawa", exact: true }).click()
 
     await expect(checkoutOverlay(page)).toHaveAttribute("title", "Płatność przez Polar")
-    await expect(page).toHaveURL(`/pl-PL${ROUTES.APP_LICENSE}`)
+    await expect(page).toHaveURL(`/pl-PL${ROUTES.APP.LICENSE}`)
     const [checkout] = await startedCheckouts(request, userId)
     expect(checkout).toMatchObject({
       custom_field_data: {},
       locale: "pl",
-      return_url: new URL(`/pl-PL${ROUTES.APP_LICENSE}`, page.url()).href,
+      return_url: new URL(`/pl-PL${ROUTES.APP.LICENSE}`, page.url()).href,
     })
 
-    await page.goto(`/uk-UA${ROUTES.APP_LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`/uk-UA${ROUTES.APP.LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByText("Сторінка оплати відкриється англійською.", { exact: false })).toBeVisible()
     await page.getByRole("button", { name: "Придбати Core", exact: true }).click()
@@ -271,8 +271,8 @@ test.describe("checkout funnel", () => {
     page,
   }) => {
     await authPage.signIn(customer.email)
-    await expect(page).toHaveURL(ROUTES.APP)
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await expect(page).toHaveURL(ROUTES.APP.INDEX)
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await markPage(page)
     const button = page.getByRole("button", { name: "Get Core", exact: true })
@@ -290,7 +290,7 @@ test.describe("checkout funnel", () => {
     await expect(checkoutOverlay(page)).toHaveCount(0)
     await expect(button).toBeFocused()
     await expect(button).toBeEnabled()
-    await expect(page).toHaveURL(ROUTES.APP_LICENSE)
+    await expect(page).toHaveURL(ROUTES.APP.LICENSE)
     await expect(page.getByRole("heading", { name: "Payment received" })).toHaveCount(0)
     expect(await isSamePage(page)).toBe(true)
   })
@@ -303,8 +303,8 @@ test.describe("checkout funnel", () => {
   }) => {
     await refusePolarCheckoutEmbedding(context)
     await authPage.signIn(customer.email)
-    await expect(page).toHaveURL(ROUTES.APP)
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await expect(page).toHaveURL(ROUTES.APP.INDEX)
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
 
     await page.getByRole("button", { name: "Get Core", exact: true }).click()
@@ -324,13 +324,13 @@ test.describe("checkout funnel", () => {
     await refusePolarCheckoutEmbedding(context)
     await authPage.gotoSignUp()
     const { email, userId } = await signUpAndVerify({ authPage, page, request })
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await page.getByRole("button", { name: "Get Core", exact: true }).click()
     await page.waitForURL(isPolarCheckoutPage, { timeout: CHECKOUT_OVERLAY_GRACE_MS * 2 })
     const [checkout] = await startedCheckouts(request, userId)
     assert(checkout !== undefined)
-    const success = `${ROUTES.APP}?checkoutId=${checkout.id}&tier=${LICENSE_TIER.CORE}`
+    const success = `${ROUTES.APP.INDEX}?checkoutId=${checkout.id}&tier=${LICENSE_TIER.CORE}`
     const fromPolar = new URL(`${success}&${POLAR_CUSTOMER_SESSION_TOKEN_PARAM}=${POLAR_CUSTOMER_SESSION_TOKEN}`, baseURL).href
     const carriers: string[] = []
     page.on("request", (sent) => {
@@ -348,7 +348,7 @@ test.describe("checkout funnel", () => {
     await page.goto(fromPolar, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await authPage.waitForAppReady()
 
-    await expect(page).toHaveURL(`${ROUTES.SIGN_IN}?${new URLSearchParams({ redirect: success }).toString()}`)
+    await expect(page).toHaveURL(`${ROUTES.AUTH.SIGN_IN}?${new URLSearchParams({ redirect: success }).toString()}`)
     expect(await page.content()).not.toContain(POLAR_CUSTOMER_SESSION_TOKEN)
     await authPage.emailField().fill(email)
     await authPage.passwordField().fill(SIGN_UP_PASSWORD)
@@ -441,7 +441,7 @@ test.describe("checkout funnel", () => {
       const { email, userId } = await signUpAndVerify({ authPage, page, request })
 
       await buyLicense(request, { tier, userId })
-      await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await appPage.waitForAppReady()
 
       await expect(page.getByRole("button", { name: "Copy licence key" })).toBeVisible()
@@ -465,7 +465,7 @@ test.describe("checkout funnel", () => {
     await authPage.gotoSignUp()
     const { userId } = await signUpAndVerify({ authPage, page, request })
     await buyLicense(request, { tier: LICENSE_TIER.CORE, userId })
-    await page.goto(ROUTES.APP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await appPage.waitForHydration(checklist(page))
     await expect(checklist(page).getByRole("progressbar", { name: "1 of 4 done" })).toBeVisible()
@@ -519,7 +519,7 @@ test.describe("checkout funnel", () => {
     const { refund } = await buyLicense(request, { tier: LICENSE_TIER.CORE, userId })
     await refund()
 
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
 
     await expect(page.getByText("This licence was refunded, so its key no longer works.", { exact: false })).toBeVisible()
@@ -533,7 +533,7 @@ test.describe("checkout funnel", () => {
       expect(await accessibilityViolations(page)).toEqual([])
     }
 
-    await page.goto(ROUTES.APP, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.INDEX, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(checklist(page)).toHaveCount(0)
     await expect(page.getByRole("region", { name: "Get your licence" })).toBeVisible()
@@ -548,12 +548,12 @@ test.describe("checkout funnel", () => {
     await authPage.gotoSignUp()
     const { userId } = await signUpAndVerify({ authPage, page, request })
     await buyLicense(request, { tier: LICENSE_TIER.CORE, userId })
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const key = await page.getByRole("button", { name: "Copy licence key" }).locator("xpath=..").locator("code").innerText()
 
     await page.getByRole("link", { name: "Upgrade to Complete" }).click()
-    await expect(page).toHaveURL(`${ROUTES.APP_LICENSE}?tier=${LICENSE_TIER.COMPLETE}`)
+    await expect(page).toHaveURL(`${ROUTES.APP.LICENSE}?tier=${LICENSE_TIER.COMPLETE}`)
     const card = page.getByRole("region", { name: "Upgrade to Complete" })
     await expect(card).toBeVisible()
     const difference = TIER_PRICES[LICENSE_TIER.COMPLETE] - TIER_PRICES[LICENSE_TIER.CORE]
@@ -579,7 +579,7 @@ test.describe("checkout funnel", () => {
 
     await expect(page.getByText("Thank you for buying Complete.", { exact: false })).toBeVisible()
     expect(await sawCoreThanks()).toBe(false)
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByRole("heading", { name: "Complete", exact: true })).toBeVisible()
     await expect(page.getByText(key, { exact: true })).toBeVisible()
@@ -597,7 +597,7 @@ test.describe("checkout funnel", () => {
     await authPage.gotoSignUp()
     const { userId } = await signUpAndVerify({ authPage, page, request })
     const { issueKey } = await orderLicense(request, { tier: LICENSE_TIER.CORE, userId })
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const pending = page.getByText("Your key is being issued. It appears here by itself in a few seconds.", { exact: true })
     await expect(pending).toBeVisible()
@@ -625,7 +625,7 @@ test.describe("checkout funnel", () => {
     }) => {
       await authPage.gotoSignUp()
       const { email, userId } = await signUpAndVerify({ authPage, page, request })
-      await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await appPage.waitForAppReady()
 
       await page.getByRole("button", { name: cta, exact: true }).click()
@@ -650,7 +650,7 @@ test.describe("checkout funnel", () => {
       const confirmation = await expectPurchaseConfirmation(request, email)
       expect(confirmation).toContain(`Your SaaSy Land ${name} licence`)
       expect(confirmation).toContain("so the right of withdrawal does not apply to this order")
-      await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await appPage.waitForAppReady()
       await expect(page.getByRole("heading", { name, exact: true })).toBeVisible()
       await expect(page.getByRole("button", { name: "Copy licence key" })).toBeVisible()
@@ -667,7 +667,7 @@ test.describe("checkout funnel", () => {
     const { cta, name } = polishPricingMessages.tiers[LICENSE_TIER.CORE]
     await authPage.gotoSignUp()
     const { email, userId } = await signUpAndVerify({ authPage, page, request })
-    await page.goto(`/pl-PL${ROUTES.APP_LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`/pl-PL${ROUTES.APP.LICENSE}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
 
     await page.getByRole("button", { name: cta, exact: true }).click()
@@ -682,7 +682,7 @@ test.describe("checkout funnel", () => {
     const confirmation = await expectPurchaseConfirmation(request, email)
     expect(confirmation).toContain(`Twoja licencja SaaSy Land na pakiet ${name}`)
     expect(confirmation).toContain('lang="pl-PL"')
-    expect(confirmation).toContain(`/pl-PL${ROUTES.APP_LICENSE}`)
+    expect(confirmation).toContain(`/pl-PL${ROUTES.APP.LICENSE}`)
   })
 
   test("a buyer from a regional-price country pays the whole-dollar price the cards show, or the full price after declining it", async ({
@@ -695,7 +695,7 @@ test.describe("checkout funnel", () => {
     await authPage.gotoSignUp()
     const { userId } = await signUpAndVerify({ authPage, page, request })
     await page.setExtraHTTPHeaders({ [COUNTRY_HEADER]: country })
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const price = regionalPrice(TIER_PRICES[LICENSE_TIER.CORE], pppMultiplierKey(country))
     await expect(page.getByRole("region", { name: "Get your licence" }).locator(".pv.ppp-text:visible").first()).toHaveCSS(
@@ -710,7 +710,7 @@ test.describe("checkout funnel", () => {
     const [checkout] = await startedCheckouts(request, userId)
     expect(checkout).toMatchObject({ total_amount: toMinorUnits(price, DEFAULT_CURRENCY_CODE) })
 
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const offer = page.getByRole("checkbox", { name: /with regional pricing\.$/u })
     await page.locator("label").filter({ has: offer }).click()

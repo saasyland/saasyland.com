@@ -13,7 +13,7 @@ import { AdminUsersInvitationsPending } from "~/src/presentation/components/cust
 import { InvitationList } from "~/src/presentation/components/custom/admin/users/invitation-list"
 import { InviteUserDialog } from "~/src/presentation/components/custom/admin/users/invite-user-dialog"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const InvitationsPage = (): JSX.Element => (
   <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/admin/users/invitations")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.ADMIN_USERS_INVITATIONS),
+  head: pageHead(ROUTES.ADMIN.USERS.INVITATIONS),
   pendingComponent: AdminUsersInvitationsPending,
   staticData: { namespaces: [NAMESPACE] },
 })

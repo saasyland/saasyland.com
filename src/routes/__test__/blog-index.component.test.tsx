@@ -21,7 +21,7 @@ import { PostFinderLayout } from "~/src/presentation/components/custom/blog/post
 import pagesBlogMessages from "~/messages/en-US/pages.blog.json"
 import plPagesBlogMessages from "~/messages/pl-PL/pages.blog.json"
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 vi.mock("~/src/presentation/components/custom/blog-content", () => ({
   blogContent: { useContent: vi.fn(() => <p>Article content</p>) },
@@ -272,7 +272,7 @@ describe("loading more posts", () => {
       expect(screen.queryByRole("link", { name: plPagesBlogMessages.archive.loadMore })).toBeNull()
     })
     expect(polishRows()).toHaveLength(MANY.length)
-    expect(router.state.location.pathname).toBe(ROUTES.BLOG)
+    expect(router.state.location.pathname).toBe(ROUTES.BLOG.INDEX)
     expect(router.state.location.search).toMatchObject({ page: 2 })
   })
 

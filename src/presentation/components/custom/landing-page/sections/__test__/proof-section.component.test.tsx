@@ -14,7 +14,7 @@ import { ProofSection } from "~/src/presentation/components/custom/landing-page/
 
 import german from "~/messages/de-DE/pages.landing.json"
 import english from "~/messages/en-US/pages.landing.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const fetchStarsMock = vi.hoisted(() => vi.fn<() => Promise<number>>())
 const sessionRequest = vi.hoisted(() => vi.fn<typeof getCurrentSession>())
@@ -106,7 +106,7 @@ describe("landing page proof statistics", () => {
     hydrate(queryClient, dehydrate(server))
     sessionRequest.mockResolvedValue(createAuthSessionFixture())
 
-    await expect(redirectIfSignedIn({ context: { queryClient }, search: {} })).rejects.toHaveProperty("options.to", ROUTES.APP)
+    await expect(redirectIfSignedIn({ context: { queryClient }, search: {} })).rejects.toHaveProperty("options.to", ROUTES.APP.INDEX)
     renderProof()
 
     expect(screen.getByText("54,321", { selector: "dd" })).toBeVisible()

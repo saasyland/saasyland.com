@@ -13,7 +13,7 @@ import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { DEFAULT_PAGE_SIZE } from "../../src/modules/_core/utils/pagination"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { ROBOTS, buildTitle } from "../../src/lib/seo"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_BUNDLE } from "../data/licenses"
 import { COLOR_SCHEMES, accessibilityViolations } from "../fixtures/accessibility"
@@ -713,7 +713,7 @@ test.describe("a browser whose clock and time zone are not the server's", () => 
 test("a user who does not exist answers 404 with the not-found page and its title", async ({ appPage, authPage, page }) => {
   await signInAsAdmin({ appPage, authPage, page })
 
-  const response = await page.goto(`${ROUTES.ADMIN_USERS}/${crypto.randomUUID()}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+  const response = await page.goto(`${ROUTES.ADMIN.USERS.INDEX}/${crypto.randomUUID()}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
   await appPage.waitForAppReady()
 
   expect(response?.status()).toBe(HTTP_STATUS.NOT_FOUND)

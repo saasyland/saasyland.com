@@ -20,7 +20,7 @@ import { emptyResponse, isReadRequest, methodNotAllowed } from "~/src/lib/media-
 import { SITEMAP_CONTENT_TYPE, type SitemapPage, buildSitemap, localizedSitemapPages } from "~/src/lib/sitemap"
 
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const EDGE_CACHE_NAME = "covers"
 
@@ -109,7 +109,7 @@ export const serveCourseSitemap = async (request: Request): Promise<Response> =>
     return methodNotAllowed()
   }
 
-  if (new URL(request.url).pathname !== ROUTES.COURSES_SITEMAP) {
+  if (new URL(request.url).pathname !== ROUTES.SITEMAPS.COURSES) {
     return emptyResponse(HTTP_STATUS.NOT_FOUND)
   }
 

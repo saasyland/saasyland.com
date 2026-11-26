@@ -12,7 +12,7 @@ import { Route as UnsubscribeRoute } from "~/src/routes/_site._marketing.newslet
 
 import { createNonce } from "~/src/lib/content-security-policy"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const TOKEN = "f".repeat(NEWSLETTER_TOKEN_LENGTH)
 
@@ -23,7 +23,7 @@ const postTo = async (url: string) => {
     context: { nonce: createNonce() },
     next: vi.fn(),
     params: {},
-    pathname: ROUTES.NEWSLETTER_UNSUBSCRIBE,
+    pathname: ROUTES.NEWSLETTER.UNSUBSCRIBE,
     request: new Request(url, {
       body: ONE_CLICK_UNSUBSCRIBE,
       headers: { "Content-Type": "application/x-www-form-urlencoded" },

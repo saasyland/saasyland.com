@@ -28,7 +28,7 @@ import { BackHomeLink } from "~/src/presentation/components/custom/back-home-lin
 import { ContentPage } from "~/src/presentation/components/custom/content-page"
 import { NewsletterPending } from "~/src/presentation/components/custom/newsletter-pending"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type ConfirmationStatus = (typeof CONFIRMATION_STATUS)[keyof typeof CONFIRMATION_STATUS]
 
@@ -114,7 +114,7 @@ export const Route = createFileRoute("/_site/_marketing/newsletter/confirm")({
     ])
     return { locale, metadata }
   },
-  head: pageHead(ROUTES.NEWSLETTER_CONFIRM),
+  head: pageHead(ROUTES.NEWSLETTER.CONFIRM),
   pendingComponent: NewsletterPending,
   search: { middlewares: [stripSearchParams(SEARCH_DEFAULTS)] },
   staticData: { namespaces: [NAMESPACE] },

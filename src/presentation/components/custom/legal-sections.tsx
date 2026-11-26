@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router"
 import { REFUND_TERMS } from "~/src/data/refunds"
 
 import { CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LINK_CLASS =
   "text-foreground underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -15,7 +15,7 @@ export const LegalLink = ({
   to,
 }: {
   readonly children: ReactNode
-  readonly to: typeof ROUTES.APP_LICENSE | typeof ROUTES.REFUNDS | typeof ROUTES.WITHDRAWAL
+  readonly to: typeof ROUTES.APP.LICENSE | typeof ROUTES.REFUNDS | typeof ROUTES.WITHDRAWAL
 }): JSX.Element => (
   <Link className={LINK_CLASS} to={to}>
     {children}

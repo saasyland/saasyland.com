@@ -25,7 +25,7 @@ import { CoursePanel } from "~/src/presentation/components/custom/courses/course
 import { CoursePending } from "~/src/presentation/components/custom/courses/courses-pending"
 import { Curriculum } from "~/src/presentation/components/custom/courses/curriculum"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const CourseProgress = ({ lessons }: { readonly lessons: readonly Course["pageLesson"][] }): JSX.Element => {
   const t = useTranslations("pages.courses.course")

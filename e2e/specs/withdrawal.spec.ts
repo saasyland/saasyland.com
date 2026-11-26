@@ -15,7 +15,7 @@ import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 import { I18N } from "../../src/integrations/use-intl/i18n.config"
 import { LICENSE_TIER } from "../../src/modules/license/license.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { WITHDRAWAL_EMAIL_PURPOSE } from "../../src/modules/withdrawal/withdrawal.constants"
 import notificationMessages from "../../messages/en-US/emails.withdrawal-notification-email.json" with { type: "json" }
 import polishAcknowledgementMessages from "../../messages/pl-PL/emails.withdrawal-acknowledgement-email.json" with { type: "json" }
@@ -142,7 +142,7 @@ test.describe("withdrawal function", () => {
     const notification = await expectWithdrawalNotification(request, CONTACT_EMAIL, reference)
     expect(notification).toContain("Active Core licence")
     expect(notification).toContain("The order number and email address, without signing in")
-    expect(notification).toContain(`${ROUTES.ADMIN_USERS}/${userId}`)
+    expect(notification).toContain(`${ROUTES.ADMIN.USERS.INDEX}/${userId}`)
   })
 
   test("a signed-in buyer withdraws from the licence page with the account's details filled in, and the admin sees the statement", async ({
@@ -154,7 +154,7 @@ test.describe("withdrawal function", () => {
   }) => {
     const { email, userId } = await signUpBuyer({ authPage, page, request })
     await buyLicense(request, { tier: LICENSE_TIER.COMPLETE, userId })
-    await page.goto(ROUTES.APP_LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(ROUTES.APP.LICENSE, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
 
     const card = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { level: 2, name: "Withdrawal" }) })
@@ -182,7 +182,7 @@ test.describe("withdrawal function", () => {
     await context.clearCookies()
     await authPage.signIn(admin.email)
     await expect(page).toHaveURL(/\/admin\/?$/u)
-    await page.goto(`${ROUTES.ADMIN_USERS}/${userId}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await page.goto(`${ROUTES.ADMIN.USERS.INDEX}/${userId}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     const statements = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { name: "Withdrawal statements" }) })
     await expect(statements.getByText(/^Received /u)).toBeVisible()
@@ -201,13 +201,13 @@ test.describe("withdrawal function", () => {
     await buyLicense(request, { tier: LICENSE_TIER.COMPLETE, userId })
 
     await openLesson(appPage, page, preview)
-    await visit(appPage, page, ROUTES.APP_LICENSE)
+    await visit(appPage, page, ROUTES.APP.LICENSE)
     await expect(withdrawalCard(page).getByText(NOT_USED_YET)).toBeVisible()
 
     const openedFrom = new Date()
     await openLesson(appPage, page, paid)
     const openedUntil = new Date()
-    await visit(appPage, page, ROUTES.APP_LICENSE)
+    await visit(appPage, page, ROUTES.APP.LICENSE)
 
     const terms = withdrawalCard(page).getByText(USED_IN_A_LESSON)
     await expect(terms).toBeVisible()

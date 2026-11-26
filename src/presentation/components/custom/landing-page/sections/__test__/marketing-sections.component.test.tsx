@@ -57,7 +57,7 @@ import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"
 import stackMessages from "~/messages/en-US/stack.json"
 import { APP_GITHUB_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const GENERATED_STACK = [CHOICE.FRAMEWORK, CHOICE.LIBRARY, CHOICE.DEPLOYMENT] as const
 
@@ -318,7 +318,7 @@ describe("marketing content and purchase links", () => {
     for (const [id, tier] of Object.entries(pricing.tiers)) {
       expect(screen.getByRole("heading", { name: tier.name })).toBeVisible()
       for (const link of screen.getAllByRole("link", { name: tier.cta })) {
-        expect(link).toHaveAttribute("href", `${ROUTES.SIGN_UP}?redirect=${encodeURIComponent(`${ROUTES.APP}?tier=${id}`)}`)
+        expect(link).toHaveAttribute("href", `${ROUTES.AUTH.SIGN_UP}?redirect=${encodeURIComponent(`${ROUTES.APP.INDEX}?tier=${id}`)}`)
       }
       for (const feature of Object.values(tier.features)) {
         expect(screen.getAllByText(withFacts(feature)).length).toBeGreaterThan(0)
@@ -371,7 +371,7 @@ describe("marketing content and purchase links", () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/% Branch\s+100/u)).toBeInTheDocument()
     expect(screen.getByRole("link", { name: english.quality.cta })).toHaveAttribute("href", "#pricing")
-    expect(screen.getByRole("link", { name: english.quality.coverageLink })).toHaveAttribute("href", ROUTES.DOCS_TEST_COVERAGE)
+    expect(screen.getByRole("link", { name: english.quality.coverageLink })).toHaveAttribute("href", ROUTES.DOCS.TOOLING.TEST_COVERAGE)
   })
 
   it("keeps comparison choices, dimensions, and pricing navigation together", () => {
@@ -539,7 +539,7 @@ describe("positioning in the CLI section and beside the tiers", () => {
     })
 
     expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === sentence)).toBeVisible()
-    expect(screen.getByRole("link", { name: "roadmap" })).toHaveAttribute("href", ROUTES.DOCS_ROADMAP)
+    expect(screen.getByRole("link", { name: "roadmap" })).toHaveAttribute("href", ROUTES.DOCS.PROJECT.ROADMAP)
   })
 
   it("offers the free MIT source and consulting under other options, and the Agency licence only as a tier", () => {

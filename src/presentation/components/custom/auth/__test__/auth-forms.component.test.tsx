@@ -41,7 +41,7 @@ import pagesAuthResetPasswordMessages from "~/messages/en-US/pages.auth.reset-pa
 import pagesAuthSignInMessages from "~/messages/en-US/pages.auth.sign-in.json"
 import pagesAuthSignUpMessages from "~/messages/en-US/pages.auth.sign-up.json"
 import type { RouterContext } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type SonnerTitle = (() => ReactNode) | ReactNode
 type ToastMethod = (message: SonnerTitle, data?: ExternalToast) => string | number
@@ -91,11 +91,15 @@ const renderWithAuthMessages = (ui: ReactNode): ReturnType<typeof render> =>
 const renderResetPasswordPage = async () => {
   vi.spyOn(globalThis, "scrollTo").mockImplementation(() => {})
   const root = createRootRouteWithContext<RouterContext>()()
-  Object.assign(ResetPasswordRoute.options, { getParentRoute: () => root, id: ROUTES.RESET_PASSWORD, path: ROUTES.RESET_PASSWORD })
+  Object.assign(ResetPasswordRoute.options, {
+    getParentRoute: () => root,
+    id: ROUTES.AUTH.RESET_PASSWORD,
+    path: ROUTES.AUTH.RESET_PASSWORD,
+  })
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
   const resetRouter = createRouter({
     context: { queryClient },
-    history: createMemoryHistory({ initialEntries: [`${ROUTES.RESET_PASSWORD}?token=${RESET_TOKEN}`] }),
+    history: createMemoryHistory({ initialEntries: [`${ROUTES.AUTH.RESET_PASSWORD}?token=${RESET_TOKEN}`] }),
     routeTree: root.addChildren([ResetPasswordRoute]),
   })
   renderView(
@@ -246,7 +250,7 @@ describe("sign in form", () => {
     await submitSignIn(user)
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith({ search: { email: TEST_EMAIL, unverified: true }, to: ROUTES.VERIFY_EMAIL })
+      expect(pushMock).toHaveBeenCalledWith({ search: { email: TEST_EMAIL, unverified: true }, to: ROUTES.AUTH.VERIFY_EMAIL })
     })
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     expect(toastErrorMock).not.toHaveBeenCalled()
@@ -268,7 +272,7 @@ describe("sign in form", () => {
     expect(alert).toHaveTextContent(authErrorsMessages[AUTH_ERRORS.INVALID_EMAIL_OR_PASSWORD])
     expect(screen.getByRole("link", { name: pagesAuthSignInMessages.form.resetPassword })).toHaveAttribute(
       "href",
-      `${ROUTES.FORGOT_PASSWORD}?email=${encodeURIComponent(TEST_EMAIL)}`,
+      `${ROUTES.AUTH.FORGOT_PASSWORD}?email=${encodeURIComponent(TEST_EMAIL)}`,
     )
     expect(alert.compareDocumentPosition(screen.getByTestId("sign-in-form-submit-button"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     expect(toastErrorMock).not.toHaveBeenCalled()
@@ -331,7 +335,7 @@ describe("sign in form, once submitted", () => {
     await user.type(getPasswordInput("sign-in-password"), TEST_PASSWORD)
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ to: ROUTES.TWO_FACTOR }))
+      expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ to: ROUTES.AUTH.TWO_FACTOR }))
     })
     expect(toastSuccessMock).not.toHaveBeenCalled()
   })
@@ -407,7 +411,7 @@ describe("sign in form, once submitted", () => {
     await user.click(screen.getByTestId("sign-in-form-submit-button"))
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ replace: true, to: ROUTES.AUTH_CALLBACK }))
+      expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ replace: true, to: ROUTES.AUTH.CALLBACK }))
     })
     expect(signInEmailMock).toHaveBeenCalledWith(expect.objectContaining({ email: TEST_EMAIL, password: TEST_PASSWORD }))
     expect(toastSuccessMock).toHaveBeenCalledWith(pagesAuthSignInMessages.form.success)
@@ -545,7 +549,7 @@ describe("sign up outcome", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }))
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenLastCalledWith({ replace: true, search: {}, to: ROUTES.AUTH_CALLBACK })
+      expect(pushMock).toHaveBeenLastCalledWith({ replace: true, search: {}, to: ROUTES.AUTH.CALLBACK })
     })
     expect(signUpMock).toHaveBeenCalledWith(
       expect.objectContaining({ email: TEST_EMAIL, name: TEST_NAME, password: TEST_PASSWORD }),
@@ -566,7 +570,7 @@ describe("sign up outcome", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }))
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenLastCalledWith({ search: { email: TEST_EMAIL }, to: ROUTES.VERIFY_EMAIL })
+      expect(pushMock).toHaveBeenLastCalledWith({ search: { email: TEST_EMAIL }, to: ROUTES.AUTH.VERIFY_EMAIL })
     })
     expect(toastSuccessMock).toHaveBeenCalledWith(pagesAuthSignUpMessages.form.successCheckEmail)
   })
@@ -599,7 +603,7 @@ describe("reset password form", () => {
 
     expect(await screen.findByRole("link", { name: pagesAuthResetPasswordMessages.form.requestNewLink })).toHaveAttribute(
       "href",
-      ROUTES.FORGOT_PASSWORD,
+      ROUTES.AUTH.FORGOT_PASSWORD,
     )
     expect(screen.getByText(pagesAuthResetPasswordMessages.form.invalidToken)).toBeInTheDocument()
     expect(screen.queryByTestId("reset-password-form-submit-button")).not.toBeInTheDocument()
@@ -661,7 +665,7 @@ describe("reset password form", () => {
       expect(submit).toHaveTextContent(pagesAuthResetPasswordMessages.form.submit)
     })
     expectIdle(submit)
-    expect(navigate).toHaveBeenCalledWith({ search: {}, to: ROUTES.SIGN_IN })
+    expect(navigate).toHaveBeenCalledWith({ search: {}, to: ROUTES.AUTH.SIGN_IN })
   })
 
   it("submits the new password with the reset token", async () => {
@@ -673,7 +677,7 @@ describe("reset password form", () => {
     await user.click(screen.getByTestId("reset-password-form-submit-button"))
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith({ search: {}, to: ROUTES.SIGN_IN })
+      expect(navigate).toHaveBeenCalledWith({ search: {}, to: ROUTES.AUTH.SIGN_IN })
     })
     expect(resetPasswordMock).toHaveBeenCalledWith({ password: TEST_PASSWORD, token: RESET_TOKEN }, expect.anything())
   })
@@ -739,7 +743,7 @@ describe("o auth buttons", () => {
       expect(toastSuccessMock).toHaveBeenCalledWith(authOauthMessages.success)
     })
     expect(signInSocialMock).toHaveBeenCalledWith(
-      expect.objectContaining({ callbackURL: ROUTES.AUTH_CALLBACK, provider: AUTH_PROVIDER.GITHUB }),
+      expect.objectContaining({ callbackURL: ROUTES.AUTH.CALLBACK, provider: AUTH_PROVIDER.GITHUB }),
     )
   })
 })

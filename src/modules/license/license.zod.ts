@@ -10,7 +10,7 @@ import { LICENSE_TIER, LICENSE_TIERS } from "~/src/modules/license/license.const
 import { searchParam } from "~/src/lib/search-params"
 
 import { APP_URL } from "~/src/presentation/branding"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const startCheckout = zod.object({
   locale: localeField,
@@ -49,7 +49,7 @@ export const licenseSearchSchema = zod.object({
   tier: searchParam(zod.enum(LICENSE_TIER)),
 })
 
-const TIER_PAGES = new Set<string>([ROUTES.APP, ROUTES.APP_LICENSE])
+const TIER_PAGES = new Set<string>([ROUTES.APP.INDEX, ROUTES.APP.LICENSE])
 
 export const redirectTierSchema = callbackPathSchema
   .transform((redirect) => new URL(redirect, APP_URL))

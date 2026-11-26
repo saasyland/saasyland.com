@@ -22,7 +22,7 @@ import { session } from "~/src/modules/session/session.schema"
 import { user } from "~/src/modules/user/user.schema"
 
 import { BREACHED_PASSWORD } from "~/e2e/data/accounts"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NEW_PASSWORD = "ChangedSecret1!x"
 
@@ -39,7 +39,9 @@ describe("password change notice", () => {
   it("emails the account in the page's language once the password changed", async () => {
     const { account, headers } = await signUpAndVerify()
     vi.mocked(getRequest).mockReturnValue(
-      new Request(`${TEST_APP_URL}/_serverFn/change-password`, { headers: { referer: `${TEST_APP_URL}/pl-PL${ROUTES.APP_SETTINGS}` } }),
+      new Request(`${TEST_APP_URL}/_serverFn/change-password`, {
+        headers: { referer: `${TEST_APP_URL}/pl-PL${ROUTES.APP.SETTINGS.INDEX}` },
+      }),
     )
 
     await auth.api.changePassword({
@@ -123,10 +125,10 @@ describe("account deletion", () => {
   it("emails a link to the confirmation page and deletes the account only with its token", async () => {
     const { account, headers } = await signUpAndVerify()
 
-    await auth.api.deleteUser({ body: { callbackURL: `/pl-PL${ROUTES.APP_DELETE_ACCOUNT}`, password: account.password }, headers })
+    await auth.api.deleteUser({ body: { callbackURL: `/pl-PL${ROUTES.APP.SETTINGS.DELETE_ACCOUNT}`, password: account.password }, headers })
     await flushWaitUntil()
-    const link = emailLink(account.email, ROUTES.APP_DELETE_ACCOUNT)
-    expect(link.pathname).toBe(`/pl-PL${ROUTES.APP_DELETE_ACCOUNT}`)
+    const link = emailLink(account.email, ROUTES.APP.SETTINGS.DELETE_ACCOUNT)
+    expect(link.pathname).toBe(`/pl-PL${ROUTES.APP.SETTINGS.DELETE_ACCOUNT}`)
 
     await expect(auth.api.deleteUser({ body: { token: "not-the-token" }, headers })).rejects.toThrow()
     await expect(findUser(account.email)).resolves.toMatchObject({ email: account.email })
@@ -140,7 +142,7 @@ describe("account deletion", () => {
     const sent = getSentEmails(account.email).length
 
     await expect(
-      auth.api.deleteUser({ body: { callbackURL: ROUTES.APP_DELETE_ACCOUNT, password: "WrongSecret1!x" }, headers }),
+      auth.api.deleteUser({ body: { callbackURL: ROUTES.APP.SETTINGS.DELETE_ACCOUNT, password: "WrongSecret1!x" }, headers }),
     ).rejects.toThrow("Invalid password")
     await flushWaitUntil()
     expect(getSentEmails(account.email)).toHaveLength(sent)

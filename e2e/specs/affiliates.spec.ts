@@ -8,7 +8,7 @@ import { AFFILIATE_PORTAL_URL, AFFILIATE_PROGRAM, AFFILIATE_TERMS } from "../../
 import { CLI_GENERATION_VALUES } from "../../src/data/cli"
 import { FEATURE_STATUS } from "../../src/data/navigation.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import affiliates from "../../messages/en-US/pages.legal.affiliates.json" with { type: "json" }
 import navigation from "../../messages/en-US/navigation.affiliates.json" with { type: "json" }
 import { readWranglerEnvironment } from "../../scripts/wrangler-config"
@@ -42,12 +42,12 @@ test("loads Affonso's script only on a visit through an affiliate link while the
     await route.fulfill({ body: `document.cookie = "${AFFONSO.REFERRAL_COOKIE}=${REFERRAL_ID}; path=/"`, contentType: "text/javascript" })
   })
 
-  await page.goto(ROUTES.BLOG)
+  await page.goto(ROUTES.BLOG.INDEX)
   await appPage.waitForAppReady()
   await expect(page.locator("script[data-affonso]")).toHaveCount(0)
   expect(affonsoRequests).toEqual([])
 
-  await page.goto(`${ROUTES.BLOG}?via=jane`)
+  await page.goto(`${ROUTES.BLOG.INDEX}?via=jane`)
   await appPage.waitForAppReady()
   await expect(pixel).toHaveCount(expected.scripts)
   await page.waitForLoadState("networkidle")

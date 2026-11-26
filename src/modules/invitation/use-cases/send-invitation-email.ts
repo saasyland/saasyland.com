@@ -19,7 +19,7 @@ import { withinRecipientRateLimit } from "~/src/lib/rate-limit"
 import type invitationMessages from "~/messages/en-US/emails.invitation-email.json"
 import { APP_NAME } from "~/src/presentation/branding"
 import { INVITATION_EMAIL_NAMESPACE, InvitationEmail } from "~/src/presentation/emails/invitation-email"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 interface InvitationEmailInput {
   readonly email: string
@@ -34,7 +34,7 @@ export const sendInvitationEmail = async ({ email, inviter, locale, role, token 
     throw new AppError(ERROR_CODES.TOO_MANY_REQUESTS)
   }
 
-  const acceptUrl = new URL(localizePathname({ locale, pathname: ROUTES.ACCEPT_INVITATION }), getRequest().url)
+  const acceptUrl = new URL(localizePathname({ locale, pathname: ROUTES.AUTH.INVITE }), getRequest().url)
   acceptUrl.searchParams.set("token", token)
   const messages = await loadNamespace<typeof invitationMessages>({ locale, namespace: INVITATION_EMAIL_NAMESPACE })
 

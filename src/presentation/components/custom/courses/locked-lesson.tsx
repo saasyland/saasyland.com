@@ -25,7 +25,7 @@ import { cn } from "~/src/lib/cn"
 import { ADDRESS_TAGS } from "~/src/presentation/components/custom/address-tags"
 import { ResendLinkButton, ResendLinkStatus } from "~/src/presentation/components/custom/auth/email-link-resend"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const SIGN_IN_CLASSNAME =
   "font-medium text-foreground underline underline-offset-4 transition-colors duration-200 ease-exp hover:text-muted-foreground"
@@ -48,7 +48,7 @@ const SignInLink = ({ children }: { readonly children: ReactNode }): JSX.Element
   const redirect = useRouterState({ select: ({ location }) => location.publicHref })
 
   return (
-    <Link className={SIGN_IN_CLASSNAME} search={{ redirect }} to={ROUTES.SIGN_IN}>
+    <Link className={SIGN_IN_CLASSNAME} search={{ redirect }} to={ROUTES.AUTH.SIGN_IN}>
       {children}
     </Link>
   )
@@ -85,7 +85,7 @@ export const UnlockLink = ({ access, signedIn }: UnlockLinkProps): JSX.Element |
 
   if (access === LESSON_ACCESS.ACCOUNT) {
     return (
-      <Link className={CTA_CLASSES.PRIMARY} search={{ redirect }} to={ROUTES.SIGN_UP}>
+      <Link className={CTA_CLASSES.PRIMARY} search={{ redirect }} to={ROUTES.AUTH.SIGN_UP}>
         {t("pages.courses.lesson.locked.account.cta")}
       </Link>
     )
@@ -104,7 +104,12 @@ export const UnlockLink = ({ access, signedIn }: UnlockLinkProps): JSX.Element |
     }
 
     return (
-      <Link className={CTA_CLASSES.PRIMARY} key={key} search={{ redirect: router.buildLocation(purchase).publicHref }} to={ROUTES.SIGN_UP}>
+      <Link
+        className={CTA_CLASSES.PRIMARY}
+        key={key}
+        search={{ redirect: router.buildLocation(purchase).publicHref }}
+        to={ROUTES.AUTH.SIGN_UP}
+      >
         {label}
       </Link>
     )
@@ -116,7 +121,7 @@ export const ConfirmEmailLink = (): JSX.Element => {
   const redirect = useRouterState({ select: ({ location }) => location.publicHref })
 
   return (
-    <Link className={CTA_CLASSES.PRIMARY} search={{ redirect }} to={ROUTES.VERIFY_EMAIL}>
+    <Link className={CTA_CLASSES.PRIMARY} search={{ redirect }} to={ROUTES.AUTH.VERIFY_EMAIL}>
       <MailWarning aria-hidden className="size-3.5" strokeWidth={2.25} />
       {t("title")}
     </Link>
@@ -165,7 +170,7 @@ const ConfirmEmailToWatch = (): JSX.Element => {
           noValidate
           onSubmit={(event) => {
             event.preventDefault()
-            resend.send({ callbackURL: hrefWithRedirect(ROUTES.AUTH_CALLBACK), email: unconfirmedEmail })
+            resend.send({ callbackURL: hrefWithRedirect(ROUTES.AUTH.CALLBACK), email: unconfirmedEmail })
           }}
         >
           <ResendLinkButton cooldownSeconds={resend.cooldownSeconds} isPending={resend.isPending}>
@@ -174,7 +179,7 @@ const ConfirmEmailToWatch = (): JSX.Element => {
           <ResendLinkStatus accountKnown outcome={resend.outcome} />
         </form>
       )}
-      <Link className={cn("mt-2 text-body-sm", SIGN_IN_CLASSNAME)} search={{ redirect }} to={ROUTES.VERIFY_EMAIL}>
+      <Link className={cn("mt-2 text-body-sm", SIGN_IN_CLASSNAME)} search={{ redirect }} to={ROUTES.AUTH.VERIFY_EMAIL}>
         {t("change")}
       </Link>
     </div>

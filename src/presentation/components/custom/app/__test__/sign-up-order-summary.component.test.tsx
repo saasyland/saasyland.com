@@ -17,11 +17,11 @@ import { SignUpOrderSummary, SignUpOrderSummaryPending } from "~/src/presentatio
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import plPricing from "~/messages/pl-PL/components.custom.pricing.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const LIST_PRICE_CLASS = "pv-100"
 
-const tierRedirect = (tier: LicenseTier): string => `${ROUTES.APP}?${new URLSearchParams({ tier }).toString()}`
+const tierRedirect = (tier: LicenseTier): string => `${ROUTES.APP.INDEX}?${new URLSearchParams({ tier }).toString()}`
 
 const listPrice = (locale: SupportedLocale, tier: LicenseTier): string =>
   new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(TIER_PRICES[tier]).replaceAll(/\s/gu, " ")

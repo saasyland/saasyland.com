@@ -10,7 +10,7 @@ import { OAUTH_PROVIDERS, SOCIAL_SIGN_IN_PATH } from "~/src/data/auth"
 import { verifyAuth } from "~/src/lib/auth"
 import { CONTENT_TYPE, LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, verifyDeployment } from "~/src/lib/deployment"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type Provider = (typeof OAUTH_PROVIDERS)[number]["id"]
 
@@ -39,7 +39,7 @@ const GOOGLE_REFUSAL = `${GOOGLE_VARIABLE} in ${FILE} is not a Google OAuth clie
 const GITHUB_REFUSAL = `${GITHUB_VARIABLE} in ${FILE} is not a GitHub OAuth client ID.`
 
 const callbackUrl = (provider: Provider, origin = ORIGIN): string =>
-  `${origin}${ROUTES.API_AUTH_BASE}${ROUTES.API_AUTH.CALLBACK}/${provider}`
+  `${origin}${ROUTES.API.AUTH.BASE}${ROUTES.API.AUTH.CALLBACK}/${provider}`
 
 const AUTHORIZE_ENDPOINT = {
   [AUTH_PROVIDER.GITHUB]: "https://github.com/login/oauth/authorize",
@@ -144,7 +144,7 @@ describe("the live sign-in check on a site whose providers are configured", () =
     const requests = signInRequests()
     const bodies: unknown[] = await Promise.all(requests.map((request) => request.json()))
     expect(bodies).toStrictEqual(
-      OAUTH_PROVIDERS.map(({ id }) => ({ callbackURL: ROUTES.AUTH_CALLBACK, errorCallbackURL: ROUTES.SIGN_IN, provider: id })),
+      OAUTH_PROVIDERS.map(({ id }) => ({ callbackURL: ROUTES.AUTH.CALLBACK, errorCallbackURL: ROUTES.AUTH.SIGN_IN, provider: id })),
     )
     expect(
       requests.map(({ headers, method }) => ({ contentType: headers.get("content-type"), method, origin: headers.get("origin") })),

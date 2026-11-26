@@ -12,12 +12,12 @@ import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admi
 import { AdminUsersPending } from "~/src/presentation/components/custom/admin/admin-users-pending"
 import { USER_TABS, UserTabs } from "~/src/presentation/components/custom/admin/users/user-tabs"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const AdminUsersLayout = (): JSX.Element => {
   const t = useTranslations()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const selectedTab = USER_TABS.find((tab) => tab.to === pathname)?.to ?? ROUTES.ADMIN_USERS_ALL
+  const selectedTab = USER_TABS.find((tab) => tab.to === pathname)?.to ?? ROUTES.ADMIN.USERS.ALL
 
   return (
     <Tabs className="min-h-0 w-full flex-1 animate-in gap-0 duration-500 fade-in-50" selectedKey={selectedTab}>

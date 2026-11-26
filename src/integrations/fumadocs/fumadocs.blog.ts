@@ -7,7 +7,7 @@ import { BLOG_ARCHIVE, BLOG_HIGHLIGHTS, FEATURED_BLOG_POSTS } from "~/src/data/b
 import { formatPostText } from "~/src/lib/post-text"
 import type { PageSequence } from "~/src/lib/seo"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 export const toBlogPostSummary = (post: BlogPost, locale: SupportedLocale) => ({
   date: post.date,
@@ -49,7 +49,7 @@ export const relatedBlogPosts = ({
 }
 
 export const featuredBlogPosts = (posts: BlogIndex): BlogIndex =>
-  FEATURED_BLOG_POSTS.flatMap((slug) => posts.filter(({ url }) => url === `${ROUTES.BLOG}/${slug}`))
+  FEATURED_BLOG_POSTS.flatMap((slug) => posts.filter(({ url }) => url === `${ROUTES.BLOG.INDEX}/${slug}`))
 
 export const blogNotes = (posts: BlogIndex) => {
   const lead = featuredBlogPosts(posts).at(0) ?? posts.at(0)
@@ -79,7 +79,7 @@ export const blogHighlights = (posts: BlogIndex) => {
 export const blogArchivePageCount = (posts: number): number => Math.max(BLOG_ARCHIVE.FIRST_PAGE, Math.ceil(posts / BLOG_ARCHIVE.PAGE_SIZE))
 
 export const blogArchivePath = (page: number): string =>
-  page > BLOG_ARCHIVE.FIRST_PAGE ? `${ROUTES.BLOG}/${BLOG_ARCHIVE.PAGE_SEGMENT}/${String(page)}` : ROUTES.BLOG
+  page > BLOG_ARCHIVE.FIRST_PAGE ? `${ROUTES.BLOG.INDEX}/${BLOG_ARCHIVE.PAGE_SEGMENT}/${String(page)}` : ROUTES.BLOG.INDEX
 
 export const blogArchivePage = <TPost>(posts: readonly TPost[], page: number): TPost[] =>
   posts.slice((page - BLOG_ARCHIVE.FIRST_PAGE) * BLOG_ARCHIVE.PAGE_SIZE, page * BLOG_ARCHIVE.PAGE_SIZE)

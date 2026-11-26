@@ -21,7 +21,7 @@ import { ImpersonationBanner } from "~/src/presentation/components/custom/app/im
 
 import labels from "~/messages/en-US/components.custom.impersonation-banner.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const stop = vi.hoisted(() => vi.fn<NonNullable<typeof stopImpersonatingUserMutation.mutationFn>>())
 const removeUserData = vi.hoisted(() => vi.fn<typeof AuthSession.removeUserData>())
@@ -47,7 +47,7 @@ const renderBanner = (session: ReturnType<typeof createAuthSessionFixture> | nul
     <IntlProvider locale="en-US" messages={messages}>
       <ImpersonationBanner />
     </IntlProvider>,
-    { queryClient, router: createTestRouter(ROUTES.APP) },
+    { queryClient, router: createTestRouter(ROUTES.APP.INDEX) },
   )
   return { ...result, user: userEvent.setup({ delay: null }) }
 }
@@ -85,7 +85,7 @@ describe("impersonation banner", () => {
       await pending.promise
     })
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(`${ROUTES.ADMIN_USERS}/${CUSTOMER_ID}`)
+      expect(router.state.location.pathname).toBe(`${ROUTES.ADMIN.USERS.INDEX}/${CUSTOMER_ID}`)
     })
     expect(removeUserData).toHaveBeenCalledExactlyOnceWith(queryClient)
     expect(toast.success).toHaveBeenCalledWith(labels.stopped.replace("{name}", "Test User"))
@@ -103,7 +103,7 @@ describe("impersonation banner", () => {
       expect(toast.error).toHaveBeenCalledWith(message)
     })
     expect(removeUserData).not.toHaveBeenCalled()
-    expect(router.state.location.pathname).toBe(ROUTES.APP)
+    expect(router.state.location.pathname).toBe(ROUTES.APP.INDEX)
     expect(screen.getByRole("region", { name: labels.label })).toBeVisible()
   })
 })

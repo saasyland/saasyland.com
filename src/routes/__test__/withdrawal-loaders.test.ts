@@ -7,7 +7,7 @@ import { buildTitle } from "~/src/lib/seo"
 import pagesWithdrawalMessages from "~/messages/en-US/pages.withdrawal.json"
 import plPagesWithdrawalMessages from "~/messages/pl-PL/pages.withdrawal.json"
 import { getRouter } from "~/src/router"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const load = async (path: string) => {
   vi.mocked(getRequest).mockReturnValue(new Request(`http://127.0.0.1:3000${path}`))

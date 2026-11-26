@@ -42,7 +42,7 @@ import meta from "~/messages/en-US/components.custom.lesson-meta.json"
 import messages from "~/messages/en-US/pages.courses.json"
 import plNavigationMessages from "~/messages/pl-PL/components.custom.navigation.json"
 import plCoursesNavigationMessages from "~/messages/pl-PL/navigation.courses.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 vi.mock(import("~/src/modules/verification/use-cases/send-verification-email"), async () => {
   const fixtures = await import("~/src/routes/__test__/fixtures/course-pages")
@@ -147,7 +147,7 @@ describe("course catalogue", () => {
       screen.getByRole("heading", { level: 2, name: withOffer(messages.course.unlock.title) }).closest("aside") ?? document.body,
     )
     expect(band.getByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toHaveAttribute("href", SIGNED_OUT_UNLOCK)
-    expect(band.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", withRedirect(ROUTES.SIGN_IN, ROUTES.COURSES))
+    expect(band.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", withRedirect(ROUTES.AUTH.SIGN_IN, ROUTES.COURSES))
   })
 
   it("offers a signed-in customer what unlocks the paid lessons, and a holder who has not confirmed their email nothing to buy", async () => {
@@ -250,7 +250,10 @@ describe("course page", () => {
     await renderCourses({ path: "/courses/the-walkthrough" })
 
     const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
-    expect(panel.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", withRedirect(ROUTES.SIGN_IN, "/courses/the-walkthrough"))
+    expect(panel.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      withRedirect(ROUTES.AUTH.SIGN_IN, "/courses/the-walkthrough"),
+    )
   })
 
   it("shows a learner's progress, per chapter too, and continues where they stopped", async () => {
@@ -281,7 +284,7 @@ describe("course page", () => {
     const panel = within(screen.getByRole("region", { name: "The walkthrough" }))
     expect(panel.getByRole("link", { name: messages.lesson.locked.confirm.title })).toHaveAttribute(
       "href",
-      withRedirect(ROUTES.VERIFY_EMAIL, "/courses/the-walkthrough"),
+      withRedirect(ROUTES.AUTH.VERIFY_EMAIL, "/courses/the-walkthrough"),
     )
     expect(panel.queryByRole("link", { name: withOffer(messages.lesson.locked.paid.cta) })).toBeNull()
     expect(panel.queryByText(messages.course.panel.access)).toBeNull()

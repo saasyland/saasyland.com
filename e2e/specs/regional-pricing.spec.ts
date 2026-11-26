@@ -4,7 +4,7 @@ import * as zod from "zod"
 import { CURRENCY_FORMAT } from "../../src/modules/_core/constants/pricing"
 import { LICENSE_TIERS } from "../../src/modules/license/license.constants"
 import { TIER_PRICES } from "../../src/data/license"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
 
 const STRUCTURED_DATA = /<script type="application\/ld\+json">(?<json>[^<]+)<\/script>/gu

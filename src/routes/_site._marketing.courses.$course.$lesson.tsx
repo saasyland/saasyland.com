@@ -32,7 +32,7 @@ import { LessonTranscript } from "~/src/presentation/components/custom/courses/l
 import { MaterialsList } from "~/src/presentation/components/custom/courses/materials-list"
 import { RichText } from "~/src/presentation/components/custom/rich-text"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NEIGHBOUR_LINK_CLASSNAME =
   "group flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-border p-4 transition-colors duration-200 ease-exp hover:border-ring/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

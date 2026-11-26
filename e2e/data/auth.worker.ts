@@ -12,12 +12,12 @@ import {
   googleTestCode,
   googleTestIdentity,
 } from "./google"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_WORKER_KIND, type TestWorkerEntry } from "./worker"
 
 export const GITHUB_AUTHORIZE_TEST_PATH = "/__test/github/authorize"
 
-const GITHUB_CALLBACK_PATH = `${ROUTES.API_AUTH_BASE}/callback/${AUTH_PROVIDER.GITHUB}`
+const GITHUB_CALLBACK_PATH = `${ROUTES.API.AUTH.BASE}/callback/${AUTH_PROVIDER.GITHUB}`
 
 const AUTHORIZATION_CODE_RESPONSE = "code"
 

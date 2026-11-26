@@ -45,7 +45,7 @@ import { FormLanguages } from "~/src/presentation/components/custom/admin/form-l
 import { NewsletterIssuePreview } from "~/src/presentation/components/custom/admin/newsletter/newsletter-issue-preview"
 import { ValidationFieldError } from "~/src/presentation/components/custom/validation-field-error"
 
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 const NEW_ISSUE: NewsletterIssue["issueTexts"] = { body: { [I18N.DEFAULT_LOCALE]: "" }, subject: { [I18N.DEFAULT_LOCALE]: "" } }
 
@@ -128,7 +128,7 @@ const useIssueSending = () => {
               {
                 onSuccess: ({ status }) => {
                   if (status === NEWSLETTER_ISSUE_STATUS.SENT) {
-                    void router.navigate({ to: ROUTES.ADMIN_NEWSLETTER_ISSUES })
+                    void router.navigate({ to: ROUTES.ADMIN.NEWSLETTER.ISSUES })
                   }
                 },
               },

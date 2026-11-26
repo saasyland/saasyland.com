@@ -20,7 +20,7 @@ import { ChangeEmailForm } from "~/src/presentation/components/custom/auth/chang
 
 import changeEmailMessages from "~/messages/en-US/components.custom.change-email-form.json"
 import errorsMessages from "~/messages/en-US/errors.json"
-import * as ROUTES from "~/src/routes"
+import { ROUTES } from "~/src/routes"
 
 type Changed = Awaited<ReturnType<NonNullable<typeof ChangeEmailUseCase.changeEmailMutation.mutationFn>>>
 type Session = ReturnType<typeof createAuthSessionFixture>
@@ -39,7 +39,7 @@ vi.mock(import("~/src/modules/account/use-cases/change-email"), () => ({
 const messages = getTestMessages("en-US")
 const NEW_EMAIL = "new@example.com"
 const CHANGED: Changed = { status: true }
-const SETTINGS_PAGE = `${ROUTES.APP_SETTINGS}?tab=${SETTINGS_TAB.GENERAL}`
+const SETTINGS_PAGE = `${ROUTES.APP.SETTINGS.INDEX}?tab=${SETTINGS_TAB.GENERAL}`
 
 const sessionWith = ({ email = createAuthSessionFixture().user.email, emailVerified = true } = {}): Session => {
   const session = createAuthSessionFixture()
@@ -82,7 +82,7 @@ describe("changing a verified address", () => {
       expect(onDone).toHaveBeenCalledOnce()
     })
     expect(changeEmailMock).toHaveBeenCalledExactlyOnceWith(
-      { callbackURL: `${ROUTES.AUTH_CALLBACK}?redirect=${encodeURIComponent(SETTINGS_PAGE)}`, newEmail: NEW_EMAIL },
+      { callbackURL: `${ROUTES.AUTH.CALLBACK}?redirect=${encodeURIComponent(SETTINGS_PAGE)}`, newEmail: NEW_EMAIL },
       expect.anything(),
     )
     expect(toast.success).toHaveBeenCalledExactlyOnceWith(
@@ -122,14 +122,14 @@ describe("changing a verified address", () => {
 
 describe("changing an unverified address", () => {
   it("moves the account at once and keeps the page's own redirect in the link", async () => {
-    const { onDone, user } = renderForm(sessionWith({ emailVerified: false }), `${ROUTES.VERIFY_EMAIL}?redirect=${ROUTES.APP}`)
+    const { onDone, user } = renderForm(sessionWith({ emailVerified: false }), `${ROUTES.AUTH.VERIFY_EMAIL}?redirect=${ROUTES.APP.INDEX}`)
     await submit(user)
 
     await waitFor(() => {
       expect(onDone).toHaveBeenCalledOnce()
     })
     expect(changeEmailMock).toHaveBeenCalledExactlyOnceWith(
-      { callbackURL: `${ROUTES.AUTH_CALLBACK}?redirect=${encodeURIComponent(ROUTES.APP)}`, newEmail: NEW_EMAIL },
+      { callbackURL: `${ROUTES.AUTH.CALLBACK}?redirect=${encodeURIComponent(ROUTES.APP.INDEX)}`, newEmail: NEW_EMAIL },
       expect.anything(),
     )
     expect(toast.success).toHaveBeenCalledExactlyOnceWith(changeEmailMessages.changed.replace("{email}", NEW_EMAIL))
@@ -143,7 +143,7 @@ describe("changing an unverified address", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledExactlyOnceWith(changeEmailMessages.unchanged.replace("{email}", NEW_EMAIL))
     })
-    expect(changeEmailMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH_CALLBACK, newEmail: NEW_EMAIL }, expect.anything())
+    expect(changeEmailMock).toHaveBeenCalledExactlyOnceWith({ callbackURL: ROUTES.AUTH.CALLBACK, newEmail: NEW_EMAIL }, expect.anything())
     expect(onDone).not.toHaveBeenCalled()
   })
 })

@@ -9,7 +9,7 @@ import blog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import courses from "../../messages/en-US/pages.courses.json" with { type: "json" }
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { DOCS_CONTENT_ID, MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
-import * as ROUTES from "../../src/routes"
+import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, turnOnDataSaver } from "../pages/base-page"
@@ -38,23 +38,23 @@ const FRAME_VIEWPORTS = [{ height: 900, width: 1440 }, { height: 1080, width: 19
 const POLISH = "pl-PL"
 const [freeLesson] = TEST_LESSONS
 
-const DOCS_PAGE = `${ROUTES.DOCS}/conventions/components`
-const LONG_DOCS_PAGE = `${ROUTES.DOCS}/features/courses`
+const DOCS_PAGE = `${ROUTES.DOCS.INDEX}/conventions/components`
+const LONG_DOCS_PAGE = `${ROUTES.DOCS.INDEX}/features/courses`
 
 const PUBLIC_PAGES = [
   ROUTES.HOME,
-  ROUTES.BLOG,
-  `${ROUTES.BLOG}/ai-coding-agents-repository-readiness`,
+  ROUTES.BLOG.INDEX,
+  `${ROUTES.BLOG.INDEX}/ai-coding-agents-repository-readiness`,
   ROUTES.COURSES,
   `${ROUTES.COURSES}/${TEST_COURSE.slug}/${freeLesson.slug}`,
-  ROUTES.DOCS,
+  ROUTES.DOCS.INDEX,
   DOCS_PAGE,
   ROUTES.LICENCE,
   "/this-page-does-not-exist",
 ]
 
-const HEADER_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.DOCS]
-const FRAMED_PAGES = [ROUTES.HOME, ROUTES.BLOG, ROUTES.COURSES, ROUTES.DOCS, LONG_DOCS_PAGE]
+const HEADER_PAGES = [ROUTES.HOME, ROUTES.BLOG.INDEX, ROUTES.DOCS.INDEX]
+const FRAMED_PAGES = [ROUTES.HOME, ROUTES.BLOG.INDEX, ROUTES.COURSES, ROUTES.DOCS.INDEX, LONG_DOCS_PAGE]
 
 const POLISH_PAGES = HEADER_PAGES.map((pathname) => localizePathname({ locale: POLISH, pathname }))
 
@@ -62,7 +62,7 @@ const HEADER_LABELS = ["SaaSy Land", "Pricing", "Courses", "Blog", "Docs", "Sign
 
 const CURRENT_ENTRIES = [
   { current: [], path: ROUTES.HOME },
-  { current: ["Blog"], path: `${ROUTES.BLOG}/ai-coding-agents-repository-readiness` },
+  { current: ["Blog"], path: `${ROUTES.BLOG.INDEX}/ai-coding-agents-repository-readiness` },
   { current: ["Courses"], path: ROUTES.COURSES },
   { current: ["Docs"], path: DOCS_PAGE },
   { current: [], path: ROUTES.LICENCE },
@@ -182,9 +182,9 @@ test.describe("one site header", () => {
     const isSameHeader = (): Promise<boolean> => header.evaluate((element, mark) => Reflect.get(element, mark) === true, HEADER_MARK)
 
     await header.getByRole("link", { exact: true, name: "Docs" }).click()
-    await expect(page).toHaveURL(ROUTES.DOCS)
+    await expect(page).toHaveURL(ROUTES.DOCS.INDEX)
     await expect(page.locator(`#${DOCS_CONTENT_ID}`)).toBeVisible()
-    expect(await isSameHeader(), ROUTES.DOCS).toBe(true)
+    expect(await isSameHeader(), ROUTES.DOCS.INDEX).toBe(true)
 
     await header.getByRole("link", { exact: true, name: "SaaSy Land" }).click()
     await expect(page).toHaveURL(ROUTES.HOME)
@@ -292,10 +292,10 @@ test.describe("one site header", () => {
       )
 
       await header.getByRole("link", { exact: true, name: contentNavigation.header.docs }).click()
-      await expect(page).toHaveURL(ROUTES.DOCS)
+      await expect(page).toHaveURL(ROUTES.DOCS.INDEX)
       await expect(page.locator(`#${DOCS_CONTENT_ID}`)).toBeVisible()
       await header.getByRole("link", { exact: true, name: contentNavigation.header.blog }).click()
-      await expect(page).toHaveURL(ROUTES.BLOG)
+      await expect(page).toHaveURL(ROUTES.BLOG.INDEX)
       await expect(page.getByRole("heading", { level: 1, name: blog.index.title })).toBeVisible()
 
       const frames: HeaderFrame[] = await page.evaluate(
@@ -313,7 +313,7 @@ test.describe("one site header", () => {
       const placeOf = (frame: HeaderFrame | undefined): string => JSON.stringify([frame?.header, frame?.navigation])
       const at = `${String(viewport.width)} px`
       expect(frames.some(({ docs }) => docs), at).toBe(true)
-      expect(frames.at(-1)?.path, at).toBe(ROUTES.BLOG)
+      expect(frames.at(-1)?.path, at).toBe(ROUTES.BLOG.INDEX)
       expect(first?.navigation, at).toHaveLength(4)
       expect(
         frames.filter((frame) => placeOf(frame) !== placeOf(first)),
@@ -490,7 +490,7 @@ const PRELOADED_DESTINATIONS = [
     shown: (page: Page) => page.getByRole("heading", { level: 1, name: courses.catalogue.title }),
   },
   { from: ROUTES.HOME, link: authNavigation.header.signIn, shown: (page: Page) => page.getByRole("heading", { level: 1, name: signIn.form.title }) },
-  { from: ROUTES.DOCS, link: coreNavigation.header.pricing, shown: (page: Page) => page.locator(`#${MARKETING_SECTION_IDS.PRICING}`) },
+  { from: ROUTES.DOCS.INDEX, link: coreNavigation.header.pricing, shown: (page: Page) => page.locator(`#${MARKETING_SECTION_IDS.PRICING}`) },
 ]
 
 const serverFunctionRequests = (page: Page): string[] => {

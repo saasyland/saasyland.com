@@ -1,39 +1,23 @@
-const ADMIN = "/admin"
-const ADMIN_COURSES = `${ADMIN}/courses` as const
-const ADMIN_NEWSLETTER = `${ADMIN}/newsletter` as const
-const ADMIN_USERS = `${ADMIN}/users` as const
-const API = "/api"
-const API_AUTH = `${API}/auth` as const
-const APP = "/app"
-const APP_SETTINGS = `${APP}/settings` as const
-const AUTH = "/auth"
-const BLOG = "/blog"
-const COURSES = "/courses"
-const DOCS = "/docs"
-const NEWSLETTER = "/newsletter"
-const POLAR_CUSTOMER = "/customer/"
-const POLAR_CUSTOMER_PORTAL = `${POLAR_CUSTOMER}portal` as const
-
 export const ROUTES = {
   ADMIN: {
     COURSES: {
-      CREATE: `${ADMIN_COURSES}/create`,
-      INDEX: ADMIN_COURSES,
+      CREATE: "/admin/courses/create",
+      INDEX: "/admin/courses",
     },
-    INDEX: ADMIN,
+    INDEX: "/admin",
     NEWSLETTER: {
-      COMPOSE: `${ADMIN_NEWSLETTER}/compose`,
-      INDEX: ADMIN_NEWSLETTER,
-      ISSUES: `${ADMIN_NEWSLETTER}/issues`,
+      COMPOSE: "/admin/newsletter/compose",
+      INDEX: "/admin/newsletter",
+      ISSUES: "/admin/newsletter/issues",
     },
-    ORDERS: `${ADMIN}/orders`,
-    PRODUCTS: `${ADMIN}/products`,
-    SETTINGS: `${ADMIN}/settings`,
+    ORDERS: "/admin/orders",
+    PRODUCTS: "/admin/products",
+    SETTINGS: "/admin/settings",
     USERS: {
-      ALL: `${ADMIN_USERS}/all`,
-      CUSTOMERS: `${ADMIN_USERS}/customers`,
-      INDEX: ADMIN_USERS,
-      INVITATIONS: `${ADMIN_USERS}/invitations`,
+      ALL: "/admin/users/all",
+      CUSTOMERS: "/admin/users/customers",
+      INDEX: "/admin/users",
+      INVITATIONS: "/admin/users/invitations",
     },
   },
   AFFILIATES: "/affiliates",
@@ -43,15 +27,15 @@ export const ROUTES = {
       ADMIN_CREATE_USER: "/admin/create-user",
       ADMIN_SET_USER_PASSWORD: "/admin/set-user-password",
       ADMIN_UPDATE_USER: "/admin/update-user",
-      BASE: API_AUTH,
+      BASE: "/api/auth",
       CALLBACK: "/callback",
       CHANGE_EMAIL: "/change-email",
       CHANGE_PASSWORD: "/change-password",
-      CUSTOMER_PORTAL: `${API_AUTH}${POLAR_CUSTOMER_PORTAL}`,
+      CUSTOMER_PORTAL: "/api/auth/customer/portal",
       GET_SESSION: "/get-session",
       POLAR: {
-        CUSTOMER: POLAR_CUSTOMER,
-        CUSTOMER_PORTAL: POLAR_CUSTOMER_PORTAL,
+        CUSTOMER: "/customer/",
+        CUSTOMER_PORTAL: "/customer/portal",
         WEBHOOKS: "/polar/webhooks",
       },
       REQUEST_PASSWORD_RESET: "/request-password-reset",
@@ -64,53 +48,53 @@ export const ROUTES = {
       SIGN_UP_EMAIL: "/sign-up/email",
       TWO_FACTOR: "/two-factor/*",
       UPDATE_USER: "/update-user",
-      VERIFY_EMAIL: `${API_AUTH}/verify-email`,
+      VERIFY_EMAIL: "/api/auth/verify-email",
     },
-    INDEX: API,
+    INDEX: "/api",
   },
   APP: {
-    BILLING: `${APP}/billing`,
-    INDEX: APP,
-    LICENSE: `${APP}/license`,
+    BILLING: "/app/billing",
+    INDEX: "/app",
+    LICENSE: "/app/license",
     SETTINGS: {
-      DELETE_ACCOUNT: `${APP_SETTINGS}/delete-account`,
-      INDEX: APP_SETTINGS,
+      DELETE_ACCOUNT: "/app/settings/delete-account",
+      INDEX: "/app/settings",
     },
   },
   AUTH: {
-    BASE: AUTH,
-    CALLBACK: `${AUTH}/callback`,
-    FORGOT_PASSWORD: `${AUTH}/forgot-password`,
-    INVITE: `${AUTH}/invite`,
-    RESET_PASSWORD: `${AUTH}/reset-password`,
-    SIGN_IN: `${AUTH}/sign-in`,
-    SIGN_UP: `${AUTH}/sign-up`,
-    TWO_FACTOR: `${AUTH}/two-factor`,
-    VERIFY_EMAIL: `${AUTH}/verify-email`,
+    BASE: "/auth",
+    CALLBACK: "/auth/callback",
+    FORGOT_PASSWORD: "/auth/forgot-password",
+    INVITE: "/auth/invite",
+    RESET_PASSWORD: "/auth/reset-password",
+    SIGN_IN: "/auth/sign-in",
+    SIGN_UP: "/auth/sign-up",
+    TWO_FACTOR: "/auth/two-factor",
+    VERIFY_EMAIL: "/auth/verify-email",
   },
   AUTHORS: "/authors",
   BLOG: {
-    FEED: `${BLOG}/rss.xml`,
-    INDEX: BLOG,
+    FEED: "/blog/rss.xml",
+    INDEX: "/blog",
   },
-  COURSES,
+  COURSES: "/courses",
   DOCS: {
-    CLI: `${DOCS}/cli`,
-    INDEX: DOCS,
+    CLI: "/docs/cli",
+    INDEX: "/docs",
     PROJECT: {
-      ROADMAP: `${DOCS}/project/roadmap`,
-      SECURITY_POLICY: `${DOCS}/project/security-policy`,
+      ROADMAP: "/docs/project/roadmap",
+      SECURITY_POLICY: "/docs/project/security-policy",
     },
     TOOLING: {
-      TEST_COVERAGE: `${DOCS}/tooling/test-coverage`,
+      TEST_COVERAGE: "/docs/tooling/test-coverage",
     },
   },
   HOME: "/",
   LICENCE: "/licence",
   NEWSLETTER: {
-    BASE: NEWSLETTER,
-    CONFIRM: `${NEWSLETTER}/confirm`,
-    UNSUBSCRIBE: `${NEWSLETTER}/unsubscribe`,
+    BASE: "/newsletter",
+    CONFIRM: "/newsletter/confirm",
+    UNSUBSCRIBE: "/newsletter/unsubscribe",
   },
   PRIVACY: "/privacy",
   REFUNDS: "/refunds",

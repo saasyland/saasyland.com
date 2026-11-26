@@ -1,6 +1,6 @@
 ---
 title: "Wydajność"
-description: "Reguły poparte pomiarami, dzięki którym strony działają szybko: mały graf startowy Workera, lekkie drzewo tras, brak treści dokumentacji i bloga w Workerze, ORM poza przeglądarką, komunikaty ładowane na żądanie, usunięte wskazówki preload, rozmieszczenie providerów, wczesne szkielety, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
+description: "Reguły poparte pomiarami, dzięki którym strony działają szybko: mały graf startowy Workera, lekkie drzewo tras, sekcje przesyłane strumieniowo na stronach renderowanych przy każdym żądaniu, brak treści dokumentacji i bloga w Workerze, ORM poza przeglądarką, komunikaty ładowane na żądanie, usunięte wskazówki preload, rozmieszczenie providerów, wczesne szkielety, jeden build Tailwind, rozmiary mediów i wzorzec odsłaniania."
 ---
 
 Każda reguła na tej stronie wynika z pomiaru, a kilka z nich zastąpiło intuicyjne poprawki, które tylko pogarszały sytuację. Kod, na którym opiera się któraś z nich, zmieniaj tylko z nowym pomiarem, który wypada lepiej.
@@ -84,9 +84,33 @@ Rozmiary pochodzą z Workera zbudowanego przez `bun run build:test`, a czasy z w
 
 `e2e/specs/content.spec.ts` wstrzymuje indeks dokumentacji przy nawigacji do `/docs` i skompilowany MDX przy nawigacji między stronami dokumentacji i sprawdza, że dopóki nie dotrą, każda z tych nawigacji pokazuje swój szkielet, a druga także pasek boczny. Testy najpierw włączają oszczędzanie danych, żeby nagłówek nie załadował dokumentacji przed kliknięciem.
 
+## Strony renderowane przy każdym żądaniu przesyłają wolne sekcje strumieniowo [#request-rendered-pages-stream-their-slow-sections]
+
+Panel administracyjny, panel klienta i strony kursów są renderowane w Workerze przy każdym żądaniu. Ich loadery czekały kiedyś na każde zapytanie, więc nic nie opuszczało Workera, dopóki nie odpowiedziało najwolniejsze; na `/admin` i `/admin/products` był to katalog produktów Polara, czyli wywołanie API Polara przy każdym wyświetleniu. Teraz każdy loader czeka tylko na to, czego potrzebuje pierwsza część odpowiedzi, a resztę uruchamia bez czekania, i każda wolna sekcja trafia strumieniowo do swojego szkieletu w tej samej odpowiedzi ([Sekcje przesyłane strumieniowo](/docs/conventions/routes#streamed-sections)):
+
+- `/admin` czeka na najnowsze konta, które jego `DataGrid` odczytuje przez `useQuery`. Każda statystyka i każdy panel docierają strumieniowo we własnej granicy, więc na Polara czeka tylko liczba produktów.
+- `/admin/products` przesyła strumieniowo swoją siatkę.
+- `/app/billing` przesyła strumieniowo zamówienia i subskrypcje oraz zależny od nich przycisk prowadzący do portalu klienta Polara.
+- Lekcja przesyła strumieniowo swój odtwarzacz: gdy tylko loader wie, że lekcję można odtworzyć, zaczyna podpisywać strumień bez czekania na wynik, więc tytuł, tekst i spis treści opuszczają Workera, zanim podpisany strumień powstanie, a odtwarzacz wypełnia swój szkielet.
+
+Zmierzone na buildach `bun run build:test` serwowanych przez `bun run start:test`, z user agentem przeglądarki i z sesją w pliku cookie, w 3 przeplatanych rundach po 10 żądań na stronę i build. Build testowy odpowiada za Polara z atrapy w pamięci; w tych przebiegach czekała ona 300 ms przed każdą odpowiedzią, aby zastąpić wymianę z API Polara. D1 jest w buildzie testowym lokalne. Pierwszy bajt to czas do nadejścia nagłówków odpowiedzi, które TanStack Start wysyła z pierwszą częścią strony; każda komórka to mediana median z trzech rund:
+
+| Strona            | Pierwszy bajt przed | Pierwszy bajt po | Cała strona przed | Cała strona po |
+| ----------------- | ------------------- | ---------------- | ----------------- | -------------- |
+| `/admin`          | 403 ms              | 83 ms            | 419 ms            | 327 ms         |
+| `/admin/products` | 361 ms              | 43 ms            | 370 ms            | 367 ms         |
+| `/app/billing`    | 30 ms               | 28 ms            | 36 ms             | 35 ms          |
+| Lekcja            | 38 ms               | 35 ms            | 45 ms             | 44 ms          |
+
+`/app/billing` i lekcja odczytują tylko D1, które jest tu lokalne, więc te przebiegi nie pokazują dla nich różnicy; na Cloudflare ich pierwszy bajt nie czeka już na zapytania, które teraz docierają strumieniowo. Bez opóźnienia każda strona ładowała się przed zmianą i po niej tak samo długo, w rozrzucie przebiegów. W pełni załadowane strony są identyczne co do piksela przy szerokości 1440 i 390 pikseli, po angielsku i po niemiecku, a każdy szkielet zajmuje tyle miejsca co sekcja, która go zastępuje.
+
+Robot wyszukiwarki dostaje całą stronę w pierwszej odpowiedzi, z każdą sekcją na swoim miejscu: TanStack Start czeka na każdą sekcję, zanim odpowie na żądanie, którego user agenta rozpoznaje `isbot`, a łatka router-core nie pozwala routerowi wcześniej czytać strumienia Reacta ([Zależności](/docs/conventions/dependencies)). `isbot` uznaje za roboty także `curl` i `fetch` z Bun i Node, więc skrypt, który mierzy przesyłanie strumieniowe, musi wysyłać user agenta przeglądarki.
+
+`src/routes/__test__/admin-products-loaders.test.ts` sprawdza, że `/admin` i `/admin/products` renderują się, gdy katalog Polara wciąż się wczytuje, a `app-billing-routes.component.test.tsx` i `lesson-routes.component.test.tsx`, że historia płatności i odtwarzacz pokazują szkielety, dopóki ich dane docierają strumieniowo.
+
 ## Strony nagłówka ładują się przed kliknięciem [#the-headers-pages-load-before-a-click]
 
-`defaultPreload: "intent"` ładuje kod i dane linku dopiero wtedy, gdy kursor spocznie na nim przez `defaultPreloadDelay`, a tego czasu nigdy nie daje mu szybkie kliknięcie, dotknięcie na telefonie ani klawiatura. Po odchudzeniu drzewa tras nawigacja po stronie klienta z `/` do nagłówka `/docs` na saasyland.com trwała od 255 do 283 ms na rozgrzanym izolacie Workera i od 1,3 do 2,0 sekundy na nowym, bo dwie funkcje serwerowe dokumentacji czekały od 1,1 do 2,0 sekundy na start izolatu.
+`defaultPreload: "intent"` ładuje kod i dane linku dopiero wtedy, gdy kursor spocznie na nim przez `defaultPreloadDelay`, czyli <RepositoryFact name="navigationPreloadDelayMs" unit="millisecond" /> (`NAVIGATION_PRELOAD_DELAY_MS` w `src/data/navigation.constants.ts`), a tego czasu nigdy nie daje mu szybkie kliknięcie, dotknięcie na telefonie ani klawiatura. Po odchudzeniu drzewa tras nawigacja po stronie klienta z `/` do nagłówka `/docs` na saasyland.com trwała od 255 do 283 ms na rozgrzanym izolacie Workera i od 1,3 do 2,0 sekundy na nowym, bo dwie funkcje serwerowe dokumentacji czekały od 1,1 do 2,0 sekundy na start izolatu.
 
 Dlatego `Navigation` wstępnie ładuje przez TanStack Router stronę każdej pozycji `HEADER_NAVIGATION`, gdy wyświetlana strona jest bezczynna. Nowy izolat startuje więc przed kliknięciem, a kliknięcie znajduje kod i dane strony w pamięci podręcznej routera. Wywołuje `router.preloadRoute` dla każdej pozycji wewnątrz efektu Reacta i planuje te wywołania za pomocą `preloadWhenIdle`:
 
@@ -114,6 +138,7 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 - Efekt zależy od `shownPath`, ścieżki wyświetlanej strony z `resolvedLocation` routera, więc nagłówek ładuje wstępnie ponownie, gdy kolejna strona jest bezczynna, i utrzymuje swoje strony świeże, gdy ktoś przegląda witrynę. Strona, której dane są wciąż świeże, nie jest ładowana ponownie. Strona, od której zaczyna się wizyta, została wyrenderowana podczas builda, więc router uznaje jej dane za nieświeże i ładuje je ponownie, gdy nagłówek pierwszy raz wstępnie ładuje ją z innej strony.
 - `preload="viewport"` z TanStack Router na linkach nagłówka zaczynałby, gdy tylko link znajdzie się w obszarze widoku, a przypięty nagłówek jest w nim zawsze, więc konkurowałby z hydratacją; poza tym na telefonie linki są w menu, które renderuje je dopiero po otwarciu.
 - Tylko linki nagłówka ładują się wstępnie w ten sposób. Każdy inny link, na przykład setki linków na pasku bocznym dokumentacji, zachowuje `defaultPreload: "intent"`.
+- Gdy sesja skieruje link do konta na panel odwiedzającego, `/admin` lub `/app`, ta pozycja ładuje tylko swój kod, przez `router.loadRouteChunk` dla każdej trasy, do której pasuje. Wstępne ładowanie strony uruchamiało guard i loader tego panelu: u administratora cały pulpit razem z katalogiem Polara, na każdej wyświetlanej stronie. Pozycja, której stroną jest ta zadeklarowana w `HEADER_NAVIGATION`, łącznie z **Zaloguj się**, nadal ładuje swoje dane. Na buildzie `bun run build:test` liczba żądań do funkcji serwerowych, które strona po zalogowaniu wysłała, zanim stała się bezczynna, spadła na `/` z 12 do 2 u administratora i z 4 do 2 u klienta.
 
 `src/router.tsx` ustawia `defaultPreloadStaleTime` na <RepositoryFact name="routerPreloadStaleTimeMs" unit="millisecond" />, wartość z przewodnika TanStack Router po TanStack Query, a `defaultStaleTime` zostawia przy domyślnej wartości routera, więc o świeżości decyduje wyłącznie TanStack Query: kliknięcie po wstępnym załadowaniu ponownie uruchamia loadery strony, a one czytają to, co wstępne ładowanie zapisało w cache zapytań. Wcześniej router trzymał wstępnie załadowane strony przez czas świeżości zapytań, bo loadery dokumentacji i bloga wywoływały funkcje serwerowe poza TanStack Query; teraz importują indeksy generowane podczas builda, które przeglądarka zachowuje po pierwszym załadowaniu, więc nie jest to już potrzebne. Na buildzie z `bun run build:test` najechanie na link i kliknięcie go dawały te same wywołania funkcji serwerowych przy obu ustawieniach, na stronach kursów, bloga, dokumentacji i panelu administracyjnego: jedno lub dwa przy pierwszym najechaniu, zależnie od zapytań strony, i żadnego przy drugim najechaniu, kliknięciu ani powrocie.
 
@@ -135,6 +160,21 @@ Strona główna nie jest wolniejsza. Lighthouse na `/`, na buildzie `bun run bui
 | Total Blocking Time na komputerze      | 137 ms  | 136 ms  |
 
 `e2e/specs/navigation.spec.ts` czeka, aż wstępne ładowanie nagłówka zakończy się na `/` i na `/docs`, wstrzymuje wszystkie funkcje serwerowe i klika każdy link nagłówka, na komputerze i w menu na telefonie; każda strona i tak się otwiera. Sprawdza też, że dla odwiedzających z włączonym oszczędzaniem danych nic nie jest ładowane przed kliknięciem.
+
+Domyślne opóźnienie samego TanStack Router to 50 ms. Na buildzie `bun run build:test` z 40 ms dodatkowego opóźnienia, z kursorem na pozycji paska bocznego panelu administracyjnego przez 75 lub 150 ms przed naciśnięciem i 20 naciśnięciami na komórkę, naciśnięcie docierało do strony w medianie po 37 ms przy 50 ms i po 40–46 ms przy obecnym opóźnieniu, w rozrzucie przebiegów (od 12 do 122 ms), a kursor przesuwany w dół paska bocznego z prędkością 75 ms na pozycję bez naciskania wywołał 8 żądań do funkcji serwerowych przy 50 ms i 2 przy obecnym opóźnieniu. Opóźnienie zostaje bez zmian.
+
+## Loadery zostają w chunku swojej trasy [#loaders-stay-in-their-routes-chunk]
+
+`vite.config.ts` wydziela loader każdej trasy do osobnego chunka, razem z jej komponentem, komponentem błędu i komponentem strony „nie znaleziono”, a TanStack Router domyślnie zostawia loader w drzewie tras. Pozostawienie go tam przyspiesza o jedną wymianę z serwerem nawigację, której nic wcześniej nie załadowało, czyli dotknięcie albo kliknięcie bez zatrzymania kursora na linku, ale umieszcza każdy loader i wszystko, co importuje, w skrypcie wejściowym. Zmierzone na buildach `bun run build:test`, w Chromium z włączonym oszczędzaniem danych i 150 ms dodatkowego opóźnienia na żądanie, w przeplatanych rundach po 4 kliknięcia na build, od 8 do 12 kliknięć na komórkę, z rozmiarem wszystkich skryptów ładowanych przez daną stronę, po kompresji gzip:
+
+| Pomiar                                                                       | Loadery wydzielone | Loadery w drzewie tras |
+| ---------------------------------------------------------------------------- | ------------------ | ---------------------- |
+| JavaScript na `/`                                                            | 530,5 KiB          | 644,5 KiB              |
+| JavaScript na `/admin`                                                       | 644,6 KiB          | 762,5 KiB              |
+| Kliknięcie z `/` do `/courses`, bez wstępnego ładowania                      | 649 ms             | 508 ms                 |
+| Kliknięcie w pasku bocznym panelu administracyjnego, bez wstępnego ładowania | 515 ms             | 355 ms                 |
+
+Każda strona ładowałaby około 115 KiB więcej, aby oszczędzić jedną wymianę z serwerem przy kliknięciach, których wstępne ładowanie nie wyprzedzi, a strony nagłówka i tak ładują się wstępnie, więc loadery zostają wydzielone.
 
 ## Guardy tras korzystają z sesji z cache [#guards-reuse-the-cached-session]
 

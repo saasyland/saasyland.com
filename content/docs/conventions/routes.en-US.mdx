@@ -1,6 +1,6 @@
 ---
 title: "Route files"
-description: "The one shape of a page route and a layout route: NAMESPACE or NAMESPACES, a single Promise.all loader, a skeleton that mirrors the page, search schemas and links."
+description: "The one shape of a page route and a layout route: NAMESPACE or NAMESPACES, one Promise.all for what the first flush needs and streamed sections for the rest, a skeleton that mirrors the page, search schemas and links."
 ---
 
 Every file in `src/routes` has the same shape, so a reader who knows one knows all of them. A route file composes: it declares what the page needs and places components. Widgets, forms, dialogs and table columns live in `src/presentation/components/custom`.
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 - **The component** is a local `const` named `<Name>Page`, defined first. Small markup used only by this page may sit above it as local components, as `CourseProgress` and `StartLink` do in `_site._marketing.courses.$course.index.tsx`; anything with its own data, mutation or state goes to a component file.
 - **One namespace.** `const NAMESPACE = "pages.<feature>.<page>"` sits directly above `export const Route` and is used in `loadPageMetadata`, `preloadNamespaces` and `staticData`. Anything else the page needs is declared by its layout.
-- **One `Promise.all`.** The loader starts every piece of work at once: page metadata, the namespace and every query the components read. It returns `{ locale, metadata }` for `head`. Never await one of them before starting the next.
+- **One `Promise.all` for the first flush.** The loader starts every piece of work at once. It awaits, in one `Promise.all`, what the server needs before it sends the first byte: the page metadata, the namespace, the data the loader itself reads and the data a component reads with `useQuery`, such as the first page of a `DataGrid`. Every other query starts without being awaited and streams into its section's skeleton (see [Streamed sections](#streamed-sections)). The loader returns `{ locale, metadata }` for `head`. Never await one piece of work before starting the next.
 - **`head: pageHead(ROUTES.X)`** builds the title, description, canonical URL and alternates from the metadata in the namespace file.
 - **Paths come from `ROUTES`** in `src/routes.ts`, which joins the paths of every area (see [Paths and navigation](#paths-and-navigation)); never write a path literal.
 
@@ -100,6 +100,33 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 ```
 
 `recordHead` (`src/lib/not-found.ts`) builds that head from the loader data and falls back to the list's path while the record loads. When the loader throws `notFound`, because `rethrowAsNotFound` met a missing record, it returns the not-found title and description with `noindex` instead, so a missing user, order, course or lesson is not titled after the site.
+
+## Streamed sections
+
+A page whose secondary sections wait on slower data, such as Polar's catalogue or the dashboard's counts, sends its first bytes without them. `src/routes/admin.index.tsx` awaits the metadata, the namespace and the newest accounts, which its `DataGrid` reads with `useQuery`, and starts the queries of the statistics and panels without awaiting them:
+
+```tsx title="src/routes/admin.index.tsx"
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    for (const { prefetch } of [...DASHBOARD_STATS, ...DASHBOARD_PANELS]) {
+      void prefetch(context.queryClient).catch(noop)
+    }
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...getUsersPageQuery({ pageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }), staleTime: "static" }),
+      TimeSeriesBars.preload?.(),
+    ])
+    return { locale, metadata }
+  },
+```
+
+- A streamed query starts before the `Promise.all`, with `void` and `.catch(noop)` from TanStack Query, as TanStack Router's guide to TanStack Query does, so a failure never becomes an unhandled rejection. The failure still reaches the component that reads the query, and from there the route's error component.
+- The component reads it with `useSuspenseQuery` inside a `Suspense` boundary whose fallback is the section's skeleton, the one the route's `pendingComponent` draws, so the section takes the same room before and after its data arrives. `DashboardStats` wraps each statistic in `<Suspense fallback={<DashboardStatPending />}>` and `DashboardPanels` each panel in its `Pending`; `/admin/products` wraps its grid in `PolarProductGridPending` and `/app/billing` its orders in `BillingHistoryPending`, in the route file.
+- Never stream data that a component reads with `useQuery`, such as a `DataGrid` page: the server renders the component without the data, the browser hydrates it with the data, and React throws the server's HTML away. Await it instead.
+- `head` runs once the loader has returned, so it reads only awaited data.
+
+On a request, TanStack Start sends the page up to its unresolved boundaries at once and each section as its query resolves, in the same response, and `@tanstack/react-router-ssr-query` sends each query's data along, so the browser does not fetch it again. A crawler, recognised by `isbot`, receives the whole page at once. On a client navigation the page appears as soon as its awaited work is done, and each section fills its skeleton. [Performance](/docs/conventions/performance#request-rendered-pages-stream-their-slow-sections) has the measurements.
 
 ## Layout routes
 
@@ -204,7 +231,7 @@ Every admin entry opens a screen that works on real data, and the landing page c
 
 The customer sidebar holds the licence's **Licence** entry and the billing area's **Billing**, and its resources the content's **Documentation**, above the support address. The core needs only `/` and `/api`, and the header's **Pricing**, the one entry with a `hash`, which links to the pricing section of `/`.
 
-A dashboard statistic in `DASHBOARD_STATS` has a `prefetch`, which the `/admin` loader runs, and a `useValue` hook, which `DashboardStats` calls to read the number.
+A dashboard statistic in `DASHBOARD_STATS` has a `prefetch`, which the `/admin` loader starts without awaiting it, and a `useValue` hook, which `DashboardStats` calls to read the number inside the statistic's own `Suspense` boundary.
 
 `APP_STATEMENTS` in `auth.access.ts` declares the permission statements, one per resource, and `scripts/features.ts` names the statements of a feature that can be left out, such as `APP_STATEMENTS.course`, so that leaving it out deletes them (see [Roles and permissions](/docs/guides/roles-and-permissions)).
 

@@ -159,6 +159,7 @@ import {
   type FeatureStatus,
   NAVIGATION_PENDING_MIN_MS,
   NAVIGATION_PENDING_MS,
+  NAVIGATION_PRELOAD_DELAY_MS,
 } from "~/src/data/navigation.constants"
 import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
 import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
@@ -355,6 +356,7 @@ const FACTS = {
   nameMaxLength: NAME_MAX_LENGTH,
   navigationPendingMinMs: NAVIGATION_PENDING_MIN_MS,
   navigationPendingMs: NAVIGATION_PENDING_MS,
+  navigationPreloadDelayMs: NAVIGATION_PRELOAD_DELAY_MS,
   newsletterBatchSize: RESEND_BATCH_LIMIT,
   newsletterBatchesPerStep: NEWSLETTER_ISSUE_BATCHES_PER_STEP,
   newsletterBodyMaxLength: NEWSLETTER_ISSUE_BODY_MAX_LENGTH,

@@ -27,15 +27,18 @@ describe("admin route loaders", () => {
     expectLocalizedAdminPage(await loadAsAdmin(path))
   })
 
-  it("populates required query data before rendering /admin", async () => {
+  it("starts every query /admin reads, and fills the streamed statistics and panels once they arrive", async () => {
     vi.spyOn(getUsersQuery, "queryFn")
     vi.spyOn(courseProgressQuery, "queryFn")
     vi.spyOn(newsletterSubscribersQuery, "queryFn")
     const router = await loadAsAdmin("/admin")
+    const cached = router.options.context.queryClient
+    await vi.waitFor(() => {
+      expect(cached.isFetching()).toBe(0)
+    })
     expectPrefetched(router, getUsersQuery, { ...EMPTY_PAGE, pendingVerification: 0 })
     expectPrefetched(router, courseProgressQuery, { learners: 0, rows: [] })
     expectPrefetched(router, newsletterSubscribersQuery, { total: 0 })
-    const cached = router.options.context.queryClient
     expect(cached.getQueryData(revenueQuery().queryKey)).toStrictEqual({ bucket: TIME_BUCKET.DAY, currencies: [] })
     expect(cached.getQueryData(userSignupsQuery().queryKey)).toMatchObject({ bucket: TIME_BUCKET.DAY, total: 0 })
   })

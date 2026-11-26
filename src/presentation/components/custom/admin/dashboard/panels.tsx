@@ -1,4 +1,4 @@
-import type { JSX } from "react"
+import { type JSX, Suspense } from "react"
 
 import { CourseProgress } from "~/src/presentation/components/custom/admin/courses/course-progress"
 import { DASHBOARD_PANELS, type DashboardPanelKey } from "~/src/presentation/components/custom/admin/dashboard/panels-pending"
@@ -17,10 +17,14 @@ const PANELS: Readonly<Record<DashboardPanelKey, () => JSX.Element>> = {
 
 export const DashboardPanels = (): JSX.Element => (
   <>
-    {DASHBOARD_PANELS.map(({ key }) => {
+    {DASHBOARD_PANELS.map(({ key, Pending }) => {
       const Panel = PANELS[key]
 
-      return <Panel key={key} />
+      return (
+        <Suspense fallback={<Pending />} key={key}>
+          <Panel />
+        </Suspense>
+      )
     })}
   </>
 )

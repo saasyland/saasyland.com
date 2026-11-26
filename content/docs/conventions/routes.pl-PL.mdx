@@ -1,6 +1,6 @@
 ---
 title: "Pliki tras"
-description: "Jedna budowa trasy strony i trasy layoutu: NAMESPACE lub NAMESPACES, loader z jednym Promise.all, szkielet odzwierciedlający stronę, schematy parametrów adresu URL i linki."
+description: "Jedna budowa trasy strony i trasy layoutu: NAMESPACE lub NAMESPACES, jedno Promise.all na to, czego potrzebuje pierwsza część odpowiedzi, i sekcje przesyłane strumieniowo na resztę, szkielet odzwierciedlający stronę, schematy parametrów adresu URL i linki."
 ---
 
 Każdy plik w `src/routes` ma tę samą budowę, więc czytelnik, który zna jeden, zna wszystkie. Plik trasy tylko składa stronę z części: deklaruje, czego potrzebuje strona, i rozmieszcza komponenty. Widżety, formularze, okna dialogowe i kolumny tabel znajdują się w `src/presentation/components/custom`.
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 - **Komponent** to lokalna stała `const` nazwana `<Name>Page`, zdefiniowana na początku. Drobne fragmenty znaczników używane tylko przez tę stronę mogą znajdować się nad nią jako komponenty lokalne, tak jak `CourseProgress` i `StartLink` w `_site._marketing.courses.$course.index.tsx`; wszystko, co ma własne dane, mutację lub stan, trafia do pliku komponentu.
 - **Jedna przestrzeń nazw.** `const NAMESPACE = "pages.<feature>.<page>"` stoi bezpośrednio nad `export const Route` i jest używana w `loadPageMetadata`, `preloadNamespaces` i `staticData`. Wszystko inne, czego potrzebuje strona, deklaruje jej layout.
-- **Jedno `Promise.all`.** Loader rozpoczyna całą pracę naraz: metadane strony, przestrzeń nazw i każde zapytanie, które odczytują komponenty. Zwraca `{ locale, metadata }` dla `head`. Nigdy nie czekaj na jedno z nich przed rozpoczęciem następnego.
+- **Jedno `Promise.all` na pierwszą część odpowiedzi.** Loader rozpoczyna całą pracę naraz. W jednym `Promise.all` czeka na to, czego serwer potrzebuje, zanim wyśle pierwszy bajt: metadane strony, przestrzeń nazw, dane, które odczytuje sam loader, i dane, które komponent odczytuje przez `useQuery`, np. pierwszą stronę `DataGrid`. Każde inne zapytanie rusza bez czekania na wynik i trafia strumieniowo do szkieletu swojej sekcji (zobacz [Sekcje przesyłane strumieniowo](#streamed-sections)). Loader zwraca `{ locale, metadata }` dla `head`. Nigdy nie czekaj na jedno zadanie przed rozpoczęciem następnego.
 - **`head: pageHead(ROUTES.X)`** buduje tytuł, opis, kanoniczny URL i wersje alternatywne z metadanych w pliku przestrzeni nazw.
 - **Ścieżki pochodzą z `ROUTES`** w `src/routes.ts`, który łączy ścieżki wszystkich obszarów (zobacz [Ścieżki i nawigacja](#paths-and-navigation)); nigdy nie wpisuj literału ścieżki.
 
@@ -100,6 +100,33 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 ```
 
 `recordHead` (`src/lib/not-found.ts`) buduje ten head z danych loadera, a dopóki rekord się wczytuje, używa ścieżki listy. Gdy loader rzuca `notFound`, bo `rethrowAsNotFound` trafił na brakujący rekord, zwraca zamiast tego tytuł i opis strony „nie znaleziono” z `noindex`, więc brakujący użytkownik, zamówienie, kurs czy lekcja nie dostają tytułu z samą nazwą witryny.
+
+## Sekcje przesyłane strumieniowo [#streamed-sections]
+
+Strona, której drugorzędne sekcje czekają na wolniejsze dane, takie jak katalog Polara czy liczniki pulpitu, wysyła pierwsze bajty bez nich. `src/routes/admin.index.tsx` czeka na metadane, przestrzeń nazw i najnowsze konta, które jego `DataGrid` odczytuje przez `useQuery`, a zapytania statystyk i paneli uruchamia bez czekania na nie:
+
+```tsx title="src/routes/admin.index.tsx"
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    for (const { prefetch } of [...DASHBOARD_STATS, ...DASHBOARD_PANELS]) {
+      void prefetch(context.queryClient).catch(noop)
+    }
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...getUsersPageQuery({ pageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }), staleTime: "static" }),
+      TimeSeriesBars.preload?.(),
+    ])
+    return { locale, metadata }
+  },
+```
+
+- Zapytanie przesyłane strumieniowo rusza przed `Promise.all`, z `void` i `.catch(noop)` z TanStack Query, tak jak w przewodniku TanStack Router po TanStack Query, więc błąd nigdy nie staje się nieobsłużonym odrzuceniem. Błąd i tak dociera do komponentu, który odczytuje zapytanie, a stamtąd do komponentu błędu trasy.
+- Komponent odczytuje je przez `useSuspenseQuery` wewnątrz granicy `Suspense`, której `fallback` to szkielet sekcji, ten sam, który rysuje `pendingComponent` trasy, więc sekcja zajmuje tyle samo miejsca przed nadejściem danych i po nim. `DashboardStats` umieszcza każdą statystykę w `<Suspense fallback={<DashboardStatPending />}>`, a `DashboardPanels` każdy panel w jego `Pending`; `/admin/products` umieszcza swoją siatkę w `PolarProductGridPending`, a `/app/billing` swoje zamówienia w `BillingHistoryPending`, w pliku trasy.
+- Nigdy nie przesyłaj strumieniowo danych, które komponent odczytuje przez `useQuery`, takich jak strona `DataGrid`: serwer renderuje komponent bez danych, przeglądarka hydratuje go z danymi, a React odrzuca HTML z serwera. Zamiast tego poczekaj na nie.
+- `head` działa dopiero wtedy, gdy loader zwróci wynik, więc odczytuje tylko dane, na które loader czekał.
+
+Przy żądaniu TanStack Start w jednej odpowiedzi wysyła od razu stronę aż do granic, które wciąż czekają na dane, a potem każdą sekcję, gdy tylko skończy się jej zapytanie. `@tanstack/react-router-ssr-query` dołącza do niej dane każdego zapytania, więc przeglądarka nie pobiera ich ponownie. Robot wyszukiwarki, rozpoznany przez `isbot`, dostaje całą stronę naraz. Przy nawigacji po stronie klienta strona pojawia się, gdy tylko skończy się praca, na którą czeka, a każda sekcja wypełnia swój szkielet. Pomiary opisuje strona [Wydajność](/docs/conventions/performance#request-rendered-pages-stream-their-slow-sections).
 
 ## Trasy layoutów
 
@@ -204,7 +231,7 @@ Każda pozycja panelu administracyjnego otwiera ekran działający na prawdziwyc
 
 Pasek boczny panelu klienta zawiera pozycję **Licencja** z obszaru licencji i pozycję **Płatności** z obszaru płatności, a jego materiały, nad adresem wsparcia, pozycję **Dokumentacja** z obszaru treści. Obszar podstawowy potrzebuje tylko `/` i `/api` oraz pozycji **Cennik** w nagłówku, jedynej z `hash`, która prowadzi do sekcji cennika strony `/`.
 
-Statystyka pulpitu w `DASHBOARD_STATS` ma `prefetch`, który uruchamia loader `/admin`, i hook `useValue`, który `DashboardStats` wywołuje, aby odczytać liczbę.
+Statystyka pulpitu w `DASHBOARD_STATS` ma `prefetch`, który loader `/admin` uruchamia bez czekania na wynik, i hook `useValue`, który `DashboardStats` wywołuje, aby odczytać liczbę wewnątrz własnej granicy `Suspense` tej statystyki.
 
 `APP_STATEMENTS` w `auth.access.ts` zawiera deklaracje uprawnień, po jednej na zasób, a `scripts/features.ts` wskazuje deklaracje funkcji aplikacji, którą można pominąć, na przykład `APP_STATEMENTS.course`, aby jej pominięcie usuwało też te deklaracje (zobacz [Role i uprawnienia](/docs/guides/roles-and-permissions)).
 

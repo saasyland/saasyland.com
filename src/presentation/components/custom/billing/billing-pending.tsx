@@ -27,7 +27,7 @@ const usePendingBilling = () => {
   }
 }
 
-const ConfirmationPending = (): JSX.Element => (
+export const ConfirmationPending = (): JSX.Element => (
   <div className="flex items-start gap-5 rounded-lg border border-border bg-card p-6 md:p-8">
     <Skeleton className="size-11 shrink-0 rounded-full" />
     <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
@@ -70,6 +70,17 @@ const CardPending = ({ hasAction, rows }: Readonly<{ hasAction: boolean; rows: r
   </Card>
 )
 
+export const BillingHistoryPending = (): JSX.Element => {
+  const view = usePendingBilling()
+
+  return (
+    <>
+      {view.subscriptions.length > 0 && <CardPending hasAction={false} rows={view.subscriptions} />}
+      <CardPending hasAction rows={view.orders} />
+    </>
+  )
+}
+
 export const AppBillingPending = (): JSX.Element => {
   const view = usePendingBilling()
 
@@ -80,8 +91,7 @@ export const AppBillingPending = (): JSX.Element => {
         {view.hasHistory && <Skeleton className="h-7 w-32 rounded-md" />}
       </div>
       {view.isConfirming && <ConfirmationPending />}
-      {view.subscriptions.length > 0 && <CardPending hasAction={false} rows={view.subscriptions} />}
-      <CardPending hasAction rows={view.orders} />
+      <BillingHistoryPending />
     </div>
   )
 }

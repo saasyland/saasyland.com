@@ -1,6 +1,6 @@
 ---
 title: "Arquivos de rota"
-description: "A forma única de uma rota de página e de uma rota de layout: NAMESPACE ou NAMESPACES, um loader com um único Promise.all, um esqueleto que reproduz a página, schemas de busca e links."
+description: "A forma única de uma rota de página e de uma rota de layout: NAMESPACE ou NAMESPACES, um único Promise.all para o que a primeira parte da resposta precisa e seções em streaming para o resto, um esqueleto que reproduz a página, schemas de busca e links."
 ---
 
 Todo arquivo em `src/routes` tem a mesma forma, então quem conhece um conhece todos. Um arquivo de rota compõe: ele declara do que a página precisa e posiciona os componentes. Widgets, formulários, diálogos e colunas de tabela ficam em `src/presentation/components/custom`.
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 - **O componente** é uma `const` local chamada `<Name>Page`, definida primeiro. Uma marcação pequena usada apenas por esta página pode ficar acima dele como componentes locais, como `CourseProgress` e `StartLink` em `_site._marketing.courses.$course.index.tsx`; tudo o que tem dados, mutation ou estado próprios vai para um arquivo de componente.
 - **Um namespace.** `const NAMESPACE = "pages.<feature>.<page>"` fica logo acima de `export const Route` e é usado em `loadPageMetadata`, `preloadNamespaces` e `staticData`. Todo o resto de que a página precisa é declarado pelo seu layout.
-- **Um `Promise.all`.** O loader inicia todo o trabalho de uma vez: os metadados da página, o namespace e todas as queries que os componentes leem. Ele retorna `{ locale, metadata }` para `head`. Nunca aguarde um deles antes de iniciar o próximo.
+- **Um `Promise.all` para a primeira parte da resposta.** O loader inicia todo o trabalho de uma vez. Ele aguarda, em um único `Promise.all`, aquilo de que o servidor precisa antes de enviar o primeiro byte: os metadados da página, o namespace, os dados que o próprio loader lê e os dados que um componente lê com `useQuery`, como a primeira página de um `DataGrid`. Todas as outras queries começam sem ser aguardadas e chegam por streaming ao esqueleto da sua seção (veja [Seções em streaming](#streamed-sections)). O loader retorna `{ locale, metadata }` para `head`. Nunca aguarde um trabalho antes de iniciar o próximo.
 - **`head: pageHead(ROUTES.X)`** monta o título, a descrição, a URL canônica e os links alternativos a partir dos metadados do arquivo de namespace.
 - **Os caminhos vêm de `ROUTES`**, em `src/routes.ts`, que reúne os caminhos de todas as áreas (veja [Caminhos e navegação](#paths-and-navigation)); nunca escreva um literal de caminho.
 
@@ -100,6 +100,33 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 ```
 
 `recordHead` (`src/lib/not-found.ts`) monta esse head a partir dos dados do loader e usa o caminho da lista enquanto o registro carrega. Quando o loader lança `notFound`, porque `rethrowAsNotFound` encontrou um registro inexistente, ele devolve no lugar o título e a descrição da página não encontrada com `noindex`, de modo que um usuário, um pedido, um curso ou uma aula inexistentes não recebem o nome do site como título.
+
+## Seções em streaming [#streamed-sections]
+
+Uma página cujas seções secundárias esperam por dados mais lentos, como o catálogo do Polar ou as contagens do painel, envia os primeiros bytes sem elas. `src/routes/admin.index.tsx` aguarda os metadados, o namespace e as contas mais recentes, que o seu `DataGrid` lê com `useQuery`, e inicia as queries das estatísticas e dos painéis sem aguardá-las:
+
+```tsx title="src/routes/admin.index.tsx"
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    for (const { prefetch } of [...DASHBOARD_STATS, ...DASHBOARD_PANELS]) {
+      void prefetch(context.queryClient).catch(noop)
+    }
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...getUsersPageQuery({ pageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }), staleTime: "static" }),
+      TimeSeriesBars.preload?.(),
+    ])
+    return { locale, metadata }
+  },
+```
+
+- Uma query em streaming começa antes do `Promise.all`, com `void` e `.catch(noop)` do TanStack Query, como faz o guia do TanStack Router sobre o TanStack Query, para que uma falha nunca se torne uma rejeição não tratada. A falha ainda chega ao componente que lê a query e, a partir dele, ao componente de erro da rota.
+- O componente a lê com `useSuspenseQuery` dentro de um boundary de `Suspense` cujo fallback é o esqueleto da seção, o mesmo que o `pendingComponent` da rota desenha, para que a seção ocupe o mesmo espaço antes e depois de os dados chegarem. `DashboardStats` envolve cada estatística em `<Suspense fallback={<DashboardStatPending />}>` e `DashboardPanels` cada painel no seu `Pending`; `/admin/products` envolve a sua grade em `PolarProductGridPending` e `/app/billing` os seus pedidos em `BillingHistoryPending`, no arquivo de rota.
+- Nunca faça streaming de dados que um componente lê com `useQuery`, como uma página de um `DataGrid`: o servidor renderiza o componente sem os dados, o navegador o hidrata com os dados e o React descarta o HTML do servidor. Aguarde-os em vez disso.
+- `head` roda depois que o loader retorna, então lê apenas dados aguardados.
+
+Em uma requisição, o TanStack Start envia de imediato a página até os seus boundaries não resolvidos e cada seção assim que a sua query se resolve, na mesma resposta, e o `@tanstack/react-router-ssr-query` envia junto os dados de cada query, então o navegador não os busca de novo. Um crawler, reconhecido pelo `isbot`, recebe a página inteira de uma vez. Em uma navegação no cliente, a página aparece assim que o trabalho que ela aguarda termina, e cada seção preenche o seu esqueleto. [Desempenho](/docs/conventions/performance#request-rendered-pages-stream-their-slow-sections) traz as medições.
 
 ## Rotas de layout
 
@@ -204,7 +231,7 @@ Toda entrada do admin abre uma tela que funciona com dados reais, e a landing pa
 
 A barra lateral do app do cliente traz os itens **Licença**, da área de licenças, e **Cobrança**, da área de cobrança, e os seus recursos trazem **Documentação**, da área de conteúdo, acima do endereço de suporte. A base só precisa de `/` e `/api`, e do item **Preços** do cabeçalho, o único com `hash`, que leva à seção de preços de `/`.
 
-Uma estatística do painel em `DASHBOARD_STATS` tem um `prefetch`, que o loader de `/admin` executa, e um hook `useValue`, que `DashboardStats` chama para ler o número.
+Uma estatística do painel em `DASHBOARD_STATS` tem um `prefetch`, que o loader de `/admin` inicia sem aguardá-lo, e um hook `useValue`, que `DashboardStats` chama para ler o número dentro do boundary de `Suspense` da própria estatística.
 
 `APP_STATEMENTS`, em `auth.access.ts`, define as declarações de permissão, uma por recurso, e `scripts/features.ts` nomeia as declarações de uma funcionalidade que pode ficar de fora, como `APP_STATEMENTS.course`, para que deixá-la de fora as apague (veja [Papéis e permissões](/docs/guides/roles-and-permissions)).
 

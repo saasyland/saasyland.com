@@ -352,21 +352,33 @@ describe("navigation scroll progress", () => {
 
 const preloadedPaths = (preloadRoute: { mock: { calls: unknown[][] } }) => preloadRoute.mock.calls.map(([options]) => options)
 
+const PAGE_ENTRIES = HEADER_NAVIGATION.filter(({ signedIn }) => signedIn === undefined)
+
 describe("header preloading", () => {
-  const idleCallbacks: IdleRequestCallback[] = []
+  const idleCallbacks = new Map<number, IdleRequestCallback>()
+  let lastHandle = 0
   const cancelIdle = vi.fn<(handle: number) => void>()
 
   const becomeIdle = () => {
+    const callbacks = [...idleCallbacks.values()]
+    idleCallbacks.clear()
     act(() => {
-      for (const callback of idleCallbacks.splice(0)) {
+      for (const callback of callbacks) {
         callback({ didTimeout: false, timeRemaining: () => 0 })
       }
     })
   }
 
   beforeEach(() => {
-    idleCallbacks.length = 0
-    vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => idleCallbacks.push(callback))
+    idleCallbacks.clear()
+    cancelIdle.mockImplementation((handle) => {
+      idleCallbacks.delete(handle)
+    })
+    vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+      lastHandle += 1
+      idleCallbacks.set(lastHandle, callback)
+      return lastHandle
+    })
     vi.stubGlobal("cancelIdleCallback", cancelIdle)
   })
 
@@ -378,6 +390,24 @@ describe("header preloading", () => {
     expect(preloadRoute).not.toHaveBeenCalled()
     becomeIdle()
     expect(preloadedPaths(preloadRoute)).toStrictEqual(HEADER_NAVIGATION.map(({ to }) => ({ to })))
+  })
+
+  it("loads only the code of the workspace the account link leads to, so a marketing page never runs the console's guard or loaders", async () => {
+    document.documentElement.setAttribute(SESSION_ATTRIBUTE, "")
+    sessionRequest.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.ADMIN }))
+    const router = createTestRouter(ROUTES.LICENCE)
+    const preloadRoute = vi.spyOn(router, "preloadRoute").mockResolvedValue(undefined)
+    const loadRouteChunk = vi.spyOn(router, "loadRouteChunk").mockResolvedValue(undefined)
+    renderNavigation(<Navigation />, { router })
+    await waitFor(() => {
+      expect(accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.ADMIN.INDEX)).toBeDefined()
+    })
+
+    becomeIdle()
+    document.documentElement.removeAttribute(SESSION_ATTRIBUTE)
+
+    expect(preloadedPaths(preloadRoute)).toStrictEqual(PAGE_ENTRIES.map(({ to }) => ({ to })))
+    expect(loadRouteChunk.mock.calls.map(([route]) => route)).toStrictEqual(router.getMatchedRoutes(ROUTES.ADMIN.INDEX)[0])
   })
 
   it("loads them again once the next page is shown", async () => {

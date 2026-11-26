@@ -1,6 +1,6 @@
 ---
 title: "ルートファイル"
-description: "ページルートとレイアウトルートの唯一の形。NAMESPACE または NAMESPACES、1 つの Promise.all によるローダー、ページを再現するスケルトン、検索スキーマ、リンク。"
+description: "ページルートとレイアウトルートの唯一の形。NAMESPACE または NAMESPACES、レスポンスの最初の送信に必要なものを待つ 1 つの Promise.all と残りを送るストリーミングされるセクション、ページを再現するスケルトン、検索スキーマ、リンク。"
 ---
 
 `src/routes` のファイルはすべて同じ形をしているため、1 つを知っていればすべてがわかります。ルートファイルは組み立てを担い、ページに必要なものを宣言してコンポーネントを配置します。ウィジェット、フォーム、ダイアログ、テーブルのカラムは `src/presentation/components/custom` に置きます。
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 - **コンポーネント**は `<Name>Page` という名前のローカルな `const` で、最初に定義します。このページだけで使う小さなマークアップは、`_site._marketing.courses.$course.index.tsx` の `CourseProgress` や `StartLink` のように、ローカルなコンポーネントとしてその上に置いてもかまいません。独自のデータ、ミューテーション、状態を持つものはすべてコンポーネントファイルに置きます。
 - **名前空間は 1 つ。** `const NAMESPACE = "pages.<feature>.<page>"` は `export const Route` の直上に置き、`loadPageMetadata`、`preloadNamespaces`、`staticData` で使います。ページが必要とするその他の名前空間は、レイアウトが宣言します。
-- **`Promise.all` は 1 つ。** ローダーは、ページのメタデータ、名前空間、コンポーネントが読み取るすべてのクエリを一度に開始し、`head` のために `{ locale, metadata }` を返します。どれかを await してから次を開始してはいけません。
+- **レスポンスの最初の送信のための `Promise.all` は 1 つ。** ローダーはすべての処理を一度に開始します。サーバーが最初のバイトを送る前に必要なもの、つまりページのメタデータ、名前空間、ローダー自身が読み取るデータ、そして `DataGrid` の最初のページのようにコンポーネントが `useQuery` で読み取るデータを、1 つの `Promise.all` で await します。それ以外のクエリは await せずに開始し、セクションのスケルトンへストリーミングされます（[ストリーミングされるセクション](#streamed-sections)を参照）。ローダーは `head` のために `{ locale, metadata }` を返します。どれかの処理を await してから次を開始してはいけません。
 - **`head: pageHead(ROUTES.X)`** は、名前空間ファイルのメタデータからタイトル、説明、正規 URL、代替リンクを組み立てます。
 - **パスは `src/routes.ts` の `ROUTES` から取得します。** `ROUTES` はすべてのエリアのパスをまとめたものです（[パスとナビゲーション](#paths-and-navigation)を参照）。 パスのリテラルを書いてはいけません。
 
@@ -100,6 +100,33 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 ```
 
 `recordHead`（`src/lib/not-found.ts`）はこの head をローダーのデータから組み立て、レコードの読み込み中は一覧のパスを使います。`rethrowAsNotFound` が存在しないレコードに当たってローダーが `notFound` を投げたときは、代わりに「ページが見つかりません」のタイトルと説明を `noindex` 付きで返します。そのため、存在しないユーザー、注文、コース、レッスンのページにサイト名だけのタイトルが付くことはありません。
+
+## ストリーミングされるセクション [#streamed-sections]
+
+Polar のカタログやダッシュボードの件数のように、副次的なセクションが遅いデータを待つページは、それらを含めずに最初のバイトを送ります。`src/routes/admin.index.tsx` は、メタデータ、名前空間、そして `DataGrid` が `useQuery` で読み取る最新のアカウントを await し、統計とパネルのクエリは await せずに開始します。
+
+```tsx title="src/routes/admin.index.tsx"
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    for (const { prefetch } of [...DASHBOARD_STATS, ...DASHBOARD_PANELS]) {
+      void prefetch(context.queryClient).catch(noop)
+    }
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...getUsersPageQuery({ pageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }), staleTime: "static" }),
+      TimeSeriesBars.preload?.(),
+    ])
+    return { locale, metadata }
+  },
+```
+
+- ストリーミングするクエリは、`Promise.all` の前に、`void` と TanStack Query の `.catch(noop)` を付けて開始します。TanStack Router の TanStack Query ガイドと同じ書き方で、失敗が未処理の Promise 拒否になることはありません。それでも失敗はクエリを読み取るコンポーネントに届き、そこからルートのエラーコンポーネントに届きます。
+- コンポーネントは、フォールバックがセクションのスケルトン（ルートの `pendingComponent` が描くものと同じ）である `Suspense` 境界の中で、`useSuspenseQuery` を使ってクエリを読み取ります。そのため、セクションはデータが届く前も後も同じ領域を占めます。`DashboardStats` は各統計を `<Suspense fallback={<DashboardStatPending />}>` で、`DashboardPanels` は各パネルをその `Pending` で包みます。`/admin/products` はグリッドを `PolarProductGridPending` で、`/app/billing` は注文を `BillingHistoryPending` で、それぞれルートファイルの中で包みます。
+- `DataGrid` のページのように、コンポーネントが `useQuery` で読み取るデータは決してストリーミングしません。サーバーはデータなしでコンポーネントをレンダリングし、ブラウザーはデータ付きでハイドレーションするため、React はサーバーの HTML を破棄します。代わりに await してください。
+- `head` はローダーが値を返した後に実行されるので、await したデータだけを読み取ります。
+
+リクエスト時には、TanStack Start は未解決の境界までのページをすぐに送り、各セクションはそのクエリが解決したときに同じレスポンスで送ります。`@tanstack/react-router-ssr-query` が各クエリのデータも一緒に送るので、ブラウザーがそれを再び取得することはありません。`isbot` が判定したクローラーは、ページ全体を一度に受け取ります。クライアント側のナビゲーションでは、await した処理が終わるとすぐにページが表示され、各セクションがそれぞれのスケルトンを埋めます。計測結果は[パフォーマンス](/docs/conventions/performance#request-rendered-pages-stream-their-slow-sections)にあります。
 
 ## レイアウトルート
 
@@ -204,7 +231,7 @@ export const HEADER_NAVIGATION: readonly SiteEntry[] = [
 
 顧客向けアプリのサイドバーにはライセンスの **ライセンス** 項目と課金の **お支払い** 項目があり、そのリソース欄には、サポートの連絡先の上にコンテンツの **ドキュメント** があります。コアに必要なのは `/` と `/api`、そしてヘッダーの **料金** だけです。**料金** は `hash` を持つ唯一の項目で、`/` の料金セクションへリンクします。
 
-`DASHBOARD_STATS` のダッシュボードの統計には、`/admin` のローダーが実行する `prefetch` と、`DashboardStats` が数値を読み取るために呼び出す `useValue` フックがあります。
+`DASHBOARD_STATS` のダッシュボードの統計には、`/admin` のローダーが await せずに開始する `prefetch` と、`DashboardStats` がその統計専用の `Suspense` 境界の中で数値を読み取るために呼び出す `useValue` フックがあります。
 
 `auth.access.ts` の `APP_STATEMENTS` は権限ステートメントをリソースごとに 1 つずつ宣言します。`scripts/features.ts` は、外せる機能のステートメントを `APP_STATEMENTS.course` のように名指しするので、その機能を外すとステートメントも削除されます（[ロールと権限](/docs/guides/roles-and-permissions)を参照）。
 

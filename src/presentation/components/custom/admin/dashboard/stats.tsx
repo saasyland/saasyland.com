@@ -1,4 +1,4 @@
-import type { JSX } from "react"
+import { type JSX, Suspense } from "react"
 
 import { type QueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
@@ -11,6 +11,8 @@ import { getUsersQuery } from "~/src/modules/user/use-cases/get-users"
 import { getVideosQuery } from "~/src/modules/video/use-cases/get-videos"
 
 import { polarProductsQuery } from "~/src/lib/polar-catalogue"
+
+import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { ROUTES } from "~/src/routes"
 
@@ -104,10 +106,22 @@ const StatTile = ({ stat }: { readonly stat: DashboardStat }): JSX.Element => {
   )
 }
 
+export const DashboardStatPending = (): JSX.Element => (
+  <div className="flex flex-col gap-4 bg-card p-4 sm:p-5">
+    <div className="flex items-start justify-between gap-3">
+      <Skeleton className="h-lh w-32 scale-y-70 text-body-sm" />
+      <Skeleton className="size-8 rounded-md" />
+    </div>
+    <Skeleton className="h-lh w-10 scale-y-70 text-headline-support" />
+  </div>
+)
+
 export const DashboardStats = (): JSX.Element => (
   <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 lg:grid-cols-3">
     {DASHBOARD_STATS.map((stat) => (
-      <StatTile key={stat.label} stat={stat} />
+      <Suspense fallback={<DashboardStatPending />} key={stat.label}>
+        <StatTile stat={stat} />
+      </Suspense>
     ))}
   </dl>
 )

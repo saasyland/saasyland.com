@@ -12,6 +12,10 @@ import { expect, test } from "../fixtures/test"
 const URL_ENTRY = /<url>\s*<loc>(?<url>[^<]+)<\/loc>\s*<lastmod>(?<lastmod>\d{4}-\d{2}-\d{2})<\/lastmod>/gu
 const STRUCTURED_DATA = /<script type="application\/ld\+json">(?<json>[^<]+)<\/script>/gu
 const XML_CONTENT_TYPE = /^application\/xml/u
+const CRAWLER_USER_AGENT = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+const PENDING_BOUNDARY = "<!--$?-->"
+const STREAMED_SEGMENT = '<div hidden id="S:'
+const PLAYER_POSTER = 'class="media-poster-image"'
 
 const [freeLesson, ...lockedLessons] = TEST_LESSONS
 const COURSE_PATH = `${ROUTES.COURSES}/${TEST_COURSE.slug}`
@@ -65,4 +69,12 @@ test("a course page describes its course in structured data and a lesson outside
     await page.goto(lessonPath(lesson.slug))
     await expect(robots).toHaveAttribute("content", ROBOTS.NOINDEX)
   }
+})
+
+test("a crawler gets a lesson with every streamed section already in place, the player included", async ({ request }) => {
+  const html = await (await request.get(lessonPath(freeLesson.slug), { headers: { "User-Agent": CRAWLER_USER_AGENT } })).text()
+
+  expect(html).not.toContain(PENDING_BOUNDARY)
+  expect(html).not.toContain(STREAMED_SEGMENT)
+  expect(html).toContain(PLAYER_POSTER)
 })

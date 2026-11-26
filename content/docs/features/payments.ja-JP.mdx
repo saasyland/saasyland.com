@@ -101,7 +101,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 | `subscription.created`, `subscription.updated`                   | `src/modules/subscription/use-cases/record-subscription.ts` の `recordSubscription` |
 
 - 各ユースケースは Polar のレコード（`models.Order` または `models.Subscription`）を受け取り、1 つの文で書き込みます。Polar の ID で行を挿入し、行がすでにある場合は、保存されている `changed_at` がレコードのものより後でないときだけ更新します。新しいバージョンは反映され、遅れて届いた古いバージョンは何も変えず、2 回届いた同じバージョンは同じ値で書き直されます。同じ `modified_at` を持つ 2 つの異なる状態では、最後に書き込まれたほうが、Polar がレコードを再び変更するまで残ります。
-- `recordOrder` は割引と請求先の国を `polarOrderTerms`（`src/modules/order/order.polar.ts`）から取得し、`scripts/backfill-order-terms.ts` も同じものを使います。請求先住所のない後のバージョンは、すでにコピーされた国を保ちます。
+- `recordOrder` は割引と請求先の国を `polarOrderTerms` から、`subtotal_amount`、`net_amount`、`refunded_tax_amount` を `polarOrderAmounts` から取得し（どちらも `src/modules/order/order.polar.ts`）、`scripts/backfill-order-terms.ts` と `scripts/backfill-order-amounts.ts` も同じものを使います。請求先住所のない後のバージョンは、すでにコピーされた国を保ちます。
 - 同じ文が、`src/integrations/polar/polar.customers.ts` の `polarCustomerAccount` で `user_id` を埋めます。これは ID が顧客の `external_id` と一致するアカウントで、`external_id` は `createCheckout` がすべてのチェックアウトに設定します（[チェックアウト](#checkout)）。顧客に `external_id` がない場合や、その ID のアカウントがない場合（アカウントが削除された場合など）は空のままです。
 - ライセンスも `order.paid` と `order.refunded` を処理します。コピーもこれらを受け取るため、Polar がそれらについて `order.updated` も送るかどうかに関係なく、支払いと返金を保持します。`handlePolarEvent` は両方のハンドラーを同時に実行します。コピーが失敗すると配信は 500 を返し、Polar の再試行は両方の書き込みを繰り返しますが、どちらかがすでに書き込んだ内容は変わりません。
 - 管理ダッシュボードは注文のコピーを読み取り、ライセンスのない支払い済みのライセンス注文を一覧表示し（[ライセンス](/docs/features/licences#orders-that-match-no-account)を参照）、売上を集計します（[ダッシュボードの売上](#revenue-on-the-dashboard)を参照）。お支払いページは、アカウント自身の注文とサブスクリプションを一覧表示します（[お支払いページ](#billing-page)を参照）。

@@ -35,6 +35,7 @@ import {
   POLAR_LICENSE_KEY_STATUS,
   POLAR_MINIMUM_PRICE_AMOUNT,
   POLAR_ORDER_STATUS,
+  POLAR_WEBHOOK_EVENT,
   polarCheckoutOrigin,
 } from "~/src/integrations/polar/polar.constants"
 
@@ -89,6 +90,8 @@ const deliver = (
   const { body, headers } = signedPolarWebhook({ data, secret: env.POLAR_WEBHOOK_SECRET, type, ...signing })
   return postWebhook(body, headers)
 }
+
+const copyPolarOrder = (data: models.Order): Promise<number> => deliver(POLAR_WEBHOOK_EVENT.ORDER_UPDATED, data)
 
 const paidOrder = async (buyer: Buyer, tier: LicenseTier = LICENSE_TIER.CORE, browser: BrowserState = {}): Promise<models.Order> => {
   const checkout = await startCheckout(buyer, { tier, ...browser })
@@ -644,9 +647,11 @@ describe("upgrade prices", () => {
   it("asks nothing when less than Polar's minimum price is left to pay", async () => {
     const { buyer, order } = await buyLicense(LICENSE_TIER.CORE)
     const almost = listPrice(LICENSE_TIER.COMPLETE) - order.net_amount - POLAR_MINIMUM_PRICE_AMOUNT + 1
-    createPolarOrder(
-      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
-      { net_amount: almost, subtotal_amount: almost, total_amount: almost },
+    await copyPolarOrder(
+      createPolarOrder(
+        { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
+        { net_amount: almost, subtotal_amount: almost, total_amount: almost },
+      ),
     )
 
     await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toMatchObject({ amount: 0 })
@@ -656,10 +661,14 @@ describe("upgrade prices", () => {
     const { buyer, order } = await buyLicense(LICENSE_TIER.CORE)
     const half = Math.floor(order.net_amount / 2)
     await deliver(LICENSE_WEBHOOK_EVENTS.onOrderRefunded, refundPolarOrder(order.id, half))
-    createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] }, { currency: "eur" })
-    createPolarOrder(
-      { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
-      { status: POLAR_ORDER_STATUS.PENDING },
+    await copyPolarOrder(
+      createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] }, { currency: "eur" }),
+    )
+    await copyPolarOrder(
+      createPolarOrder(
+        { externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] },
+        { status: POLAR_ORDER_STATUS.PENDING },
+      ),
     )
 
     await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toMatchObject({ credit: (order.net_amount - half) / 100 })
@@ -670,7 +679,7 @@ describe("upgrade prices", () => {
     const tax = Math.round(order.subtotal_amount - order.subtotal_amount / (1 + INCLUDED_VAT_RATE))
     const refunded = { refunded_amount: Math.floor((order.subtotal_amount - tax) / 2), refunded_tax_amount: Math.floor(tax / 2) }
     const taxed = { ...refunded, net_amount: order.subtotal_amount - tax, status: POLAR_ORDER_STATUS.PARTIALLY_REFUNDED, tax_amount: tax }
-    createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] }, taxed)
+    await copyPolarOrder(createPolarOrder({ externalCustomerId: buyer.userId, productId: POLAR_PRODUCT_IDS[LICENSE_TIER.CORE] }, taxed))
     const kept = order.subtotal_amount - refunded.refunded_amount - refunded.refunded_tax_amount
 
     await expect(priceOf(buyer, LICENSE_TIER.COMPLETE)).resolves.toMatchObject({

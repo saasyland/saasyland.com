@@ -24,6 +24,8 @@ const PRODUCT = {
 
 const DISCOUNT = { basisPoints: 1000, code: "RECORDED10", name: "Recorded discount" } as const
 
+const INCLUDED_TAX = { discount: 490, net: 3586, refunded: 1793, refundedTax: 412, tax: 824 } as const
+
 const CHECKOUT_ID = "8f1c2d3e-4b5a-4c6d-9e7f-0a1b2c3d4e5f"
 
 const PLACED_AT = "2026-11-16T10:00:00.000Z"
@@ -89,11 +91,14 @@ describe("recording a Polar order", () => {
       discountName: JSON_NULL,
       id: placed.id,
       invoiceNumber: "SAASY-0001",
+      netAmount: PRODUCT.price.amount,
       placedAt: new Date(PLACED_AT),
       productId: PRODUCT.id,
       refundedAmount: 0,
+      refundedTaxAmount: 0,
       status: POLAR_ORDER_STATUS.PENDING,
       subscriptionId: "subscription-recorded",
+      subtotalAmount: PRODUCT.price.amount,
       totalAmount: PRODUCT.price.amount,
       updatedAt: stored?.updatedAt,
       userId: buyer,
@@ -186,6 +191,35 @@ describe("recording a Polar order", () => {
     await recordOrder({ ...paid(placed), status: POLAR_ORDER_STATUS.VOID })
 
     expect(await storedOrder(placed.id)).toMatchObject({ changedAt: new Date(PAID_AT), status: POLAR_ORDER_STATUS.VOID })
+  })
+})
+
+describe("the amounts of a recorded order", () => {
+  it("copies the subtotal, net amount and refunded tax of a price that includes tax, as each refund changes them", async () => {
+    const placed: models.Order = {
+      ...placedOrder(await createAccount()),
+      discount_amount: INCLUDED_TAX.discount,
+      net_amount: INCLUDED_TAX.net,
+      subtotal_amount: PRODUCT.price.amount,
+      tax_amount: INCLUDED_TAX.tax,
+    }
+
+    await recordOrder(placed)
+    await recordOrder({
+      ...placed,
+      modified_at: REFUNDED_AT,
+      refunded_amount: INCLUDED_TAX.refunded,
+      refunded_tax_amount: INCLUDED_TAX.refundedTax,
+      status: POLAR_ORDER_STATUS.PARTIALLY_REFUNDED,
+    })
+
+    expect(await storedOrder(placed.id)).toMatchObject({
+      discountAmount: INCLUDED_TAX.discount,
+      netAmount: INCLUDED_TAX.net,
+      refundedAmount: INCLUDED_TAX.refunded,
+      refundedTaxAmount: INCLUDED_TAX.refundedTax,
+      subtotalAmount: PRODUCT.price.amount,
+    })
   })
 })
 

@@ -124,6 +124,18 @@ bun run orders:backfill:production
 
 `scripts/backfill-order-terms.ts` は `.env.<environment>` から `POLAR_ACCESS_TOKEN` と `POLAR_SERVER` を読み取り、`wrangler d1 execute`（プレビューと本番ではリモート、`orders:backfill:local` ではローカル）で `discount_amount` が空の注文を一覧にし、`polar.orders.get` で 1 件ずつ Polar から読み取ります。Polar が 429 を返したときは、Polar が求めるだけ待ちます。すべての注文を 1 回の `--file` の実行で書き込み、各 `UPDATE` はその ID と空の `discount_amount` に限定されるので、その間に Webhook が埋めたコピーを上書きすることはなく、2 回目の実行では何も変わりません。コピーした注文の件数を表示し、Polar がもう返さない注文など、残っているものがある間はエラーで終了します。先にマイグレーションを適用してください。
 
+## 以前の注文の金額 [#amounts-of-older-orders]
+
+マイグレーション `20261126155255_lively_black_tarantula.sql` は、`order` のコピーに `subtotal_amount`、`net_amount`、`refunded_tax_amount` を追加しました。[アップグレードの価格](/docs/features/licences#upgrades)は、Polar に問い合わせる代わりにこれらを合計します。新しい Webhook がそれらを埋め、マイグレーションより前にコピーされた注文は、Polar が再び送るまでそれらが空のままです。それまでの間、アップグレードの価格はその注文を Polar から読み取ります。`bun run deploy:preview` または `bun run deploy:production` がマイグレーションを適用し、新しいコピーを埋める Worker をデプロイしたら、デプロイの手順として次を実行してそれらを埋めます。
+
+```sh
+bunx wrangler login
+bun run orders:backfill-amounts:production
+bun run orders:backfill-amounts:production --apply
+```
+
+プレビューでは、同じ 2 つのコマンドを `preview` で実行します。`scripts/backfill-order-amounts.ts` は `.env.<environment>` から `POLAR_ACCESS_TOKEN` と `POLAR_SERVER` を読み取り、`wrangler d1 execute`（プレビューと本番ではリモート、`orders:backfill-amounts:local` ではローカル）で 3 つの金額のいずれかが欠けている注文を一覧にし、`polar.orders.get` で 1 件ずつ Polar から読み取ります。Polar が 429 を返したときは、Polar が求めるだけ待ちます。`--apply` を付けない場合は何も書き込みません。各注文の金額と、そのうち Polar が返した件数を表示し、Polar が返した件数が一覧の件数より少ないときはエラーで終了します。`--apply` を付けると、すべての注文を 1 回の `--file` の実行で書き込み、各 `UPDATE` はその ID と、まだ金額が欠けているコピーに限定されるので、その間に Webhook が埋めたコピーを上書きすることはなく、2 回目の実行では何も変わりません。そのあと、コピーした注文の件数を表示し、Polar がもう返さない注文など、残っているものがある間はエラーで終了します。
+
 ## 最初の管理者 [#the-first-admin]
 
 プレビューと本番で動くエンドポイント、変数、シードに、`admin` ロールを付与するものはありません。プレビューと本番では、最初の管理者をスクリプトで作成します。これが唯一の方法です。

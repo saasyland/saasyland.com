@@ -124,6 +124,18 @@ bun run orders:backfill:production
 
 `scripts/backfill-order-terms.ts` legge `POLAR_ACCESS_TOKEN` e `POLAR_SERVER` da `.env.<environment>`, elenca gli ordini con `discount_amount` vuoto con `wrangler d1 execute` (in remoto per preview e produzione, in locale per `orders:backfill:local`) e legge ciascuno da Polar con `polar.orders.get`, uno alla volta, aspettando quanto chiede Polar quando risponde 429. Scrive tutti gli ordini in un’unica esecuzione `--file`, ogni `UPDATE` limitato al suo ID e a un `discount_amount` vuoto, quindi non sovrascrive mai una copia che un webhook ha compilato nel frattempo e una seconda esecuzione non cambia nulla. Stampa quanti ordini ha copiato ed esce con un errore finché ne resta qualcuno, come un ordine che Polar non restituisce più. Applica prima la migrazione.
 
+## Importi degli ordini precedenti [#amounts-of-older-orders]
+
+La migrazione `20261126155255_lively_black_tarantula.sql` ha aggiunto `subtotal_amount`, `net_amount` e `refunded_tax_amount` alla copia `order`, che il [prezzo dell’upgrade](/docs/features/licences#upgrades) somma invece di chiedere a Polar. I nuovi webhook li compilano, e un ordine copiato prima della migrazione li ha vuoti finché Polar non lo invia di nuovo; fino ad allora il prezzo dell’upgrade legge quell’ordine da Polar. Compilali come passaggio del deploy, dopo che `bun run deploy:preview` o `bun run deploy:production` ha applicato la migrazione e fatto il deploy del Worker che compila le nuove copie:
+
+```sh
+bunx wrangler login
+bun run orders:backfill-amounts:production
+bun run orders:backfill-amounts:production --apply
+```
+
+Per preview valgono gli stessi due comandi con `preview`. `scripts/backfill-order-amounts.ts` legge `POLAR_ACCESS_TOKEN` e `POLAR_SERVER` da `.env.<environment>`, elenca gli ordini a cui manca uno dei tre importi con `wrangler d1 execute` (in remoto per preview e produzione, in locale per `orders:backfill-amounts:local`) e legge ciascuno da Polar con `polar.orders.get`, uno alla volta, aspettando quanto chiede Polar quando risponde 429. Senza `--apply` non scrive nulla: stampa gli importi di ogni ordine e quanti di essi Polar ha restituito, ed esce con un errore quando Polar ne ha restituiti meno di quanti ne ha elencati. Con `--apply` scrive tutti gli ordini in un’unica esecuzione `--file`, ogni `UPDATE` limitato al suo ID e a una copia a cui manca ancora un importo, quindi non sovrascrive mai una copia che un webhook ha compilato nel frattempo e una seconda esecuzione non cambia nulla. Poi stampa quanti ordini ha copiato ed esce con un errore finché ne resta qualcuno, come un ordine che Polar non restituisce più.
+
 ## Il primo amministratore [#the-first-admin]
 
 Nessun endpoint, variabile o seed eseguito su preview o in produzione assegna il ruolo `admin`. Su preview e in produzione, il primo amministratore viene creato con uno script, e questo è l'unico modo:

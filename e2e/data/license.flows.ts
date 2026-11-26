@@ -673,9 +673,18 @@ export const LICENSE_FLOWS = [
     feature: FLOW_FEATURE.LICENCE,
     id: "upgrade-tier",
     outcome:
-      "A Core holder opens the upgrade to Complete from the licence page, pays the higher tier's price less what was paid, and keeps the same key with Complete's machine limit",
+      "A Core holder opens the upgrade to Complete from the licence page, pays the higher tier's price less what the order copies in D1 say was paid, and keeps the same key with Complete's machine limit",
     status: FLOW_STATUS.COVERED,
     tests: [UPGRADE],
+  },
+  {
+    feature: FLOW_FEATURE.LICENCE,
+    id: "upgrade-price-older-order",
+    outcome:
+      "A holder whose licence order was copied before the copy kept its subtotal, net amount and refunded tax is offered the same upgrade price, read from Polar until orders:backfill-amounts has filled the copy",
+    reason:
+      "The browser suite migrates its database before it copies any order, so every copy it holds has its amounts; license.upgrade-price.test.ts covers the read from Polar and its failure.",
+    status: FLOW_STATUS.MISSING,
   },
   {
     feature: FLOW_FEATURE.LICENCE,

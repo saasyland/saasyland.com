@@ -8,7 +8,7 @@ import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS, ROUTER_PRELOAD_STALE_TIME_MS } f
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 import "~/src/integrations/zod/zod.config"
 
-import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS } from "~/src/data/navigation.constants"
+import { NAVIGATION_PENDING_MIN_MS, NAVIGATION_PENDING_MS, NAVIGATION_PRELOAD_DELAY_MS } from "~/src/data/navigation.constants"
 
 import { DefaultError } from "~/src/presentation/components/custom/default-error"
 import { DefaultNotFound } from "~/src/presentation/components/custom/default-not-found"
@@ -60,7 +60,7 @@ export const getRouter = () => {
     defaultPendingMinMs: NAVIGATION_PENDING_MIN_MS,
     defaultPendingMs: NAVIGATION_PENDING_MS,
     defaultPreload: "intent",
-    defaultPreloadDelay: 100,
+    defaultPreloadDelay: NAVIGATION_PRELOAD_DELAY_MS,
     defaultPreloadIntentProximity: 0,
     defaultPreloadStaleTime: ROUTER_PRELOAD_STALE_TIME_MS,
     defaultStructuralSharing: true,

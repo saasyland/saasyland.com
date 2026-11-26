@@ -1,12 +1,13 @@
 import type { JSX } from "react"
 
+import { noop } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
-import { getUsersPageQuery, getUsersQuery } from "~/src/modules/user/use-cases/get-users"
+import { getUsersPageQuery } from "~/src/modules/user/use-cases/get-users"
 import { userZodSchemas } from "~/src/modules/user/user.zod"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION } from "~/src/data/admin"
@@ -71,12 +72,13 @@ export const Route = createFileRoute("/admin/")({
   component: DashboardPage,
   loader: async ({ context }) => {
     const locale = getCurrentLocale()
+    for (const { prefetch } of [...DASHBOARD_STATS, ...DASHBOARD_PANELS]) {
+      void prefetch(context.queryClient).catch(noop)
+    }
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
-      context.queryClient.query({ ...getUsersQuery, staleTime: "static" }),
       context.queryClient.query({ ...getUsersPageQuery({ pageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }), staleTime: "static" }),
-      ...[...DASHBOARD_STATS, ...DASHBOARD_PANELS].map(({ prefetch }) => prefetch(context.queryClient)),
       TimeSeriesBars.preload?.(),
     ])
     return { locale, metadata }

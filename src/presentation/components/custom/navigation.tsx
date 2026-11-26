@@ -1,11 +1,13 @@
 import { type JSX, useEffect } from "react"
 
+import { noop } from "@tanstack/react-query"
 import { Link, useLinkProps, useMatches, useRouter, useRouterState } from "@tanstack/react-router"
 import { useTranslations } from "use-intl/react"
 
 import { useSiteNavigation } from "~/src/hooks/use-site-navigation"
 
-import { MARKETING_SECTION_IDS, SITE_CONTENT_ID } from "~/src/data/navigation.constants"
+import { HEADER_NAVIGATION } from "~/src/data/navigation"
+import { MARKETING_SECTION_IDS, SITE_CONTENT_ID, type SiteEntry } from "~/src/data/navigation.constants"
 
 import { preloadWhenIdle } from "~/src/lib/idle-preload"
 
@@ -45,6 +47,16 @@ const observeProgress = (element: HTMLDivElement | null): (() => void) | undefin
   }
 }
 
+const preloadEntry = (router: ReturnType<typeof useRouter>, { to }: SiteEntry): Promise<unknown> => {
+  if (HEADER_NAVIGATION.some((entry) => entry.to === to)) {
+    return router.preloadRoute({ to })
+  }
+
+  const [routes] = router.getMatchedRoutes(to)
+
+  return Promise.all(routes.map((route) => Promise.resolve(router.loadRouteChunk(route))))
+}
+
 export const Navigation = (): JSX.Element => {
   const t = useTranslations()
   const { header } = useSiteNavigation()
@@ -58,8 +70,8 @@ export const Navigation = (): JSX.Element => {
   useEffect(
     () =>
       preloadWhenIdle(() => {
-        for (const { to } of header) {
-          void router.preloadRoute({ to })
+        for (const entry of header) {
+          void preloadEntry(router, entry).catch(noop)
         }
       }),
     [header, router, shownPath],

@@ -12,6 +12,7 @@ import { LESSON_PROGRESS_MUTATION_KEYS } from "~/src/modules/lesson-progress/les
 import { LESSON_ACCESS, LESSON_FORMAT, LESSON_QUERY_KEYS } from "~/src/modules/lesson/lesson.constants"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
 import { lessonQuery } from "~/src/modules/lesson/use-cases/get-lesson"
+import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
 import { VERIFICATION_MUTATION_KEYS } from "~/src/modules/verification/verification.constants"
 
 import {
@@ -301,7 +302,10 @@ describe("lesson locks", () => {
     })
     const { queryClient } = router.options.context
     queryClient.removeQueries({ queryKey: LESSON_QUERY_KEYS.PLAYBACK })
-    queryClient.setQueryDefaults(LESSON_QUERY_KEYS.PLAYBACK, { queryFn: () => new Promise<never>(() => {}) })
+    void queryClient.query({
+      queryFn: () => new Promise<never>(() => {}),
+      queryKey: lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: "boundaries" }).queryKey,
+    })
     const { container } = await mountCourseRouter(router)
 
     expect(screen.queryByTestId("video-player")).toBeNull()

@@ -1,6 +1,6 @@
 ---
 title: "Файли маршрутів"
-description: "Єдина форма маршруту сторінки й маршруту макета: NAMESPACE або NAMESPACES, loader з одним Promise.all, скелетон, що віддзеркалює сторінку, схеми параметрів пошуку та посилання."
+description: "Єдина форма маршруту сторінки й маршруту макета: NAMESPACE або NAMESPACES, один Promise.all для того, що потрібно першій частині відповіді, і потокові секції для решти, скелетон, що віддзеркалює сторінку, схеми параметрів пошуку та посилання."
 ---
 
 Кожен файл у `src/routes` має однакову форму, тож читач, який знає один, знає всі. Файл маршруту компонує: він оголошує, що потрібно сторінці, і розміщує компоненти. Віджети, форми, діалоги та стовпці таблиць лежать у `src/presentation/components/custom`.
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 - **Компонент** — це локальна `const` з назвою `<Name>Page`, визначена першою. Невелика розмітка, яку використовує лише ця сторінка, може стояти над ним як локальні компоненти, як `CourseProgress` і `StartLink` у `_site._marketing.courses.$course.index.tsx`; усе, що має власні дані, мутацію чи стан, переходить у файл компонента.
 - **Один простір імен.** `const NAMESPACE = "pages.<feature>.<page>"` стоїть безпосередньо над `export const Route` і використовується в `loadPageMetadata`, `preloadNamespaces` і `staticData`. Усе інше, що потрібно сторінці, оголошує її макет.
-- **Один `Promise.all`.** Loader запускає всю роботу одночасно: метадані сторінки, простір імен і кожен запит, який читають компоненти. Він повертає `{ locale, metadata }` для `head`. Ніколи не чекайте на одне з них, перш ніж запустити наступне.
+- **Один `Promise.all` для першої частини відповіді.** Loader запускає всю роботу одночасно. В одному `Promise.all` він чекає на те, що потрібно серверу, перш ніж надіслати перший байт: метадані сторінки, простір імен, дані, які читає сам loader, і дані, які компонент читає через `useQuery`, як-от першу сторінку `DataGrid`. Кожен інший запит стартує без очікування й надходить потоково в скелетон своєї секції (див. [Потокові секції](#streamed-sections)). Loader повертає `{ locale, metadata }` для `head`. Ніколи не чекайте на одну роботу, перш ніж запустити наступну.
 - **`head: pageHead(ROUTES.X)`** будує заголовок, опис, канонічну URL-адресу й альтернативні версії з метаданих у файлі простору імен.
 - **Шляхи беруться з `ROUTES`** у `src/routes.ts`, який об’єднує шляхи всіх розділів (див. [Шляхи та навігація](#paths-and-navigation)); ніколи не пишіть літерал шляху.
 
@@ -100,6 +100,33 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 ```
 
 `recordHead` (`src/lib/not-found.ts`) будує цей head з даних loader, а поки запис завантажується, бере шлях списку. Коли loader кидає `notFound`, бо `rethrowAsNotFound` натрапив на відсутній запис, він натомість повертає заголовок і опис сторінки «не знайдено» з `noindex`, тож відсутній користувач, замовлення, курс чи урок не отримують як заголовок лише назву сайту.
+
+## Потокові секції [#streamed-sections]
+
+Сторінка, другорядні секції якої чекають на повільніші дані, як-от каталог Polar або лічильники панелі, надсилає перші байти без них. `src/routes/admin.index.tsx` чекає на метадані, простір імен і найновіші облікові записи, які його `DataGrid` читає через `useQuery`, а запити статистики й панелей запускає, не чекаючи на них:
+
+```tsx title="src/routes/admin.index.tsx"
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    for (const { prefetch } of [...DASHBOARD_STATS, ...DASHBOARD_PANELS]) {
+      void prefetch(context.queryClient).catch(noop)
+    }
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...getUsersPageQuery({ pageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }), staleTime: "static" }),
+      TimeSeriesBars.preload?.(),
+    ])
+    return { locale, metadata }
+  },
+```
+
+- Потоковий запит стартує перед `Promise.all`, з `void` і `.catch(noop)` із TanStack Query, як це робить посібник TanStack Router щодо TanStack Query, тож збій ніколи не стає необробленим відхиленням. Збій усе одно доходить до компонента, який читає запит, а звідти — до компонента помилки маршруту.
+- Компонент читає його через `useSuspenseQuery` усередині межі `Suspense`, чий fallback — скелетон секції, той самий, що малює `pendingComponent` маршруту, тож секція займає те саме місце до й після надходження своїх даних. `DashboardStats` обгортає кожну статистику в `<Suspense fallback={<DashboardStatPending />}>`, а `DashboardPanels` — кожну панель у її `Pending`; `/admin/products` обгортає свою сітку в `PolarProductGridPending`, а `/app/billing` — свої замовлення в `BillingHistoryPending`, у файлі маршруту.
+- Ніколи не передавайте потоково дані, які компонент читає через `useQuery`, як-от сторінку `DataGrid`: сервер рендерить компонент без даних, браузер гідратує його з даними, і React відкидає HTML сервера. Натомість чекайте на них.
+- `head` виконується, щойно loader повернув результат, тож читає лише дані, на які loader чекав.
+
+Під час HTTP-запиту TanStack Start одразу надсилає сторінку до її нерозв’язаних меж, а кожну секцію — щойно розв’яжеться її запит, в одній і тій самій відповіді, а `@tanstack/react-router-ssr-query` надсилає разом із нею дані кожного запиту, тож браузер не завантажує їх повторно. Пошуковий робот, якого розпізнає `isbot`, отримує всю сторінку одразу. Під час навігації на клієнті сторінка з’являється, щойно завершено роботу, на яку вона чекає, і кожна секція заповнює свій скелетон. Вимірювання наведено на сторінці [Продуктивність](/docs/conventions/performance#request-rendered-pages-stream-their-slow-sections).
 
 ## Маршрути макетів
 
@@ -204,7 +231,7 @@ export const HEADER_NAVIGATION: readonly SiteEntry[] = [
 
 Бічна панель застосунку клієнта містить пункт **Ліцензія** з розділу ліцензій і пункт **Платежі** з розділу платежів, а її ресурси, над адресою підтримки, — пункт **Документація** з розділу контенту. Основному розділу потрібні лише `/` і `/api`, а також **Ціни** в заголовку — єдиний пункт із `hash`, який веде до розділу з цінами на `/`.
 
-Статистика панелі в `DASHBOARD_STATS` має `prefetch`, який виконує loader `/admin`, і хук `useValue`, який `DashboardStats` викликає, щоб прочитати число.
+Статистика панелі в `DASHBOARD_STATS` має `prefetch`, який loader `/admin` запускає, не чекаючи на нього, і хук `useValue`, який `DashboardStats` викликає, щоб прочитати число всередині власної межі `Suspense` цієї статистики.
 
 `APP_STATEMENTS` в `auth.access.ts` оголошує декларації дозволів, по одній на ресурс, а `scripts/features.ts` називає декларації можливості, яку можна пропустити, як-от `APP_STATEMENTS.course`, щоб разом із нею зникали й вони (див. [Ролі та дозволи](/docs/guides/roles-and-permissions)).
 

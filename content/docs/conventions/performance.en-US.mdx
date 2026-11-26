@@ -1,6 +1,6 @@
 ---
 title: "Performance"
-description: "The measured rules that keep pages fast: a small Worker boot graph, a light route tree, no docs or blog content in the Worker, no ORM in the browser, messages loaded on demand, stripped preload hints, provider placement, early skeletons, one Tailwind build, media sizing and the reveal pattern."
+description: "The measured rules that keep pages fast: a small Worker boot graph, a light route tree, streamed sections on request-rendered pages, no docs or blog content in the Worker, no ORM in the browser, messages loaded on demand, stripped preload hints, provider placement, early skeletons, one Tailwind build, media sizing and the reveal pattern."
 ---
 
 Each rule on this page came from a measurement, and several replaced an intuitive fix that made things worse. Change the code behind one of them only with a new measurement that beats it.
@@ -84,9 +84,33 @@ The sizes come from the `bun run build:test` Worker, and the timings from the pr
 
 `e2e/specs/content.spec.ts` holds the docs index of a navigation to `/docs` and the compiled MDX of one between docs pages and checks that each shows its skeleton, and the sidebar in the second, until they arrive. These tests turn on data saver first, so the header does not load the docs before the click.
 
+## Request-rendered pages stream their slow sections
+
+The admin console, the workspace and the course pages render on the Worker for each request. Their loaders used to await every query, so nothing left the Worker until the slowest one had answered; on `/admin` and `/admin/products` that was Polar's product catalogue, a call to Polar's API on every view. Each loader now awaits only what the first flush needs and starts the rest without awaiting it, and each slow section streams into its skeleton in the same response ([Streamed sections](/docs/conventions/routes#streamed-sections)):
+
+- `/admin` awaits the newest accounts, which its `DataGrid` reads with `useQuery`. Each statistic and each panel streams in its own boundary, so only the product count waits for Polar.
+- `/admin/products` streams its grid.
+- `/app/billing` streams its orders and subscriptions, and the button to Polar's customer portal, which depends on them.
+- A lesson streams its player: once the loader knows the lesson can be played, it starts signing the stream without waiting for it, so the title, the text and the contents leave the Worker before the signed stream exists, and the player fills its skeleton.
+
+Measured on `bun run build:test` builds served by `bun run start:test`, with a browser's user agent and signed in by cookie, in 3 interleaved rounds of 10 requests per page and build. The test build answers Polar from an in-memory double; for these runs it waited 300 ms before each answer, to stand in for the round trip to Polar's API. D1 is local in the test build. The first byte is the time until the response's headers arrive, which TanStack Start sends with the first part of the page; each cell is the median of the three rounds' medians:
+
+| Page              | First byte before | First byte after | Whole page before | Whole page after |
+| ----------------- | ----------------- | ---------------- | ----------------- | ---------------- |
+| `/admin`          | 403 ms            | 83 ms            | 419 ms            | 327 ms           |
+| `/admin/products` | 361 ms            | 43 ms            | 370 ms            | 367 ms           |
+| `/app/billing`    | 30 ms             | 28 ms            | 36 ms             | 35 ms            |
+| A lesson          | 38 ms             | 35 ms            | 45 ms             | 44 ms            |
+
+`/app/billing` and the lesson read only D1, which is local here, so these runs show no difference for them; on Cloudflare, their first byte no longer waits for the queries that now stream. Without the delay, every page took the same time before and after, within the spread of the runs. The fully loaded pages are identical, pixel for pixel, at 1440 and 390 pixels wide in English and German, and each skeleton takes the size of the section that replaces it.
+
+A crawler gets the whole page in its first response: TanStack Start waits for every section before it answers a request whose user agent `isbot` recognises. `isbot` also counts `curl` and the `fetch` of Bun and Node as crawlers, so a script that measures streaming has to send a browser's user agent.
+
+`src/routes/__test__/admin-products-loaders.test.ts` checks that `/admin` and `/admin/products` render while the Polar catalogue is still loading, and `app-billing-routes.component.test.tsx` and `lesson-routes.component.test.tsx` that the billing history and the player hold their skeletons while their data streams.
+
 ## The header's pages load before a click
 
-`defaultPreload: "intent"` loads the code and data of a link only once the pointer has rested on it for `defaultPreloadDelay`, which a quick click, a tap on a phone and a keyboard never give it. After the route tree was made lighter, a client navigation from `/` to the heading of `/docs` on saasyland.com took 255 to 283 ms on a warm Worker isolate and 1.3 to 2.0 seconds on a new one, because the two docs server functions waited 1.1 to 2.0 seconds for the isolate to start.
+`defaultPreload: "intent"` loads the code and data of a link only once the pointer has rested on it for `defaultPreloadDelay`, <RepositoryFact name="navigationPreloadDelayMs" unit="millisecond" /> (`NAVIGATION_PRELOAD_DELAY_MS` in `src/data/navigation.constants.ts`), which a quick click, a tap on a phone and a keyboard never give it. After the route tree was made lighter, a client navigation from `/` to the heading of `/docs` on saasyland.com took 255 to 283 ms on a warm Worker isolate and 1.3 to 2.0 seconds on a new one, because the two docs server functions waited 1.1 to 2.0 seconds for the isolate to start.
 
 `Navigation` therefore preloads the page of every `HEADER_NAVIGATION` entry through TanStack Router once the page on screen is idle, so a new isolate starts before the click and the click finds the page's code and data in the router's cache. It calls `router.preloadRoute` for each entry in an effect and schedules the calls with `preloadWhenIdle`:
 
@@ -114,6 +138,7 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 - The effect depends on `shownPath`, the path of the page on screen from the router's `resolvedLocation`, so the header preloads again once the next page is idle and keeps its pages fresh while someone browses. A page whose data is still fresh is not loaded again. The page a visit starts on was rendered at build time, so the router counts its data as stale and loads it again the first time the header preloads it from another page.
 - TanStack Router's `preload="viewport"` on the header's links would start as soon as a link is in the viewport, which the fixed header always is, so it would compete with hydration; and on a phone the links sit in the menu, which renders them only when it opens.
 - Only the header's links preload this way. Every other link, such as the hundreds in the docs sidebar, keeps `defaultPreload: "intent"`.
+- Once the session points the account link at the visitor's workspace, `/admin` or `/app`, that entry loads only its code, with `router.loadRouteChunk` for each route it matches. Preloading the page ran the workspace's guard and its loader: for an admin, the whole dashboard, Polar's catalogue included, on every page they viewed. An entry whose page is the one `HEADER_NAVIGATION` declares, **Sign in** included, still loads its data. Measured on a `bun run build:test` build, the server function requests a signed-in page made by the time it was idle fell from 12 to 2 on `/` for an admin and from 4 to 2 for a customer.
 
 `src/router.tsx` sets `defaultPreloadStaleTime` to <RepositoryFact name="routerPreloadStaleTimeMs" unit="millisecond" />, the value TanStack Router's guide to TanStack Query gives, and leaves `defaultStaleTime` at the router's default, so TanStack Query alone decides what is fresh: a click after a preload runs the page's loaders again, and they read what the preload put in the query cache. The router used to keep preloaded pages for the query stale time, because the docs and blog loaders called server functions outside TanStack Query; they now import the build-time indexes, which the browser keeps once it has loaded them, so that is no longer needed. On a `bun run build:test` build, hovering a link and then clicking it made the same server function calls with either setting, for the course, blog, docs and admin console pages alike: one or two on the first hover, depending on the page's queries, and none on a second hover, on the click or on the way back.
 
@@ -135,6 +160,21 @@ The home page is not slower. Lighthouse on `/`, on a `bun run build:test` build 
 | Desktop Total Blocking Time      | 137 ms   | 136 ms   |
 
 `e2e/specs/navigation.spec.ts` waits until the header's preloads have finished on `/` and on `/docs`, holds every server function and clicks each header link, on a desktop and in the phone menu; each page opens all the same. It also checks that a visitor with data saver on loads nothing ahead of a click.
+
+TanStack Router's own default delay is 50 ms. On a `bun run build:test` build with 40 ms of added latency, the pointer resting on an admin sidebar entry for 75 or 150 ms before the press, 20 presses per cell, the press reached the page in a median of 37 ms with 50 ms and 40 to 46 ms with the current delay, inside the spread of the runs (12 to 122 ms), while a pointer moving down the sidebar at 75 ms per entry without pressing made 8 server function requests with 50 ms and 2 with the current delay. The delay stays as it is.
+
+## Loaders stay in their route's chunk
+
+`vite.config.ts` splits each route's loader into a chunk of its own, with its component, error component and not-found component, while TanStack Router's default keeps the loader in the route tree. Keeping it there makes a navigation that nothing preloaded, a tap or a click with no rest on the link, one round trip faster, but it puts every loader and what it imports in the entry script. Measured on `bun run build:test` builds, in Chromium with data saver on and 150 ms of added latency per request, in interleaved rounds of 4 clicks per build, 8 to 12 clicks per cell, with the size of every script each page loads, gzipped:
+
+| Measure                                         | Loaders split | Loaders in the route tree |
+| ----------------------------------------------- | ------------- | ------------------------- |
+| JavaScript on `/`                               | 530.5 KiB     | 644.5 KiB                 |
+| JavaScript on `/admin`                          | 644.6 KiB     | 762.5 KiB                 |
+| Click from `/` to `/courses`, nothing preloaded | 649 ms        | 508 ms                    |
+| Click in the admin sidebar, nothing preloaded   | 515 ms        | 355 ms                    |
+
+Every page would load about 115 KiB more to save one round trip on the clicks that preloading misses, and the header's pages are preloaded already, so the loaders stay split.
 
 ## Guards reuse the cached session
 

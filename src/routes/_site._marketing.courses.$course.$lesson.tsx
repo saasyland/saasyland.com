@@ -1,6 +1,6 @@
-import { type JSX, useState } from "react"
+import { type JSX, Suspense, useState } from "react"
 
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { noop, useSuspenseQuery } from "@tanstack/react-query"
 import { Link, createFileRoute, isNotFound } from "@tanstack/react-router"
 import { AlignLeft, ArrowLeft, ArrowRight, Check, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { useTranslations } from "use-intl/react"
@@ -211,7 +211,11 @@ const LessonPage = (): JSX.Element => {
               )}
 
               <KeyMoments moments={lesson.keyMoments} playable={playable} />
-              {playable && lesson.captionLocales.length > 0 && <LessonTranscript courseSlug={data.course.slug} lessonSlug={lesson.slug} />}
+              {playable && lesson.captionLocales.length > 0 && (
+                <Suspense>
+                  <LessonTranscript courseSlug={data.course.slug} lessonSlug={lesson.slug} />
+                </Suspense>
+              )}
               {lesson.attachments.length > 0 && <MaterialsList attachments={lesson.attachments} />}
 
               <nav aria-label={t("lesson.neighbours")} className="mt-14 flex flex-col gap-3 sm:flex-row">
@@ -238,7 +242,7 @@ export const Route = createFileRoute("/_site/_marketing/courses/$course/$lesson"
     ])
     const { lesson } = data
     if (isPlayable(lesson)) {
-      await context.queryClient.query(lessonPlaybackQuery({ courseSlug: params.course, lessonSlug: params.lesson }))
+      void context.queryClient.query(lessonPlaybackQuery({ courseSlug: params.course, lessonSlug: params.lesson })).catch(noop)
     }
     return {
       course: { cover: data.course.cover, title: data.course.title },

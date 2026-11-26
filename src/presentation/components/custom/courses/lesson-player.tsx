@@ -1,6 +1,6 @@
-import type { JSX } from "react"
+import { type JSX, Suspense } from "react"
 
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 
 import type { Course } from "~/src/modules/course/course.types"
 import { lessonPlaybackQuery } from "~/src/modules/lesson/use-cases/get-lesson-playback"
@@ -20,14 +20,10 @@ interface LessonPlayerProps {
   readonly signedIn: boolean
 }
 
-export const LessonPlayer = ({ courseSlug, lesson, signedIn }: LessonPlayerProps): JSX.Element => {
-  const { data } = useQuery(lessonPlaybackQuery({ courseSlug, lessonSlug: lesson.slug }))
+const PlaybackPlayer = ({ courseSlug, lesson, signedIn }: LessonPlayerProps): JSX.Element => {
+  const { data } = useSuspenseQuery(lessonPlaybackQuery({ courseSlug, lessonSlug: lesson.slug }))
 
   const { complete, pause, save } = useLessonProgress({ enabled: signedIn, lessonId: lesson.id })
-
-  if (data === undefined) {
-    return <PlayerPending />
-  }
 
   return (
     <VideoPlayer
@@ -40,3 +36,9 @@ export const LessonPlayer = ({ courseSlug, lesson, signedIn }: LessonPlayerProps
     />
   )
 }
+
+export const LessonPlayer = (props: LessonPlayerProps): JSX.Element => (
+  <Suspense fallback={<PlayerPending />}>
+    <PlaybackPlayer {...props} />
+  </Suspense>
+)

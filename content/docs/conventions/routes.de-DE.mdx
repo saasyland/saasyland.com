@@ -1,6 +1,6 @@
 ---
 title: "Routendateien"
-description: "Die eine Form einer Seitenroute und einer Layout-Route: NAMESPACE oder NAMESPACES, ein einziger Loader mit Promise.all, ein Skeleton, das die Seite spiegelt, Such-Schemas und Links."
+description: "Die eine Form einer Seitenroute und einer Layout-Route: NAMESPACE oder NAMESPACES, ein Promise.all für das, was der erste Teil der Antwort braucht, und gestreamte Abschnitte für den Rest, ein Skeleton, das die Seite spiegelt, Such-Schemas und Links."
 ---
 
 Jede Datei in `src/routes` hat dieselbe Form, sodass ein Leser, der eine kennt, alle kennt. Eine Routendatei setzt zusammen: Sie deklariert, was die Seite braucht, und platziert Komponenten. Widgets, Formulare, Dialoge und Tabellenspalten liegen in `src/presentation/components/custom`.
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/admin/courses/")({
 
 - **Die Komponente** ist eine lokale `const` namens `<Name>Page` und wird zuerst definiert. Kleines Markup, das nur diese Seite verwendet, darf als lokale Komponente darüber stehen, wie `CourseProgress` und `StartLink` in `_site._marketing.courses.$course.index.tsx`; alles mit eigenen Daten, einer Mutation oder eigenem Zustand kommt in eine Komponentendatei.
 - **Ein Namespace.** `const NAMESPACE = "pages.<feature>.<page>"` steht direkt über `export const Route` und wird in `loadPageMetadata`, `preloadNamespaces` und `staticData` verwendet. Alles andere, was die Seite braucht, deklariert ihr Layout.
-- **Ein `Promise.all`.** Der Loader startet alle Arbeiten gleichzeitig: Seitenmetadaten, den Namespace und jede Query, die die Komponenten lesen. Er gibt `{ locale, metadata }` für `head` zurück. Warte nie auf eine davon, bevor du die nächste startest.
+- **Ein `Promise.all` für den ersten Teil der Antwort.** Der Loader startet alle Arbeiten gleichzeitig. In einem `Promise.all` wartet er auf das, was der Server braucht, bevor er das erste Byte sendet: die Seitenmetadaten, den Namespace, die Daten, die der Loader selbst liest, und die Daten, die eine Komponente mit `useQuery` liest, etwa die erste Seite eines `DataGrid`. Jede andere Query startet, ohne dass er auf sie wartet, und wird in das Skeleton ihres Abschnitts gestreamt (siehe [Gestreamte Abschnitte](#streamed-sections)). Der Loader gibt `{ locale, metadata }` für `head` zurück. Warte nie auf eine Arbeit, bevor du die nächste startest.
 - **`head: pageHead(ROUTES.X)`** baut Titel, Beschreibung, kanonische URL und Sprachalternativen aus den Metadaten in der Namespace-Datei.
 - **Pfade stammen aus `ROUTES`** in `src/routes.ts`, das die Pfade aller Bereiche zusammenführt (siehe [Pfade und Navigation](#paths-and-navigation)); schreibe nie ein Pfadliteral.
 
@@ -100,6 +100,33 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
 ```
 
 `recordHead` (`src/lib/not-found.ts`) baut diesen Head aus den Loader-Daten und nimmt den Pfad der Liste, solange der Datensatz lädt. Wirft der Loader `notFound`, weil `rethrowAsNotFound` auf einen fehlenden Datensatz gestoßen ist, liefert es stattdessen Titel und Beschreibung der Seite „nicht gefunden“ mit `noindex`, sodass ein fehlender Nutzer, eine fehlende Bestellung, ein fehlender Kurs oder eine fehlende Lektion nicht den Namen der Website als Titel trägt.
+
+## Gestreamte Abschnitte [#streamed-sections]
+
+Eine Seite, deren Nebenabschnitte auf langsamere Daten warten, etwa auf den Katalog von Polar oder die Zahlen des Dashboards, sendet ihre ersten Bytes ohne sie. `src/routes/admin.index.tsx` wartet auf die Metadaten, den Namespace und die neuesten Konten, die sein `DataGrid` mit `useQuery` liest, und startet die Queries der Statistiken und Panels, ohne auf sie zu warten:
+
+```tsx title="src/routes/admin.index.tsx"
+  loader: async ({ context }) => {
+    const locale = getCurrentLocale()
+    for (const { prefetch } of [...DASHBOARD_STATS, ...DASHBOARD_PANELS]) {
+      void prefetch(context.queryClient).catch(noop)
+    }
+    const [metadata] = await Promise.all([
+      loadPageMetadata({ locale, namespace: NAMESPACE }),
+      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...getUsersPageQuery({ pageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize }), staleTime: "static" }),
+      TimeSeriesBars.preload?.(),
+    ])
+    return { locale, metadata }
+  },
+```
+
+- Eine gestreamte Query startet vor dem `Promise.all`, mit `void` und `.catch(noop)` aus TanStack Query, wie es der Leitfaden von TanStack Router zu TanStack Query tut, sodass ein Fehler nie zu einer unbehandelten Promise-Ablehnung wird. Der Fehler erreicht trotzdem die Komponente, die die Query liest, und von dort die Fehlerkomponente der Route.
+- Die Komponente liest sie mit `useSuspenseQuery` innerhalb einer `Suspense`-Grenze, deren Fallback das Skeleton des Abschnitts ist, dasselbe, das die `pendingComponent` der Route zeichnet, sodass der Abschnitt vor und nach dem Eintreffen seiner Daten denselben Platz einnimmt. `DashboardStats` umschließt jede Statistik mit `<Suspense fallback={<DashboardStatPending />}>` und `DashboardPanels` jedes Panel mit seinem `Pending`; `/admin/products` umschließt sein Grid mit `PolarProductGridPending` und `/app/billing` seine Bestellungen mit `BillingHistoryPending`, jeweils in der Routendatei.
+- Streame nie Daten, die eine Komponente mit `useQuery` liest, etwa eine Seite eines `DataGrid`: Der Server rendert die Komponente ohne die Daten, der Browser hydriert sie mit den Daten, und React verwirft das HTML des Servers. Warte stattdessen auf sie.
+- `head` läuft, sobald der Loader zurückgekehrt ist, und liest daher nur Daten, auf die gewartet wurde.
+
+Bei einer Anfrage sendet TanStack Start die Seite bis zu ihren noch nicht aufgelösten Grenzen sofort und jeden Abschnitt, sobald seine Query aufgelöst ist, in derselben Antwort, und `@tanstack/react-router-ssr-query` schickt die Daten jeder Query mit, sodass der Browser sie nicht erneut abruft. Ein Crawler, den `isbot` erkennt, erhält die ganze Seite auf einmal. Bei einer clientseitigen Navigation erscheint die Seite, sobald die Arbeit erledigt ist, auf die sie wartet, und jeder Abschnitt füllt sein Skeleton. Die Messungen stehen unter [Performance](/docs/conventions/performance#request-rendered-pages-stream-their-slow-sections).
 
 ## Layout-Routen
 
@@ -204,7 +231,7 @@ Jeder Admin-Eintrag öffnet eine Ansicht, die mit echten Daten arbeitet, und die
 
 Die Seitenleiste des Kundenbereichs enthält die Einträge **Lizenz** des Lizenzbereichs und **Abrechnung** des Abrechnungsbereichs und ihre Ressourcen über der Support-Adresse die **Dokumentation** des Inhaltsbereichs. Der Kern braucht nur `/` und `/api` sowie im Header **Preise**, den einzigen Eintrag mit `hash`, der zum Preisabschnitt von `/` führt.
 
-Eine Dashboard-Statistik in `DASHBOARD_STATS` hat ein `prefetch`, das der Loader von `/admin` ausführt, und einen Hook `useValue`, den `DashboardStats` aufruft, um die Zahl zu lesen.
+Eine Dashboard-Statistik in `DASHBOARD_STATS` hat ein `prefetch`, das der Loader von `/admin` startet, ohne darauf zu warten, und einen Hook `useValue`, den `DashboardStats` aufruft, um die Zahl innerhalb der eigenen `Suspense`-Grenze der Statistik zu lesen.
 
 `APP_STATEMENTS` in `auth.access.ts` deklariert die Berechtigungs-Statements, eines pro Ressource, und `scripts/features.ts` nennt die Statements eines Features, das wegfallen kann, etwa `APP_STATEMENTS.course`, sodass sie mit ihm wegfallen (siehe [Rollen und Berechtigungen](/docs/guides/roles-and-permissions)).
 

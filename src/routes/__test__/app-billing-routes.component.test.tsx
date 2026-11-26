@@ -183,6 +183,16 @@ afterEach(() => {
 })
 
 describe("the billing page", () => {
+  it("shows its heading at once and holds the history's place with its skeleton while the orders stream", async () => {
+    ordersMock.mockReturnValue(new Promise(() => {}))
+    await renderBilling()
+
+    expect(await screen.findByRole("heading", { level: 1, name: pagesBillingMessages.metadata.title })).toBeVisible()
+    expect(screen.queryByRole("heading", { level: 2, name: ordersCopy.title })).toBeNull()
+    expect(screen.queryByRole("button", { name: pagesBillingMessages.manage })).toBeNull()
+    expect(document.querySelector("[data-slot=card] [data-slot=skeleton]")).not.toBeNull()
+  })
+
   it("lists the account's orders with their amount, refund, status and invoice number, newest first", async () => {
     await renderBilling()
 

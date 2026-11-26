@@ -1,6 +1,6 @@
 ---
 title: "Performances"
-description: "Les règles mesurées qui gardent les pages rapides : un petit graphe de démarrage du Worker, un arbre des routes léger, aucun contenu de la documentation ni du blog dans le Worker, aucun ORM dans le navigateur, des messages chargés à la demande, des indications de préchargement supprimées, le placement des fournisseurs, des squelettes affichés tôt, un seul build Tailwind, le dimensionnement des médias et le modèle d'apparition."
+description: "Les règles mesurées qui gardent les pages rapides : un petit graphe de démarrage du Worker, un arbre des routes léger, des sections en streaming sur les pages rendues à chaque requête, aucun contenu de la documentation ni du blog dans le Worker, aucun ORM dans le navigateur, des messages chargés à la demande, des indications de préchargement supprimées, le placement des fournisseurs, des squelettes affichés tôt, un seul build Tailwind, le dimensionnement des médias et le modèle d'apparition."
 ---
 
 Chaque règle de cette page est issue d'une mesure, et plusieurs ont remplacé une correction intuitive qui aggravait les choses. Ne modifiez le code qui sous-tend l'une d'elles qu'avec une nouvelle mesure qui fait mieux.
@@ -84,9 +84,33 @@ Les tailles proviennent du Worker de `bun run build:test`, et les durées du dé
 
 `e2e/specs/content.spec.ts` retient l'index de la documentation d'une navigation vers `/docs` et le MDX compilé d'une navigation entre pages de la documentation, et vérifie que chacune affiche son squelette, avec la barre latérale dans la seconde, jusqu'à ce qu'ils arrivent. Ces tests activent d'abord l'économiseur de données, pour que l'en-tête ne charge pas la documentation avant le clic.
 
+## Les pages rendues à chaque requête diffusent leurs sections lentes en streaming [#request-rendered-pages-stream-their-slow-sections]
+
+L'administration, l'espace client et les pages des cours sont rendus sur le Worker à chaque requête. Leurs loaders attendaient auparavant chaque query, si bien que rien ne quittait le Worker avant que la plus lente ait répondu ; sur `/admin` et `/admin/products`, c'était le catalogue de produits de Polar, un appel à l'API de Polar à chaque affichage. Chaque loader n'attend plus que ce dont la première partie de la réponse a besoin et lance le reste sans l'attendre, et chaque section lente arrive en streaming dans son squelette, dans la même réponse ([Sections en streaming](/docs/conventions/routes#streamed-sections)) :
+
+- `/admin` attend les comptes les plus récents, que son `DataGrid` lit avec `useQuery`. Chaque statistique et chaque panneau arrivent en streaming dans leur propre frontière : seul le nombre de produits attend Polar.
+- `/admin/products` diffuse sa grille en streaming.
+- `/app/billing` diffuse en streaming ses commandes et ses abonnements, ainsi que le bouton vers le portail client de Polar, qui en dépend.
+- Une leçon diffuse son lecteur en streaming : dès que le loader sait que la leçon peut être lue, il commence à signer le flux sans l'attendre, si bien que le titre, le texte et la table des matières quittent le Worker avant que le flux signé existe, et le lecteur remplit son squelette.
+
+Mesuré sur des builds `bun run build:test` servis par `bun run start:test`, avec l'user agent d'un navigateur et une session ouverte par cookie, en 3 séries entrelacées de 10 requêtes par page et par build. Le build de test répond aux appels à Polar depuis une doublure en mémoire ; pour ces mesures, elle attendait 300 ms avant chaque réponse, pour simuler l'aller-retour vers l'API de Polar. D1 est local dans le build de test. Le premier octet est le temps jusqu'à l'arrivée des en-têtes de la réponse, que TanStack Start envoie avec la première partie de la page ; chaque cellule est la médiane des médianes des trois séries :
+
+| Page              | Premier octet avant | Premier octet après | Page complète avant | Page complète après |
+| ----------------- | ------------------- | ------------------- | ------------------- | ------------------- |
+| `/admin`          | 403 ms              | 83 ms               | 419 ms              | 327 ms              |
+| `/admin/products` | 361 ms              | 43 ms               | 370 ms              | 367 ms              |
+| `/app/billing`    | 30 ms               | 28 ms               | 36 ms               | 35 ms               |
+| Une leçon         | 38 ms               | 35 ms               | 45 ms               | 44 ms               |
+
+`/app/billing` et la leçon ne lisent que D1, qui est local ici : ces mesures ne montrent donc aucune différence pour elles ; sur Cloudflare, leur premier octet n'attend plus les queries qui arrivent désormais en streaming. Sans le délai, chaque page a pris le même temps avant et après, dans la dispersion des exécutions. Les pages entièrement chargées sont identiques au pixel près, à 1440 et 390 pixels de large, en anglais et en allemand, et chaque squelette prend la taille de la section qui le remplace.
+
+Un robot d'indexation reçoit la page entière dans sa première réponse : TanStack Start attend chaque section avant de répondre à une requête dont `isbot` reconnaît l'user agent. `isbot` compte aussi `curl` et le `fetch` de Bun et de Node parmi les robots, si bien qu'un script qui mesure le streaming doit envoyer l'user agent d'un navigateur.
+
+`src/routes/__test__/admin-products-loaders.test.ts` vérifie que `/admin` et `/admin/products` s'affichent pendant que le catalogue de Polar se charge encore, et `app-billing-routes.component.test.tsx` et `lesson-routes.component.test.tsx` que l'historique de facturation et le lecteur gardent leurs squelettes pendant que leurs données arrivent en streaming.
+
 ## Les pages de l'en-tête se chargent avant le clic [#the-headers-pages-load-before-a-click]
 
-`defaultPreload: "intent"` ne charge le code et les données d'un lien qu'une fois que le pointeur s'y est posé pendant `defaultPreloadDelay`, ce que ne lui laissent jamais un clic rapide, un toucher sur un téléphone ni le clavier. Après l'allègement de l'arbre des routes, une navigation côté client de `/` jusqu'au titre de `/docs` sur saasyland.com prenait de 255 à 283 ms sur un isolate du Worker déjà chaud et de 1,3 à 2,0 secondes sur un nouveau, parce que les deux fonctions serveur de la documentation attendaient de 1,1 à 2,0 secondes le démarrage de l'isolate.
+`defaultPreload: "intent"` ne charge le code et les données d'un lien qu'une fois que le pointeur s'y est posé pendant `defaultPreloadDelay`, soit <RepositoryFact name="navigationPreloadDelayMs" unit="millisecond" /> (`NAVIGATION_PRELOAD_DELAY_MS` dans `src/data/navigation.constants.ts`), ce que ne lui laissent jamais un clic rapide, un toucher sur un téléphone ni le clavier. Après l'allègement de l'arbre des routes, une navigation côté client de `/` jusqu'au titre de `/docs` sur saasyland.com prenait de 255 à 283 ms sur un isolate du Worker déjà chaud et de 1,3 à 2,0 secondes sur un nouveau, parce que les deux fonctions serveur de la documentation attendaient de 1,1 à 2,0 secondes le démarrage de l'isolate.
 
 `Navigation` précharge donc par TanStack Router la page de chaque entrée de `HEADER_NAVIGATION` dès que la page affichée est inactive : un nouvel isolate démarre avant le clic, et le clic trouve le code et les données de la page dans le cache du routeur. Il appelle `router.preloadRoute` pour chaque entrée dans un effet et planifie les appels avec `preloadWhenIdle` :
 
@@ -114,6 +138,7 @@ const schedule = (preload: () => void, signal: AbortSignal): void => {
 - L'effet dépend de `shownPath`, le chemin de la page affichée d'après `resolvedLocation` du routeur : l'en-tête précharge donc à nouveau dès que la page suivante est inactive, et garde ses pages fraîches pendant la visite. Une page dont les données sont encore fraîches n'est pas rechargée. La page par laquelle commence une visite a été rendue au build ; le routeur tient donc ses données pour périmées et les recharge la première fois que l'en-tête la précharge depuis une autre page.
 - `preload="viewport"` de TanStack Router sur les liens de l'en-tête démarrerait dès qu'un lien est dans le viewport, ce qu'est toujours l'en-tête fixe, et entrerait donc en concurrence avec l'hydratation ; de plus, sur un téléphone, les liens sont dans le menu, qui ne les rend qu'à son ouverture.
 - Seuls les liens de l'en-tête préchargent ainsi. Tous les autres liens, comme les centaines de la barre latérale de la documentation, gardent `defaultPreload: "intent"`.
+- Dès que la session fait pointer le lien du compte vers l'espace du visiteur, `/admin` ou `/app`, cette entrée ne charge que son code, avec `router.loadRouteChunk` pour chaque route à laquelle elle correspond. Précharger la page exécutait le guard et le loader de cet espace : pour un administrateur, tout le tableau de bord, catalogue de Polar compris, sur chaque page qu'il affichait. Une entrée dont la page est celle que déclare `HEADER_NAVIGATION`, **Se connecter** compris, charge toujours ses données. Mesuré sur un build `bun run build:test`, les requêtes aux fonctions serveur qu'une page connectée avait faites au moment où elle devenait inactive sont passées de 12 à 2 sur `/` pour un administrateur et de 4 à 2 pour un client.
 
 `src/router.tsx` fixe `defaultPreloadStaleTime` à <RepositoryFact name="routerPreloadStaleTimeMs" unit="millisecond" />, la valeur que donne le guide de TanStack Router pour TanStack Query, et laisse `defaultStaleTime` à la valeur par défaut du routeur, si bien que seul TanStack Query décide de ce qui est frais : un clic après un préchargement exécute à nouveau les loaders de la page, qui lisent ce que le préchargement a mis dans le cache des requêtes. Le routeur gardait auparavant les pages préchargées pendant le délai d'obsolescence des requêtes, car les loaders de la documentation et du blog appelaient des fonctions serveur en dehors de TanStack Query ; ils importent désormais les index produits au build, que le navigateur garde une fois chargés, et ce n'est plus nécessaire. Sur un build `bun run build:test`, survoler un lien puis cliquer dessus a fait les mêmes appels de fonctions serveur avec les deux réglages, pour les pages des cours, du blog, de la documentation et de la console d'administration : un ou deux au premier survol, selon les requêtes de la page, et aucun au second survol, au clic ni au retour.
 
@@ -135,6 +160,21 @@ La page d'accueil n'est pas plus lente. Lighthouse sur `/`, sur un build `bun ru
 | Total Blocking Time sur ordinateur      | 137 ms   | 136 ms   |
 
 `e2e/specs/navigation.spec.ts` attend la fin des préchargements de l'en-tête sur `/` et sur `/docs`, retient toutes les fonctions serveur et clique sur chaque lien de l'en-tête, sur ordinateur et dans le menu du téléphone ; chaque page s'ouvre quand même. Il vérifie aussi que, pour un visiteur qui a activé l'économiseur de données, rien n'est chargé avant un clic.
+
+Le délai par défaut de TanStack Router lui-même est de 50 ms. Sur un build `bun run build:test` avec 40 ms de latence ajoutée, le pointeur posé 75 ou 150 ms sur une entrée de la barre latérale de l'administration avant l'appui, 20 appuis par cellule, l'appui a atteint la page en une médiane de 37 ms avec 50 ms et de 40 à 46 ms avec le délai actuel, dans la dispersion des exécutions (de 12 à 122 ms), tandis qu'un pointeur qui descendait la barre latérale à 75 ms par entrée sans appuyer a fait 8 requêtes aux fonctions serveur avec 50 ms et 2 avec le délai actuel. Le délai reste tel quel.
+
+## Les loaders restent dans le chunk de leur route [#loaders-stay-in-their-routes-chunk]
+
+`vite.config.ts` place le loader de chaque route dans un chunk à part, avec son composant, son composant d'erreur et son composant de page introuvable, alors que TanStack Router laisse par défaut le loader dans l'arbre des routes. L'y laisser rend une navigation que rien n'a préchargée, un toucher ou un clic sans pause sur le lien, plus rapide d'un aller-retour, mais met chaque loader et tout ce qu'il importe dans le script d'entrée. Mesuré sur des builds `bun run build:test`, dans Chromium avec l'économiseur de données activé et 150 ms de latence ajoutée par requête, en séries entrelacées de 4 clics par build, 8 à 12 clics par cellule, avec la taille de tous les scripts que charge chaque page, compressés avec gzip :
+
+| Mesure                                                             | Loaders séparés | Loaders dans l'arbre des routes |
+| ------------------------------------------------------------------ | --------------- | ------------------------------- |
+| JavaScript sur `/`                                                 | 530,5 Kio       | 644,5 Kio                       |
+| JavaScript sur `/admin`                                            | 644,6 Kio       | 762,5 Kio                       |
+| Clic de `/` vers `/courses`, rien de préchargé                     | 649 ms          | 508 ms                          |
+| Clic dans la barre latérale de l'administration, rien de préchargé | 515 ms          | 355 ms                          |
+
+Chaque page chargerait environ 115 Kio de plus pour gagner un aller-retour sur les clics que le préchargement manque, et les pages de l'en-tête sont déjà préchargées : les loaders restent donc séparés.
 
 ## Les guards réutilisent la session en cache [#guards-reuse-the-cached-session]
 

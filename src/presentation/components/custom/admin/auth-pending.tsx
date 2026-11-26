@@ -18,7 +18,7 @@ import { AdminPageHeaderPending } from "~/src/presentation/components/custom/adm
 import { BusinessLogoCardPending, BusinessProfileCardPending } from "~/src/presentation/components/custom/admin/business-profile-pending"
 import { GridPanelPending } from "~/src/presentation/components/custom/admin/dashboard/grid-panel-pending"
 import { DashboardPanelsPending } from "~/src/presentation/components/custom/admin/dashboard/panels-pending"
-import { DASHBOARD_STATS } from "~/src/presentation/components/custom/admin/dashboard/stats"
+import { DASHBOARD_STATS, DashboardStatPending } from "~/src/presentation/components/custom/admin/dashboard/stats"
 import { RowActionPending } from "~/src/presentation/components/custom/admin/pending-blocks"
 import { USER_PROFILE_SECTIONS } from "~/src/presentation/components/custom/admin/users/user-profile-sections"
 import { DataGridPending } from "~/src/presentation/components/custom/data-grid-pending"
@@ -30,13 +30,7 @@ export const AdminDashboardPending = (): JSX.Element => (
     <AdminPageHeaderPending actions={ADMIN_DASHBOARD_ACTIONS.length} />
     <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 lg:grid-cols-3">
       {DASHBOARD_STATS.map((stat) => (
-        <div className="flex flex-col gap-4 bg-card p-4 sm:p-5" key={stat.label}>
-          <div className="flex items-start justify-between gap-3">
-            <Skeleton className="h-lh w-32 scale-y-70 text-body-sm" />
-            <Skeleton className="size-8 rounded-md" />
-          </div>
-          <Skeleton className="h-lh w-10 scale-y-70 text-headline-support" />
-        </div>
+        <DashboardStatPending key={stat.label} />
       ))}
     </div>
     <DashboardPanelsPending />

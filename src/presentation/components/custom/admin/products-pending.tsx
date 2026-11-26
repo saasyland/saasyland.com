@@ -26,9 +26,11 @@ const POLAR_PRODUCT_PENDING_COLUMNS = [
   { cell: <Skeleton className="h-lh w-40 scale-y-70 font-mono text-spec" />, id: "polar", width: POLAR_PRODUCT_COLUMN_SIZES.polar },
 ] as const
 
+export const PolarProductGridPending = (): JSX.Element => <DataGridPending columns={POLAR_PRODUCT_PENDING_COLUMNS} isSelectable />
+
 export const AdminProductsPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col space-y-8">
     <AdminPageHeaderPending />
-    <DataGridPending columns={POLAR_PRODUCT_PENDING_COLUMNS} isSelectable />
+    <PolarProductGridPending />
   </div>
 )

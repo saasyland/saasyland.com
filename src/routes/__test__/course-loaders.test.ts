@@ -116,7 +116,7 @@ describe("course route loaders", () => {
     expect(page?.meta).toContainEqual({ content: "The walkthrough", property: "og:image:alt" })
   })
 
-  it("signs the stream before rendering a lesson the viewer may watch", async () => {
+  it("signs the stream of a lesson the viewer may watch while the page renders", async () => {
     signOut()
 
     const router = await load("/courses/the-walkthrough/boundaries")
@@ -125,11 +125,13 @@ describe("course route loaders", () => {
       pathname: "/courses/the-walkthrough/boundaries",
       title: "Boundaries · The walkthrough",
     })
-    expect(
-      router.options.context.queryClient.getQueryData(
-        lessonPlaybackQuery({ courseSlug: "the-walkthrough", lessonSlug: "boundaries" }).queryKey,
-      ),
-    ).toHaveProperty("src")
+    await vi.waitFor(() => {
+      expect(
+        router.options.context.queryClient.getQueryData(
+          lessonPlaybackQuery({ courseSlug: "the-walkthrough", lessonSlug: "boundaries" }).queryKey,
+        ),
+      ).toHaveProperty("src")
+    })
     expect(
       router.options.context.queryClient.getQueryData(
         lessonQuery({ courseSlug: "the-walkthrough", lessonSlug: "boundaries", locale: "en-US" }).queryKey,

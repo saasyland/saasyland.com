@@ -88,15 +88,15 @@ const boxOf = (element: Element): Box => {
   return { bottom, left, right, top }
 }
 
-const articleBox = async (page: Page, served: (html: string) => string): ReturnType<Locator["boundingBox"]> => {
+const articleBox = async (page: Page, path: string, served: (html: string) => string): ReturnType<Locator["boundingBox"]> => {
   await page.unrouteAll()
-  await page.route(`**${DOCS_PAGE}`, async (route) => {
+  await page.route(`**${path}`, async (route) => {
     const response = await route.fetch()
     const body = served(await response.text())
     await route.fulfill({ body, headers: { ...response.headers(), "content-length": String(Buffer.byteLength(body)) }, response })
   })
   await page.route(CLIENT_SCRIPT, async (route) => route.abort())
-  await page.goto(DOCS_PAGE, { waitUntil: "load" })
+  await page.goto(path, { waitUntil: "load" })
   return page.locator(`#${DOCS_CONTENT_ID}`).boundingBox()
 }
 
@@ -446,9 +446,9 @@ test.describe("one site header", () => {
   test("the docs article keeps its place and width while the table of contents, which follows it in the document, is still on its way", async ({ page }) => {
     for (const viewport of FRAME_VIEWPORTS) {
       await page.setViewportSize(viewport)
-      const whole = await articleBox(page, (html) => html)
+      const whole = await articleBox(page, DOCS_PAGE, (html) => html)
       await expect(page.locator(`#${TABLE_OF_CONTENTS_ID}`)).toBeVisible()
-      const beforeTableOfContents = await articleBox(page, (html) => html.slice(0, html.lastIndexOf("<nav", html.indexOf(`id="${TABLE_OF_CONTENTS_ID}"`))))
+      const beforeTableOfContents = await articleBox(page, DOCS_PAGE, (html) => html.slice(0, html.lastIndexOf("<nav", html.indexOf(`id="${TABLE_OF_CONTENTS_ID}"`))))
 
       expect(beforeTableOfContents, `at ${String(viewport.width)} px`).toEqual(whole)
     }

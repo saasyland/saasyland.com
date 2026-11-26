@@ -88,15 +88,52 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
+  visual:
+    name: Visual tests
+    if: inputs.browser == 'chromium'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Wait for the test build and download it
+        timeout-minutes: 16
+        env:
+          BUILD_JOB: Build the test Worker (${{ inputs.browser }})
+          BUILD_STEP: Upload the test build
+          BUILD_ARTIFACT: test-worker-${{ inputs.browser }}
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/download-artifact.ts "$BUILD_JOB" "$BUILD_STEP" "$BUILD_ARTIFACT" test-worker.zip
+      - name: Unpack the build
+        run: |
+          unzip -q test-worker.zip
+          tar --zstd --extract --file test-worker.tar.zst
+          rm test-worker.zip test-worker.tar.zst test-worker.tags
+      - name: Compare the screenshots with the approved baselines
+        run: bun run test:visual
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: visual-differences
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
   report:
     name: Build and E2E (${{ inputs.browser }})
-    needs: [build, shard]
+    needs: [build, shard, visual]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       BUILD_RESULT: ${{ needs.build.result }}
       SHARD_RESULT: ${{ needs.shard.result }}
+      VISUAL_RESULT: ${{ needs.visual.result }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.shard.result == 'failure'
@@ -120,9 +157,9 @@ jobs:
           path: playwright-report/
           retention-days: 7
           if-no-files-found: ignore
-      - name: Require the build and every shard to pass
+      - name: Require the build, every shard and, in Chromium, the visual tests to pass
         run: |
-          if [[ "$BUILD_RESULT" != "success" || "$SHARD_RESULT" != "success" ]]; then
-            echo "::error::The test build finished with $BUILD_RESULT and the shards with $SHARD_RESULT."
+          if [[ "$BUILD_RESULT" != "success" || "$SHARD_RESULT" != "success" || ("$VISUAL_RESULT" != "success" && "$VISUAL_RESULT" != "skipped") ]]; then
+            echo "::error::The test build finished with $BUILD_RESULT, the shards with $SHARD_RESULT and the visual tests with $VISUAL_RESULT."
             exit 1
           fi

@@ -12,18 +12,22 @@ bun run test:e2e:smoke
 bun run test:e2e:pr
 bun run test:e2e:headed
 bun run test:e2e:ui
+bun run test:visual
+bun run test:visual:update
 bun run test:journey
 ```
 
-| Skript             | Führt aus                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| `test:e2e:install` | Installiert Chromium und WebKit mit Systemabhängigkeiten                             |
-| `test:e2e`         | Alle Specs in Chromium und WebKit                                                    |
-| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` in Chromium                                                |
-| `test:e2e:pr`      | Alle Specs in Chromium, wie sie der Chromium-Check der CI für Pull Requests ausführt |
-| `test:e2e:headed`  | Alle Specs in sichtbaren Browsern                                                    |
-| `test:e2e:ui`      | UI-Modus von Playwright                                                              |
-| `test:journey`     | Die [Journey-Suite](#journey-suite) gegen Preview                                    |
+| Skript               | Führt aus                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `test:e2e:install`   | Installiert Chromium und WebKit mit Systemabhängigkeiten                             |
+| `test:e2e`           | Alle Specs in Chromium und WebKit                                                    |
+| `test:e2e:smoke`     | `e2e/specs/smoke.spec.ts` in Chromium                                                |
+| `test:e2e:pr`        | Alle Specs in Chromium, wie sie der Chromium-Check der CI für Pull Requests ausführt |
+| `test:e2e:headed`    | Alle Specs in sichtbaren Browsern                                                    |
+| `test:e2e:ui`        | UI-Modus von Playwright                                                              |
+| `test:visual`        | Die [visuellen Tests](#visual-tests) in Chromium aus dem Docker-Image von Playwright |
+| `test:visual:update` | Die visuellen Tests, schreibt nicht mehr passende Screenshots neu                    |
+| `test:journey`       | Die [Journey-Suite](#journey-suite) gegen Preview                                    |
 
 ## Konfiguration [#configuration]
 
@@ -77,6 +81,50 @@ axe sieht weder den Tastaturablauf noch das Layout, deshalb prüfen drei Specs b
 ## Scrollleisten [#scrollbars]
 
 `e2e/specs/scrollbars.spec.ts` startet Chromium ohne Playwrights Schalter `--hide-scrollbars`, über `ignoreDefaultArgs` in `launchOptions`. So zeichnet Chromium klassische Scrollleisten, die Platz einnehmen, wie unter Windows, unter Linux und auf einem Mac, der Scrollleisten immer anzeigt. Die Spec prüft, dass eine rechtliche Seite, eine Auth-Seite und eine Admin-Seite ihre Überschrift an Ort und Stelle halten, wenn das Fenster wächst, bis die Seite nicht mehr scrollt (eine Seite der Dokumentation scrollt immer, weil der Footer der Website auf ihr bildschirmhohes Layout folgt), dass das Öffnen der Suche der Dokumentation, der Sprachauswahl, eines Dialogs oder eines Menüs nichts verschiebt, dass `/admin` das Fenster ausfüllt und dass das Fenster hinter einer dunklen Seite im hellen Theme dunkel ist. WebKit auf macOS zeichnet nur überlagernde Scrollleisten, die keinen Platz einnehmen, und keine Startoption ändert das; die Prüfung des freigehaltenen Platzes läuft deshalb nur in Chromium. Das Website-Menü, das unterhalb von `lg` die Header-Links ersetzt, wird bei 768 px geprüft: Öffnen und Schließen verschieben nichts.
+
+## Visuelle Tests [#visual-tests]
+
+`e2e/specs/visual-*.spec.ts` vergleichen, was Besucher sehen, mit freigegebenen Screenshots in `e2e/specs/__screenshots__/`. Eine Änderung, die eine Überschrift in eine weitere Zeile umbricht, eine Karte hinzufügt oder einen Abschnitt verschiebt, lässt den Pull Request also scheitern, auch wenn alle anderen Tests bestehen. Die Specs laufen in einem eigenen Playwright-Projekt, `visual`, das `playwright.config.ts` nur definiert, wenn `PLAYWRIGHT_VISUAL_BROWSER` einen Browser-Server nennt; die Projekte `chromium` und `webkit` überspringen sie.
+
+```sh
+bun run test:visual
+bun run test:visual:update
+```
+
+| Spec                                             | Screenshots                                                                                                                        | Locales und Breiten                                      |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `visual-landing.spec.ts`, `visual-facts.spec.ts` | Header, Hero, Faktenraster, Preise mit den weiteren Optionen, Fallbeispiele, Manifest, Schlussabschnitt und Footer der Landingpage | Jede Locale in jeder Breite                              |
+| `visual-content.spec.ts`                         | Die Autorenkarte und der Call-to-Action am Ende eines Blogartikels                                                                 | Jede Locale auf dem Smartphone, Englisch auf dem Desktop |
+| `visual-content.spec.ts`                         | Eine Seite der Dokumentation                                                                                                       | Englisch in beiden Breiten, Deutsch auf dem Desktop      |
+| `visual-auth.spec.ts`                            | Der Header für angemeldete Besucher, `/admin` und `/admin/settings`                                                                | Englisch in beiden Breiten, Deutsch auf dem Desktop      |
+| `visual-billing.spec.ts`                         | `/app/billing`                                                                                                                     | Englisch in beiden Breiten, Deutsch auf dem Desktop      |
+
+Die Locales sind <RepositoryFact name="visualLocales" />, die Breiten <RepositoryFact name="visualWidths" /> px, und die Suite umfasst <RepositoryFact name="visualScreenshots" /> Screenshots. Auf der Landingpage ändert sich vor allem der Text, deshalb werden ihre Abschnitte in jeder Locale in beiden Breiten aufgenommen. Die Karten unter einem Blogartikel brechen dort, wo lange Wörter umbrechen, also auf dem Smartphone, und werden deshalb in Smartphone-Breite in jeder Locale aufgenommen. Die Seiten der Verwaltung und des Kundenbereichs bekommen ihr Layout von Komponenten statt von Texten: Englisch in beiden Breiten zeigt das Layout, und Deutsch, die Locale mit den längsten Wörtern, zeigt die Beschriftungen, die nicht mehr passen.
+
+### Dieselben Pixel bei jedem Lauf [#same-pixels-on-every-run]
+
+- Der Browserkontext setzt `reducedMotion: "reduce"`. Der Einstieg des Heros, die Abschnitte, die beim Scrollen erscheinen, und die Videoschleifen bleiben deshalb stehen, und die Videos zeigen ihr Vorschaubild. `toHaveScreenshot` hält jede andere Animation an, etwa das Laufband des Stacks, und blendet den Textcursor aus.
+- Das Theme ist dunkel und die Zeitzone UTC.
+- Vor dem ersten Screenshot wartet `openForScreenshots` aus `e2e/fixtures/visual.ts`, bis die Seite gerendert und hydriert ist, lädt und dekodiert jedes Bild, auch die per Lazy Loading geladenen, und wartet auf `document.fonts.ready`.
+- `expectRegion` schneidet einen Abschnitt an seiner Stelle aus der ganzen Seite aus, sodass der fixierte Header ihn nie verdeckt.
+- Masken verdecken, was sich ohne jede Änderung am Layout ändert: die Fakten, die Dateien des Repositorys und GitHub-Sterne zählen, und die Jahreszahlen des Copyright-Hinweises im Footer.
+- Die Daten stammen aus der befüllten Testdatenbank. `scripts/visual-tests.ts` bricht vor dem ersten Test ab, wenn unter der URL der Suite schon ein Server antwortet, deshalb gilt: Playwright setzt die Datenbank selbst zurück, baut und startet den Server; in CI entpackt der Job seine eigene Kopie des befüllten Builds.
+
+### Derselbe Browser auf jedem Rechner [#the-same-browser-on-every-machine]
+
+Schriften werden unter macOS und Linux und sogar zwischen Linux-Images unterschiedlich gerendert, deshalb verwenden die visuellen Tests nie einen Browser des Rechners, auf dem sie laufen. `scripts/visual-tests.ts` startet den Browser-Server von Playwright im Docker-Image `<RepositoryFact name="visualBrowserImage" />` für `linux/amd64`, das Docker Desktop auf Apple Silicon emuliert, übergibt seine Adresse in `PLAYWRIGHT_VISUAL_BROWSER` und führt `playwright test --project=visual` aus. Die Tests verbinden sich über `connectOptions`, und `exposeNetwork: "<loopback>"` lässt den Browser den Testserver auf dem Loopback des Rechners erreichen. Der Tag des Images folgt dem installierten `@playwright/test`, sodass `bun run deps:update` Browser und Test-Runner gemeinsam aktualisiert. Ein Laptop und CI rendern dieselben Pixel, und lokal aufgenommene Referenzbilder bestehen deshalb in CI. `test:visual` braucht ein laufendes Docker.
+
+### Schwellenwert [#threshold]
+
+Ein Screenshot schlägt fehl, wenn mehr als <RepositoryFact name="visualMaxDiffPercent" unit="percent" /> seiner Pixel abweichen, wobei ein Pixel erst dann als abweichend zählt, wenn seine Farbe den Schwellenwert überschreitet, den Playwright auf jedes einzelne Pixel anwendet. Browser und Schriften sind überall dieselben, eine unveränderte Seite weicht also in keinem Pixel ab, und die ein, zwei Farbstufen, um die ein anderer Prozessor die Kantenglättung rundet, bleiben unter diesem Schwellenwert. Ein Screenshot, dessen Größe sich ändert, weil eine Überschrift in eine weitere Zeile umbricht oder eine Karte hinzukommt, schlägt unabhängig vom Schwellenwert fehl, und schon ein einziges zusätzliches Wort im Absatz des Heros ändert mehr Pixel, als der Schwellenwert erlaubt.
+
+### Referenzbilder aktualisieren [#updating-the-baselines]
+
+Ist eine Änderung am Layout oder am Text beabsichtigt, führe `bun run test:visual:update` aus, öffne jedes geänderte PNG in `e2e/specs/__screenshots__/` im Diff deines Branches, sieh es dir an und committe es mit der Änderung. `--update-snapshots=changed` schreibt nur die Screenshots neu, die nicht mehr übereinstimmen. Schlägt der Job `visual` in CI fehl, lädt er `test-results/` als Artefakt `visual-differences` hoch, mit dem erwarteten, dem tatsächlichen und dem Differenzbild jedes fehlgeschlagenen Screenshots.
+
+### In CI [#in-ci]
+
+Der Job `visual` in `e2e-reusable.yml` läuft nur für Chromium, neben den Shards: Er wartet wie ein Shard auf den Test-Build, entpackt ihn und führt `bun run test:visual` aus, und die Prüfung `Build and E2E (chromium)` schlägt fehl, wenn er nicht bestanden hat. Die Referenzbilder stammen aus Chromium, weil WebKit Text und Subpixel anders zeichnet: Es bräuchte einen zweiten Satz Referenzbilder und eine zweite Durchsicht desselben Layouts, während die WebKit-Prüfung weiterhin testet, wie sich WebKit verhält.
 
 ## Journey-Suite [#journey-suite]
 

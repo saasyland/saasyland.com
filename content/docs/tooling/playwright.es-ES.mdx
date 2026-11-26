@@ -12,18 +12,22 @@ bun run test:e2e:smoke
 bun run test:e2e:pr
 bun run test:e2e:headed
 bun run test:e2e:ui
+bun run test:visual
+bun run test:visual:update
 bun run test:journey
 ```
 
-| Script             | Ejecuta                                                                                             |
-| ------------------ | --------------------------------------------------------------------------------------------------- |
-| `test:e2e:install` | Instala Chromium y WebKit con las dependencias del sistema                                          |
-| `test:e2e`         | Todas las specs en Chromium y WebKit                                                                |
-| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` en Chromium                                                               |
-| `test:e2e:pr`      | Todas las specs en Chromium, como las ejecuta la comprobación de Chromium de la CI de pull requests |
-| `test:e2e:headed`  | Todas las specs en navegadores visibles                                                             |
-| `test:e2e:ui`      | Modo UI de Playwright                                                                               |
-| `test:journey`     | La [suite del recorrido del cliente](#journey-suite) contra preview                                 |
+| Script               | Ejecuta                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `test:e2e:install`   | Instala Chromium y WebKit con las dependencias del sistema                                          |
+| `test:e2e`           | Todas las specs en Chromium y WebKit                                                                |
+| `test:e2e:smoke`     | `e2e/specs/smoke.spec.ts` en Chromium                                                               |
+| `test:e2e:pr`        | Todas las specs en Chromium, como las ejecuta la comprobación de Chromium de la CI de pull requests |
+| `test:e2e:headed`    | Todas las specs en navegadores visibles                                                             |
+| `test:e2e:ui`        | Modo UI de Playwright                                                                               |
+| `test:visual`        | Las [pruebas visuales](#visual-tests) en Chromium desde la imagen de Docker de Playwright           |
+| `test:visual:update` | Las pruebas visuales, reescribiendo las capturas que ya no coinciden                                |
+| `test:journey`       | La [suite del recorrido del cliente](#journey-suite) contra preview                                 |
 
 ## Configuración [#configuration]
 
@@ -77,6 +81,50 @@ axe no ve el recorrido del teclado ni el diseño, así que tres specs los compru
 ## Barras de desplazamiento [#scrollbars]
 
 `e2e/specs/scrollbars.spec.ts` inicia Chromium sin el modificador `--hide-scrollbars` de Playwright, mediante `ignoreDefaultArgs` en `launchOptions`, así que Chromium dibuja barras de desplazamiento clásicas que ocupan espacio, como en Windows, en Linux y en un Mac configurado para mostrarlas siempre. La spec comprueba que una página legal, una de autenticación y una del panel de administración mantienen su encabezado en su sitio cuando la ventana crece hasta que la página deja de desplazarse (una página de la documentación siempre se desplaza, porque el pie del sitio sigue a su layout de toda la altura de la ventana), que abrir la búsqueda de la documentación, el selector de idioma, un diálogo o un menú no mueve nada, que `/admin` ocupa la ventana y que la ventana detrás de una página oscura es oscura con el tema claro. WebKit en macOS solo dibuja barras superpuestas, que no ocupan espacio, y ninguna opción de arranque lo cambia, así que la comprobación del espacio reservado solo se ejecuta en Chromium. El menú del sitio, que sustituye a los enlaces de la cabecera por debajo de `lg`, se comprueba a 768 px: abrirlo y cerrarlo no mueve nada.
+
+## Pruebas visuales [#visual-tests]
+
+`e2e/specs/visual-*.spec.ts` comparan lo que ve un visitante con capturas de pantalla aprobadas en `e2e/specs/__screenshots__/`, así que un cambio que pasa un título a otra línea, añade una tarjeta o mueve una sección hace fallar la pull request aunque pasen todas las demás pruebas. Las specs se ejecutan en su propio proyecto de Playwright, `visual`, que `playwright.config.ts` solo define cuando `PLAYWRIGHT_VISUAL_BROWSER` indica un servidor de navegador; los proyectos `chromium` y `webkit` las omiten.
+
+```sh
+bun run test:visual
+bun run test:visual:update
+```
+
+| Spec                                             | Capturas                                                                                                                                                                    | Idiomas y anchos                                      |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `visual-landing.spec.ts`, `visual-facts.spec.ts` | La cabecera, la sección de apertura, la cuadrícula de datos, los precios con las demás opciones, los casos, el manifiesto, la sección final y el pie de la página de inicio | Cada idioma en cada ancho                             |
+| `visual-content.spec.ts`                         | La tarjeta del autor y la llamada a la acción al final de un artículo del blog                                                                                              | Cada idioma en el móvil, el inglés en el escritorio   |
+| `visual-content.spec.ts`                         | Una página de la documentación                                                                                                                                              | El inglés en ambos anchos, el alemán en el escritorio |
+| `visual-auth.spec.ts`                            | La cabecera de un visitante con sesión iniciada, `/admin` y `/admin/settings`                                                                                               | El inglés en ambos anchos, el alemán en el escritorio |
+| `visual-billing.spec.ts`                         | `/app/billing`                                                                                                                                                              | El inglés en ambos anchos, el alemán en el escritorio |
+
+Los idiomas son <RepositoryFact name="visualLocales" />, los anchos <RepositoryFact name="visualWidths" /> px, y la suite reúne <RepositoryFact name="visualScreenshots" /> capturas. En la página de inicio lo que cambia es sobre todo el texto, así que sus secciones se capturan en cada idioma en ambos anchos. Las tarjetas bajo un artículo del blog se rompen donde las palabras largas saltan de línea, en el móvil, así que se capturan con el ancho del móvil en cada idioma. Las páginas de la administración y del área de cliente toman su diseño de los componentes, no de los textos: el inglés en ambos anchos muestra el diseño, y el alemán, el idioma con las palabras más largas, muestra las etiquetas que dejan de caber.
+
+### Los mismos píxeles en cada ejecución [#same-pixels-on-every-run]
+
+- El contexto del navegador fija `reducedMotion: "reduce"`, así que la entrada de la sección de apertura, las secciones que aparecen al desplazarse y los vídeos en bucle se quedan quietos, y los vídeos muestran su imagen de portada. `toHaveScreenshot` detiene cualquier otra animación, como la cinta de la stack, y oculta el cursor de texto.
+- El tema es oscuro y la zona horaria UTC.
+- Antes de la primera captura, `openForScreenshots` de `e2e/fixtures/visual.ts` espera a que la página se renderice e hidrate, carga y decodifica cada imagen, también las de carga diferida, y espera a `document.fonts.ready`.
+- `expectRegion` recorta una sección de la página completa en el lugar que ocupa, de modo que la cabecera fija nunca la tapa.
+- Las máscaras cubren lo que cambia sin ningún cambio de diseño: los datos que cuentan archivos del repositorio y estrellas de GitHub, y los años del aviso de copyright del pie.
+- Los datos salen de la base de datos de pruebas con sus datos iniciales. `scripts/visual-tests.ts` se detiene antes de la primera prueba cuando ya responde un servidor en la URL de la suite, así que Playwright restablece la base de datos, compila y arranca el servidor por sí mismo; en la CI, el job desempaqueta su propia copia del build con sus datos.
+
+### El mismo navegador en cada máquina [#the-same-browser-on-every-machine]
+
+Las fuentes se ven distintas en macOS y en Linux, e incluso entre imágenes de Linux, así que las pruebas visuales nunca usan un navegador de la máquina que las ejecuta. `scripts/visual-tests.ts` arranca el servidor de navegador de Playwright en la imagen de Docker `<RepositoryFact name="visualBrowserImage" />` para `linux/amd64`, que Docker Desktop emula en los chips de Apple, pasa su dirección en `PLAYWRIGHT_VISUAL_BROWSER` y ejecuta `playwright test --project=visual`. Las pruebas se conectan con `connectOptions`, y su `exposeNetwork: "<loopback>"` permite al navegador llegar al servidor de pruebas en la interfaz de loopback de la máquina. La etiqueta de la imagen sigue a la versión instalada de `@playwright/test`, así que `bun run deps:update` actualiza a la vez el navegador y el ejecutor de pruebas. Un portátil y la CI producen los mismos píxeles, de modo que las capturas de referencia tomadas en local pasan en la CI. `test:visual` necesita Docker en marcha.
+
+### Umbral [#threshold]
+
+Una captura falla cuando difieren más del <RepositoryFact name="visualMaxDiffPercent" unit="percent" /> de sus píxeles, y un píxel solo cuenta como distinto si su color supera el umbral que Playwright aplica a cada píxel. El navegador y sus fuentes son los mismos en todas partes, así que una página sin cambios no difiere en ningún píxel, y el tono o dos en que otro procesador puede redondear el suavizado de bordes queda por debajo de ese umbral. Una captura cuyo tamaño cambia, porque un título pasa a otra línea o se añade una tarjeta, falla sea cual sea el umbral, y una sola palabra añadida al párrafo de la sección de apertura ya cambia más píxeles de los que permite el umbral.
+
+### Actualizar las capturas de referencia [#updating-the-baselines]
+
+Cuando un cambio en el diseño o en el texto es intencionado, ejecuta `bun run test:visual:update`, abre cada PNG modificado de `e2e/specs/__screenshots__/` en el diff de tu rama, revísalo y haz commit de él junto con el cambio. `--update-snapshots=changed` solo reescribe las capturas que ya no coinciden. Cuando el job `visual` falla en la CI, sube `test-results/` como artefacto `visual-differences`, con la imagen esperada, la obtenida y la de diferencias de cada captura que falló.
+
+### En la CI [#in-ci]
+
+El job `visual` de `e2e-reusable.yml` solo se ejecuta para Chromium, junto a los shards: espera el build de pruebas como un shard, lo desempaqueta y ejecuta `bun run test:visual`, y la comprobación `Build and E2E (chromium)` falla si no pasó. Las capturas de referencia son las de Chromium porque WebKit dibuja el texto y los subpíxeles de otra manera: necesitaría un segundo juego de capturas y una segunda revisión del mismo diseño, mientras que la comprobación de WebKit sigue probando cómo se comporta WebKit.
 
 ## Suite del recorrido del cliente [#journey-suite]
 

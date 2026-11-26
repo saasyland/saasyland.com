@@ -1,11 +1,35 @@
-import { defineConfig, devices } from "@playwright/test"
+import { type Project, defineConfig, devices } from "@playwright/test"
 
+import {
+  VISUAL_BROWSER_VARIABLE,
+  VISUAL_COLOR_SCHEME,
+  VISUAL_MAX_DIFF_PIXEL_RATIO,
+  VISUAL_PROJECT,
+  VISUAL_SNAPSHOT_PATH,
+  VISUAL_SPECS,
+  VISUAL_TIMEZONE,
+} from "./e2e/data/visual.ts"
 import { LOCAL_SERVER, LOCAL_SERVER_ORIGIN, TEST_HOSTS, TEST_SERVER_PORTS } from "./src/data/local-server.ts"
 
 const isCI = Boolean(process.env["CI"])
 const appUrl = process.env["PLAYWRIGHT_BASE_URL"] ?? LOCAL_SERVER_ORIGIN
 const { host, port } = new URL(appUrl)
 const startCommand = `bun run start:test --port ${port}`
+const visualBrowser = process.env[VISUAL_BROWSER_VARIABLE]
+
+const visualProject = (wsEndpoint: string): Project => ({
+  expect: { toHaveScreenshot: { maxDiffPixelRatio: VISUAL_MAX_DIFF_PIXEL_RATIO } },
+  name: VISUAL_PROJECT,
+  snapshotPathTemplate: VISUAL_SNAPSHOT_PATH,
+  testMatch: VISUAL_SPECS,
+  use: {
+    ...devices["Desktop Chrome"],
+    colorScheme: VISUAL_COLOR_SCHEME,
+    connectOptions: { exposeNetwork: "<loopback>", wsEndpoint },
+    contextOptions: { reducedMotion: "reduce" },
+    timezoneId: VISUAL_TIMEZONE,
+  },
+})
 
 if (!TEST_HOSTS.includes(host)) {
   throw new Error(
@@ -14,6 +38,7 @@ if (!TEST_HOSTS.includes(host)) {
 }
 
 export const SERVER_PORT = port
+export const SERVER_URL = appUrl
 export const CI_RETRIES = 2
 export const DEV_RETRIES = 0
 export const CI_WORKERS = 2
@@ -28,8 +53,9 @@ export default defineConfig({
   fullyParallel: true,
   globalSetup: "./e2e/global-setup.ts",
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    { name: "chromium", testIgnore: VISUAL_SPECS, use: { ...devices["Desktop Chrome"] } },
+    { name: "webkit", testIgnore: VISUAL_SPECS, use: { ...devices["Desktop Safari"] } },
+    ...(visualBrowser === undefined ? [] : [visualProject(visualBrowser)]),
   ],
   reporter: isCI ? [["github"], ["blob"]] : [["list"], ["html", { open: "on-failure" }]],
   retries: isCI ? CI_RETRIES : DEV_RETRIES,

@@ -1,3 +1,4 @@
+import { noop } from "@tanstack/react-query"
 import { cleanup, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
@@ -302,10 +303,12 @@ describe("lesson locks", () => {
     })
     const { queryClient } = router.options.context
     queryClient.removeQueries({ queryKey: LESSON_QUERY_KEYS.PLAYBACK })
-    void queryClient.query({
-      queryFn: () => new Promise<never>(() => {}),
-      queryKey: lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: "boundaries" }).queryKey,
-    })
+    void queryClient
+      .query({
+        queryFn: () => new Promise<never>(() => {}),
+        queryKey: lessonPlaybackQuery({ courseSlug: COURSE_SLUG, lessonSlug: "boundaries" }).queryKey,
+      })
+      .catch(noop)
     const { container } = await mountCourseRouter(router)
 
     expect(screen.queryByTestId("video-player")).toBeNull()

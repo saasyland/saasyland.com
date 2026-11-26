@@ -19,6 +19,7 @@ import { messagesQueryOptions } from "~/src/integrations/use-intl/i18n.messages"
 import { ACCOUNT_MUTATION_KEYS } from "~/src/modules/account/account.constants"
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
 import type { signOutUserMutation } from "~/src/modules/account/use-cases/sign-out-user"
+import { getNewsletterSubscriptionQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscription"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 import type { confirmAccountDeletionMutation } from "~/src/modules/user/use-cases/confirm-account-deletion"
 import { USER_MUTATION_KEYS } from "~/src/modules/user/user.constants"
@@ -126,6 +127,7 @@ beforeEach(() => {
   summaryRequest.mockReset().mockResolvedValue(SUMMARY)
   vi.spyOn(getActiveSessionsQuery, "queryFn").mockResolvedValue([])
   vi.spyOn(listAccountsQuery, "queryFn").mockResolvedValue([])
+  vi.spyOn(getNewsletterSubscriptionQuery, "queryFn").mockResolvedValue({ isSubscribed: false })
   signOutMock.mockReset().mockResolvedValue(SIGN_OUT_SUCCESS)
   for (const notice of ACCOUNT_DELETION_NOTICES) {
     vi.spyOn(notice, "load").mockResolvedValue(undefined)

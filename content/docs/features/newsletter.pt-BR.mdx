@@ -1,9 +1,9 @@
 ---
 title: "Newsletter"
-description: "A lista de assinantes do admin e a exportação em CSV, a redação de uma edição em cada idioma com prévia e o envio pelo Resend em lotes que uma nova tentativa ou um segundo clique nunca enviam duas vezes."
+description: "A lista de assinantes do admin e a exportação em CSV, a redação de uma edição em cada idioma com prévia, o envio pelo Resend em lotes que uma nova tentativa ou um segundo clique nunca enviam duas vezes e a chave nas configurações do cliente."
 ---
 
-Os visitantes se inscrevem no diário de desenvolvimento pelo rodapé e confirmam o endereço por e-mail ([Landing page](/docs/features/landing-page#newsletter)). O admin acompanha as inscrições e envia as edições em `/admin/newsletter`, que a [funcionalidade](/docs/conventions/testing#tests-follow-the-features) de newsletter adiciona ao grupo Conteúdo da barra lateral em `src/data/navigation.ts`, com as abas Assinantes e Edições de `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). O bloco Assinantes da newsletter do painel leva até ela ([Painel administrativo](/docs/features/admin-dashboard#newsletter-subscribers)). Toda função de servidor abaixo executa `authorized({ admin: ["access"] })`, então só um admin chega a elas.
+Os visitantes se inscrevem no diário de desenvolvimento pelo rodapé e confirmam o endereço por e-mail ([Landing page](/docs/features/landing-page#newsletter)). O admin acompanha as inscrições e envia as edições em `/admin/newsletter`, que a [funcionalidade](/docs/conventions/testing#tests-follow-the-features) de newsletter adiciona ao grupo Conteúdo da barra lateral em `src/data/navigation.ts`, com as abas Assinantes e Edições de `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). O bloco Assinantes da newsletter do painel leva até ela ([Painel administrativo](/docs/features/admin-dashboard#newsletter-subscribers)). Toda função de servidor abaixo executa `authorized({ admin: ["access"] })`, então só um admin chega a elas. As duas por trás da chave do cliente no aplicativo só precisam de uma sessão ([No aplicativo do cliente](#in-the-workspace)).
 
 ## Assinantes [#subscribers]
 
@@ -49,6 +49,15 @@ Todo e-mail termina com uma linha explicando por que o leitor o recebe e um link
 ## Edições [#issues]
 
 `/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) lista as edições com `getNewsletterIssues` e `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): o assunto em inglês, Enviando ou Enviada, quantos e-mails saíram de quantos destinatários, em quantos idiomas a edição foi escrita, quando começou e quando terminou. A busca encontra o assunto em qualquer idioma; os filtros são o status e o dia de início.
+
+## No aplicativo do cliente [#in-the-workspace]
+
+Um cliente com sessão iniciada ativa e desativa o diário de desenvolvimento na aba Geral de `/app/settings`, onde `NewsletterCard` (`src/presentation/components/custom/newsletter-card.tsx`) vem depois das preferências ([Configurações](/docs/features/settings#newsletter)). O loader da página pré-carrega `getNewsletterSubscriptionQuery`, que informa se o endereço da conta está inscrito, e a chave chama `setNewsletterSubscription` com o idioma da página. As duas executam `authorized()` e tiram o endereço da sessão, então uma conta só muda a própria inscrição.
+
+- Ativar a chave inscreve o endereço na hora com a origem `app`, sem e-mail de confirmação, porque a conta já confirmou o endereço. Enquanto ele não estiver confirmado, a chave não consegue ativá-lo e pede para confirmar o endereço primeiro, e `setNewsletterSubscription` recusa com `FORBIDDEN`.
+- Desativá-la cancela a inscrição do endereço e registra quando, como faz o link de cancelamento, esteja o endereço confirmado ou não.
+
+A chave mostra o novo estado enquanto a mudança é salva; depois o card lê a inscrição de novo e confirma com um aviso. O card, seu esqueleto `NewsletterCardPending` (`newsletter-pending.tsx`) e seus textos (`components.custom.newsletter-card`) pertencem à funcionalidade de newsletter, então um site criado sem newsletter não tem o card.
 
 ## Páginas relacionadas
 

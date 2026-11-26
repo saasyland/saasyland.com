@@ -1,13 +1,13 @@
 ---
 title: "Settings"
-description: "The /app/settings and /admin/settings screens: preferences, the email address, the password, two-factor authentication, connected accounts, sessions and account deletion."
+description: "The /app/settings and /admin/settings screens: preferences, the newsletter, the email address, the password, two-factor authentication, connected accounts, sessions and account deletion."
 ---
 
-`src/routes/app.settings.tsx` and `src/routes/admin.settings.tsx` render two tabs from `SETTINGS_TABS` (`src/data/auth.ts`), **General** and **Security**. The tab is the `tab` search param, validated by `settingsSearchSchema` and dropped from the address when it is the default, so an OAuth link returns to `?tab=security`. The cards live in `src/presentation/components/custom/settings`, share the `auth.security` namespace, which the `/app` and `/admin` layouts load, and serve customers and admins alike; only the customer's General tab ends with **Delete account**. Both loaders preload the session list (`getActiveSessionsQuery`) and the sign-in methods (`listAccountsQuery`), and `/app/settings` also runs the loads of the account deletion notices.
+`src/routes/app.settings.tsx` and `src/routes/admin.settings.tsx` render two tabs from `SETTINGS_TABS` (`src/data/auth.ts`), **General** and **Security**. The tab is the `tab` search param, validated by `settingsSearchSchema` and dropped from the address when it is the default, so an OAuth link returns to `?tab=security`. The cards live in `src/presentation/components/custom/settings`, share the `auth.security` namespace, which the `/app` and `/admin` layouts load, and serve customers and admins alike; only the customer's General tab ends with **Delete account**. Both loaders preload the session list (`getActiveSessionsQuery`) and the sign-in methods (`listAccountsQuery`), and `/app/settings` also prefetches the newsletter subscription and runs the loads of the account deletion notices.
 
 | Tab      | `/app/settings`                                                          | `/admin/settings`                                                         |
 | -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| General  | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `BusinessProfileCard`, `BusinessLogoCard`, `PreferencesCard`, `EmailCard` |
+| General  | `PreferencesCard`, `NewsletterCard`, `EmailCard`, `DeleteAccountCard`    | `BusinessProfileCard`, `BusinessLogoCard`, `PreferencesCard`, `EmailCard` |
 | Security | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard`  |
 
 ## Business profile [#business-profile]
@@ -28,6 +28,10 @@ description: "The /app/settings and /admin/settings screens: preferences, the em
 - **Save preferences** calls `updatePreferences` (`src/modules/user/use-cases/update-preferences.ts`, signed in), which validates the zone with `userZodSchemas.updatePreferences` and stores it through Better Auth's `updateUser`. The card then invalidates the current session query, and `TranslationsProvider` shows every date in the new zone ([Internationalization and locales](/docs/features/internationalization)).
 
 The language is not stored: it is the locale in the URL, switched with `LocaleSelect`, and it also decides the date order, the 12- or 24-hour clock and the number separators.
+
+## Newsletter
+
+On `/app/settings`, `NewsletterCard` follows the preferences with one switch that turns the build log on and off for the account's address: at once and without a confirmation email, because the account has confirmed that address already. While the address is not confirmed, the switch can only turn the build log off. The newsletter [feature](/docs/conventions/testing#tests-follow-the-features) adds the card, so a site built without it has none; see [Newsletter](/docs/features/newsletter#in-the-workspace).
 
 ## Email address
 
@@ -60,3 +64,5 @@ Deleting the user cascades to its sessions, sign-in methods, two-factor row and 
 ## Skeletons
 
 `PreferencesCardPending`, in `preferences-card-pending.tsx`, and `SettingsTabsPending`, `EmailCardPending` and `DeleteAccountCardPending`, in `custom/settings/settings-pending.tsx`, draw `AdminSettingsPending`, `AppSettingsPending` and `AppDeleteAccountPending`. They have files of their own because every page loads the skeletons, and the cards' files hold the forms (see [Performance](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). A skeleton draws the General tab. `BusinessProfileCardPending` and `BusinessLogoCardPending`, in `custom/admin/business-profile-pending.tsx`, open the admin's General tab in `AdminSettingsPending`.
+
+`AppSettingsPending` also draws `NewsletterCardPending`, the newsletter feature's skeleton of its card, from `newsletter-pending.tsx`.

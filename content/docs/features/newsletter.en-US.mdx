@@ -1,9 +1,9 @@
 ---
 title: "Newsletter"
-description: "The admin's subscriber list and its CSV export, writing an issue in every language with a preview, and sending it through Resend in batches that a retry or a second click never sends twice."
+description: "The admin's subscriber list and its CSV export, writing an issue in every language with a preview, sending it through Resend in batches that a retry or a second click never sends twice, and the switch in a customer's settings."
 ---
 
-Visitors sign up for the build log from the footer and confirm their address by email ([Landing page](/docs/features/landing-page#newsletter)). The admin reads the sign-ups and sends the issues at `/admin/newsletter`, which the newsletter [feature](/docs/conventions/testing#tests-follow-the-features) adds to the Content group of the sidebar in `src/data/navigation.ts`, with the Subscribers and Issues tabs of `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). The dashboard's Newsletter subscribers tile links to it ([Admin dashboard](/docs/features/admin-dashboard#newsletter-subscribers)). Every server function below runs `authorized({ admin: ["access"] })`, so only an admin reaches them.
+Visitors sign up for the build log from the footer and confirm their address by email ([Landing page](/docs/features/landing-page#newsletter)). The admin reads the sign-ups and sends the issues at `/admin/newsletter`, which the newsletter [feature](/docs/conventions/testing#tests-follow-the-features) adds to the Content group of the sidebar in `src/data/navigation.ts`, with the Subscribers and Issues tabs of `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). The dashboard's Newsletter subscribers tile links to it ([Admin dashboard](/docs/features/admin-dashboard#newsletter-subscribers)). Every server function below runs `authorized({ admin: ["access"] })`, so only an admin reaches them. The two behind the customer's switch in the workspace need only a session ([In the workspace](#in-the-workspace)).
 
 ## Subscribers
 
@@ -49,6 +49,15 @@ Every email ends with a line saying why the reader gets it and a link to `/newsl
 ## Issues
 
 `/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) lists the issues with `getNewsletterIssues` and `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): the English subject, Sending or Sent, how many emails went out of how many recipients, in how many languages the issue was written, when it started and when it finished. The search matches the subject in any language; the filters are the status and the start day.
+
+## In the workspace
+
+A signed-in customer turns the build log on and off on the General tab of `/app/settings`, where `NewsletterCard` (`src/presentation/components/custom/newsletter-card.tsx`) follows the preferences ([Settings](/docs/features/settings#newsletter)). The page's loader prefetches `getNewsletterSubscriptionQuery`, which says whether the account's address is subscribed, and the switch calls `setNewsletterSubscription` with the language of the page. Both run `authorized()` and take the address from the session, so an account changes only its own subscription.
+
+- Turning the switch on subscribes the address at once with the source `app`, without a confirmation email, because the account has confirmed the address already. While it is not confirmed, the switch cannot turn the build log on and says to confirm the address first, and `setNewsletterSubscription` refuses with `FORBIDDEN`.
+- Turning it off unsubscribes the address and records when, as the unsubscribe link does, whether the address is confirmed or not.
+
+The switch shows the new state while the change is saved, then the card reads the subscription again and confirms with a toast. The card, its skeleton `NewsletterCardPending` (`newsletter-pending.tsx`) and its messages (`components.custom.newsletter-card`) belong to the newsletter feature, so a site built without the newsletter has no card.
 
 ## Related pages
 

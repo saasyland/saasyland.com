@@ -16,6 +16,26 @@ const ROUND_TRIP = {
   title: "localized newsletter signup, confirmation and unsubscribe survive hydration and refresh",
 } as const
 
+const RECIPIENT_LIMIT = {
+  spec: "auth-limits.spec.ts",
+  title: "auth limits › a reset or newsletter email over the hourly limit for one recipient is skipped without an error",
+} as const
+
+const CLIENT_LIMIT = {
+  spec: "newsletter.spec.ts",
+  title: "sign-ups from one client address past the limit are refused and send nothing, while another client address still signs up",
+} as const
+
+const RESUBSCRIBE = {
+  spec: "newsletter.spec.ts",
+  title: "an unsubscribed reader who signs up again gets a new confirmation email and is on the list again once they confirm it",
+} as const
+
+const IN_APP = {
+  spec: "newsletter.spec.ts",
+  title: "a signed-in customer turns the build log on and off from the settings in the page's language once the address is confirmed",
+} as const
+
 export const NEWSLETTER_FLOWS = [
   {
     feature: FLOW_FEATURE.NEWSLETTER,
@@ -98,22 +118,25 @@ export const NEWSLETTER_FLOWS = [
   {
     feature: FLOW_FEATURE.NEWSLETTER,
     id: "newsletter-rate-limit",
-    outcome: "Sign-ups over the limit for one address within the window are refused",
-    reason: "The spec subscribes once, from an address of its own.",
-    status: FLOW_STATUS.MISSING,
+    outcome:
+      "Sign-ups from one client address past the limit within the window are refused with a message and send nothing, and confirmation emails to one address past the hourly limit are skipped",
+    status: FLOW_STATUS.COVERED,
+    tests: [CLIENT_LIMIT, RECIPIENT_LIMIT],
   },
   {
     feature: FLOW_FEATURE.NEWSLETTER,
     id: "newsletter-resubscribe",
-    outcome: "An unsubscribed address that subscribes again receives a new confirmation email and is subscribed once it confirms",
-    reason: "The spec ends after unsubscribing.",
-    status: FLOW_STATUS.MISSING,
+    outcome:
+      "An unsubscribed address that subscribes again receives a new confirmation email, stays pending while the old link is spent, and is subscribed once it confirms",
+    status: FLOW_STATUS.COVERED,
+    tests: [RESUBSCRIBE],
   },
   {
     feature: FLOW_FEATURE.NEWSLETTER,
     id: "newsletter-in-app",
-    outcome: "A signed-in customer turns the newsletter on and off from /app",
-    reason: "get-newsletter-subscription.ts and set-newsletter-subscription.ts have no screen.",
-    status: FLOW_STATUS.TO_BUILD,
+    outcome:
+      "A signed-in customer whose address is confirmed turns the newsletter on and off in /app/settings without a confirmation email, in the page's language, and the choice survives a reload",
+    status: FLOW_STATUS.COVERED,
+    tests: [IN_APP],
   },
 ] as const satisfies readonly Flow[]

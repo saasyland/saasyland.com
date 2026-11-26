@@ -1,9 +1,9 @@
 ---
 title: "Newsletter"
-description: "L’elenco degli iscritti nell’amministrazione e la sua esportazione CSV, la scrittura di un numero in ogni lingua con anteprima e il suo invio tramite Resend in lotti che un nuovo tentativo o un secondo clic non inviano mai due volte."
+description: "L’elenco degli iscritti nell’amministrazione e la sua esportazione CSV, la scrittura di un numero in ogni lingua con anteprima, il suo invio tramite Resend in lotti che un nuovo tentativo o un secondo clic non inviano mai due volte e l’interruttore nelle impostazioni del cliente."
 ---
 
-I visitatori si iscrivono al diario di sviluppo dal footer e confermano il proprio indirizzo via email ([Landing page](/docs/features/landing-page#newsletter)). L’amministratore legge le iscrizioni e invia i numeri da `/admin/newsletter`, che la [funzionalità](/docs/conventions/testing#tests-follow-the-features) newsletter aggiunge al gruppo Contenuto della barra laterale in `src/data/navigation.ts`, con le schede Iscritti e Numeri di `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Il riquadro Iscritti alla newsletter della dashboard rimanda qui ([Dashboard di amministrazione](/docs/features/admin-dashboard#newsletter-subscribers)). Ogni funzione server descritta qui esegue `authorized({ admin: ["access"] })`, quindi solo un amministratore vi accede.
+I visitatori si iscrivono al diario di sviluppo dal footer e confermano il proprio indirizzo via email ([Landing page](/docs/features/landing-page#newsletter)). L’amministratore legge le iscrizioni e invia i numeri da `/admin/newsletter`, che la [funzionalità](/docs/conventions/testing#tests-follow-the-features) newsletter aggiunge al gruppo Contenuto della barra laterale in `src/data/navigation.ts`, con le schede Iscritti e Numeri di `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Il riquadro Iscritti alla newsletter della dashboard rimanda qui ([Dashboard di amministrazione](/docs/features/admin-dashboard#newsletter-subscribers)). Ogni funzione server descritta qui esegue `authorized({ admin: ["access"] })`, quindi solo un amministratore vi accede. Le due funzioni dietro l’interruttore del cliente nella sua app richiedono solo una sessione ([Nell’app cliente](#in-the-workspace)).
 
 ## Iscritti [#subscribers]
 
@@ -49,6 +49,15 @@ Ogni email si chiude con una riga che spiega al lettore perché la riceve e con 
 ## Numeri [#issues]
 
 `/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) elenca i numeri con `getNewsletterIssues` e `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): l’oggetto in inglese, Invio in corso o Inviato, quante email sono partite su quanti destinatari, in quante lingue è stato scritto il numero, quando è iniziato e quando si è concluso l’invio. La ricerca trova l’oggetto in qualsiasi lingua; i filtri sono lo stato e il giorno di avvio.
+
+## Nell’app cliente [#in-the-workspace]
+
+Un cliente che ha effettuato l’accesso attiva e disattiva il diario di sviluppo nella scheda Generale di `/app/settings`, dove `NewsletterCard` (`src/presentation/components/custom/newsletter-card.tsx`) segue le preferenze ([Impostazioni](/docs/features/settings#newsletter)). Il loader della pagina precarica `getNewsletterSubscriptionQuery`, che dice se l’indirizzo dell’account è iscritto, e l’interruttore chiama `setNewsletterSubscription` con la lingua della pagina. Entrambe eseguono `authorized()` e prendono l’indirizzo dalla sessione, quindi un account cambia solo la propria iscrizione.
+
+- Attivarlo iscrive subito l’indirizzo con l’origine `app`, senza email di conferma, perché l’account ha già confermato l’indirizzo. Finché non è confermato, l’interruttore non può attivarlo e chiede di confermare prima l’indirizzo, e `setNewsletterSubscription` rifiuta con `FORBIDDEN`.
+- Disattivarlo disiscrive l’indirizzo e registra quando, come fa il link di disiscrizione, che l’indirizzo sia confermato o no.
+
+L’interruttore mostra il nuovo stato mentre la modifica viene salvata; poi la card rilegge l’iscrizione e la conferma con una notifica. La card, il suo scheletro `NewsletterCardPending` (`newsletter-pending.tsx`) e i suoi testi (`components.custom.newsletter-card`) appartengono alla funzionalità newsletter, quindi un sito costruito senza newsletter non ha la card.
 
 ## Pagine correlate
 

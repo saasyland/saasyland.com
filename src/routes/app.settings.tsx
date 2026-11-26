@@ -8,6 +8,7 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
+import { getNewsletterSubscriptionQuery } from "~/src/modules/newsletter-subscriber/use-cases/get-newsletter-subscription"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 
 import { SETTINGS_TAB } from "~/src/data/auth"
@@ -18,6 +19,7 @@ import { pageHead } from "~/src/lib/seo"
 import { Tabs, TabsContent } from "~/src/presentation/components/shadcn/tabs"
 
 import { AppSettingsPending } from "~/src/presentation/components/custom/app/auth-pending"
+import { NewsletterCard } from "~/src/presentation/components/custom/newsletter-card"
 import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
 import { ACCOUNT_DELETION_NOTICES, DeleteAccountCard } from "~/src/presentation/components/custom/settings/delete-account-card"
 import { EmailCard } from "~/src/presentation/components/custom/settings/email-card"
@@ -42,6 +44,7 @@ const SettingsPage = (): JSX.Element => {
         </div>
         <TabsContent className="flex flex-col gap-6 outline-none" id={SETTINGS_TAB.GENERAL}>
           <PreferencesCard />
+          <NewsletterCard />
           <EmailCard />
           <DeleteAccountCard />
         </TabsContent>
@@ -65,6 +68,7 @@ export const Route = createFileRoute("/app/settings")({
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
       context.queryClient.query({ ...getActiveSessionsQuery, staleTime: "static" }),
       context.queryClient.query({ ...listAccountsQuery, staleTime: "static" }),
+      context.queryClient.query({ ...getNewsletterSubscriptionQuery, staleTime: "static" }),
       ...ACCOUNT_DELETION_NOTICES.map(({ load }) => load({ queryClient: context.queryClient })),
     ])
     return { locale, metadata }

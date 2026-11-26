@@ -1,9 +1,9 @@
 ---
 title: "Boletín"
-description: "La lista de suscriptores del administrador y su exportación a CSV, la redacción de un número en cada idioma con vista previa y su envío por Resend en lotes que un reintento o un segundo clic nunca envían dos veces."
+description: "La lista de suscriptores del administrador y su exportación a CSV, la redacción de un número en cada idioma con vista previa, su envío por Resend en lotes que un reintento o un segundo clic nunca envían dos veces y el interruptor en los ajustes del cliente."
 ---
 
-Los visitantes se suscriben al diario de desarrollo desde el pie de página y confirman su dirección por correo ([Página de inicio](/docs/features/landing-page#newsletter)). El administrador consulta las suscripciones y envía los números en `/admin/newsletter`, que la [funcionalidad](/docs/conventions/testing#tests-follow-the-features) del boletín añade al grupo Contenido de la barra lateral en `src/data/navigation.ts`, con las pestañas Suscriptores y Números de `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). La tarjeta Suscriptores del boletín del panel enlaza a esta página ([Panel de administración](/docs/features/admin-dashboard#newsletter-subscribers)). Cada función de servidor de esta página ejecuta `authorized({ admin: ["access"] })`, así que solo un administrador llega a ellas.
+Los visitantes se suscriben al diario de desarrollo desde el pie de página y confirman su dirección por correo ([Página de inicio](/docs/features/landing-page#newsletter)). El administrador consulta las suscripciones y envía los números en `/admin/newsletter`, que la [funcionalidad](/docs/conventions/testing#tests-follow-the-features) del boletín añade al grupo Contenido de la barra lateral en `src/data/navigation.ts`, con las pestañas Suscriptores y Números de `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). La tarjeta Suscriptores del boletín del panel enlaza a esta página ([Panel de administración](/docs/features/admin-dashboard#newsletter-subscribers)). Cada función de servidor de esta página ejecuta `authorized({ admin: ["access"] })`, así que solo un administrador llega a ellas. Las dos funciones que hay detrás del interruptor del cliente en su aplicación solo necesitan una sesión ([En la aplicación de cliente](#in-the-workspace)).
 
 ## Suscriptores [#subscribers]
 
@@ -49,6 +49,15 @@ Cada correo termina con una línea que explica por qué lo recibe el lector y un
 ## Números [#issues]
 
 `/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) muestra los números con `getNewsletterIssues` y `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): el asunto en inglés, Enviándose o Enviado, cuántos correos salieron de cuántos destinatarios, en cuántos idiomas se escribió el número, cuándo empezó y cuándo terminó. La búsqueda encuentra el asunto en cualquier idioma; los filtros son el estado y el día de inicio.
+
+## En la aplicación de cliente [#in-the-workspace]
+
+Un cliente con la sesión iniciada activa y desactiva el diario de desarrollo en la pestaña General de `/app/settings`, donde `NewsletterCard` (`src/presentation/components/custom/newsletter-card.tsx`) sigue a las preferencias ([Ajustes](/docs/features/settings#newsletter)). El loader de la página precarga `getNewsletterSubscriptionQuery`, que indica si la dirección de la cuenta está suscrita, y el interruptor llama a `setNewsletterSubscription` con el idioma de la página. Ambas ejecutan `authorized()` y toman la dirección de la sesión, así que una cuenta solo cambia su propia suscripción.
+
+- Al activarlo, la dirección se suscribe al momento con el origen `app`, sin correo de confirmación, porque la cuenta ya ha confirmado la dirección. Mientras no esté confirmada, el interruptor no puede activarlo y pide confirmar antes la dirección, y `setNewsletterSubscription` responde con `FORBIDDEN`.
+- Al desactivarlo, la dirección se da de baja y se registra cuándo, como hace el enlace para darse de baja, esté confirmada o no.
+
+El interruptor muestra el nuevo estado mientras se guarda el cambio; después la tarjeta vuelve a leer la suscripción y lo confirma con un aviso. La tarjeta, su esqueleto `NewsletterCardPending` (`newsletter-pending.tsx`) y sus textos (`components.custom.newsletter-card`) pertenecen a la funcionalidad del boletín, así que un sitio creado sin boletín no tiene la tarjeta.
 
 ## Páginas relacionadas
 

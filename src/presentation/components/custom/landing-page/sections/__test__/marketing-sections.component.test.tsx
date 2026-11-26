@@ -54,7 +54,14 @@ import { StudioSection } from "~/src/presentation/components/custom/landing-page
 import { PRICING_TRUST_ITEMS } from "~/src/presentation/components/custom/pricing"
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
+import faqFacts from "~/messages/en-US/pages.landing.faq.repository-facts.json"
+import gateContent from "~/messages/en-US/pages.landing.gate.content.json"
 import english from "~/messages/en-US/pages.landing.json"
+import lineFacts from "~/messages/en-US/pages.landing.line.repository-facts.json"
+import pricingLicense from "~/messages/en-US/pages.landing.pricing.license.json"
+import pricingFacts from "~/messages/en-US/pages.landing.pricing.repository-facts.json"
+import qualityContent from "~/messages/en-US/pages.landing.quality.content.json"
+import recordFacts from "~/messages/en-US/pages.landing.record.repository-facts.json"
 import masterclass from "~/messages/en-US/pages.landing.studio.masterclass.json"
 import stackMessages from "~/messages/en-US/stack.json"
 import { APP_GITHUB_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
@@ -65,6 +72,8 @@ const GENERATED_STACK = [CHOICE.FRAMEWORK, CHOICE.LIBRARY, CHOICE.DEPLOYMENT] as
 const ADMIN_SECTION_NAMES = new Intl.ListFormat(I18N.DEFAULT_LOCALE).format(
   ADMIN_NAVIGATION.flatMap(({ items }) => items).map((entry) => getNavigationLabel(I18N.DEFAULT_LOCALE)(entry)),
 )
+
+const FAQ_QUESTIONS = new Map(Object.entries(faqFacts.items).map(([id, { question }]) => [id, question]))
 
 const withFacts = (message: string): string =>
   createTranslator({ locale: "en-US", messages: { message } })("message", {
@@ -326,11 +335,11 @@ describe("marketing content and purchase links", () => {
       }
     }
     expect(screen.getAllByText(pricing.recommended)).toHaveLength(1)
-    expect(screen.getByRole("link", { name: english.pricing.consulting.cta })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: pricingLicense.consulting.cta })).toHaveAttribute(
       "href",
       "mailto:hello@saasyland.com?subject=Architecture%20call",
     )
-    expect(screen.getByText(english.pricing.consulting.period).previousElementSibling).toHaveTextContent(
+    expect(screen.getByText(pricingLicense.consulting.period).previousElementSibling).toHaveTextContent(
       new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(CONSULTING_HOURLY_RATE),
     )
   })
@@ -338,8 +347,8 @@ describe("marketing content and purchase links", () => {
   it("exposes every FAQ answer through its question and keeps the contact link available", async () => {
     const user = userEvent.setup({ delay: null })
     renderSection(<FaqSection />)
-    for (const item of Object.values(english.faq.items)) {
-      const trigger = screen.getByRole("button", { name: withFacts(item.question) })
+    for (const [id, item] of Object.entries(english.faq.items)) {
+      const trigger = screen.getByRole("button", { name: withFacts(FAQ_QUESTIONS.get(id) ?? "") })
       if (trigger.getAttribute("aria-expanded") !== "true") {
         await user.click(trigger)
       }
@@ -362,7 +371,7 @@ describe("marketing content and purchase links", () => {
       expect(screen.getByText(item.label, { selector: "dt" })).toBeVisible()
       expect(screen.getByText(withFacts(item.body))).toBeVisible()
     }
-    for (const item of Object.values(english.record.items)) {
+    for (const item of Object.values(recordFacts.items)) {
       expect(screen.getByText(withFacts(item.claim), { selector: "dt" })).toBeVisible()
       expect(screen.getByText(withFacts(item.evidence))).toBeVisible()
     }
@@ -372,7 +381,7 @@ describe("marketing content and purchase links", () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/% Branch\s+100/u)).toBeInTheDocument()
     expect(screen.getByRole("link", { name: english.quality.cta })).toHaveAttribute("href", "#pricing")
-    expect(screen.getByRole("link", { name: english.quality.coverageLink })).toHaveAttribute("href", ROUTES.DOCS.TOOLING.TEST_COVERAGE)
+    expect(screen.getByRole("link", { name: qualityContent.coverageLink })).toHaveAttribute("href", ROUTES.DOCS.TOOLING.TEST_COVERAGE)
   })
 
   it("keeps comparison choices, dimensions, and pricing navigation together", () => {
@@ -396,7 +405,7 @@ describe("marketing content and purchase links", () => {
 
   it("highlights only the hovered foundation card and resets the highlight on exit", () => {
     const { container } = renderSection(<LineSection />)
-    const title = screen.getByRole("heading", { name: english.line.stations.auth.title })
+    const title = screen.getByRole("heading", { name: lineFacts.stations.auth.title })
     const card = title.parentElement?.parentElement
     if (!card) {
       throw new Error("Foundation card is missing")
@@ -423,7 +432,7 @@ describe("marketing content and purchase links", () => {
     )
     expect(screen.getByRole("link", { name: withFacts(english.manifesto.p3) })).toHaveAttribute("href", "#pricing")
     expect(screen.getAllByRole("link", { name: english.rally.ctaPrimary }).some((link) => link.getAttribute("href") === "#cli")).toBe(true)
-    expect(screen.getByRole("link", { name: english.gate.ctaSecondary })).toHaveAttribute("href", "/docs")
+    expect(screen.getByRole("link", { name: gateContent.ctaSecondary })).toHaveAttribute("href", "/docs")
     expect(screen.getByText(withFacts(english.gate.assurance))).toBeVisible()
     const stack = screen.getByRole("region", { name: english.stack.title })
     expect(within(stack).getAllByText("Cloudflare")).toHaveLength(2)
@@ -551,13 +560,13 @@ describe("positioning in the CLI section and beside the tiers", () => {
       throw new Error("Other options are missing")
     }
     expect(within(others).getAllByRole("listitem")).toHaveLength(2)
-    expect(within(others).getByRole("heading", { name: english.pricing.free.title })).toBeVisible()
-    expect(within(others).getByText(withFacts(english.pricing.free.body))).toBeVisible()
-    expect(within(others).getByRole("link", { name: english.pricing.free.cta })).toHaveAttribute("href", APP_GITHUB_URL)
-    expect(within(others).getByText(english.pricing.free.period).previousElementSibling).toHaveTextContent(
+    expect(within(others).getByRole("heading", { name: pricingFacts.free.title })).toBeVisible()
+    expect(within(others).getByText(withFacts(pricingFacts.free.body))).toBeVisible()
+    expect(within(others).getByRole("link", { name: pricingFacts.free.cta })).toHaveAttribute("href", APP_GITHUB_URL)
+    expect(within(others).getByText(pricingFacts.free.period).previousElementSibling).toHaveTextContent(
       new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(0),
     )
-    expect(within(others).getByRole("heading", { name: english.pricing.consulting.title })).toBeVisible()
+    expect(within(others).getByRole("heading", { name: pricingLicense.consulting.title })).toBeVisible()
     expect(within(others).queryByRole("link", { name: pricing.tiers.agency.cta })).not.toBeInTheDocument()
     expect(screen.getAllByRole("link", { name: pricing.tiers.agency.cta })).toHaveLength(1)
     expect(screen.getByText(pricing.tiers.agency.whoFor)).toBeVisible()

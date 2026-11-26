@@ -34,6 +34,24 @@ describe("bundled locale namespaces", () => {
     ).toEqual({ pages: { console: { title: "Console", users: { title: "Users" } } } })
     expect(parent).toEqual({ title: "Console" })
   })
+  it("keeps a namespace nested below a key of its parent, whichever of the two loads first", () => {
+    const parent = { users: { title: "Users" } }
+    const merged = { pages: { console: { users: { facts: { lead: "Measured" }, title: "Users" } } } }
+
+    expect(
+      buildMessageTree([
+        ["pages.console.users.facts", { lead: "Measured" }],
+        ["pages.console", parent],
+      ]),
+    ).toEqual(merged)
+    expect(
+      buildMessageTree([
+        ["pages.console", parent],
+        ["pages.console.users.facts", { lead: "Measured" }],
+      ]),
+    ).toEqual(merged)
+    expect(parent).toEqual({ users: { title: "Users" } })
+  })
   it("keeps each locale and namespace separate in one query cache", async () => {
     const queryClient = new QueryClient()
     const englishForm = { locale: "en-US", namespace: "errors.global" } as const

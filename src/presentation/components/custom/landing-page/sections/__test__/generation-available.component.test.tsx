@@ -29,6 +29,7 @@ import { PricingSection } from "~/src/presentation/components/custom/landing-pag
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import blog from "~/messages/en-US/pages.blog.json"
+import faqFacts from "~/messages/en-US/pages.landing.faq.repository-facts.json"
 import landing from "~/messages/en-US/pages.landing.json"
 
 vi.mock(import("~/src/data/cli"), async (importOriginal) => {
@@ -102,7 +103,7 @@ describe("copy once project generation is available", () => {
         <PostCta />
       </>,
     )
-    await user.click(screen.getByRole("button", { name: plain(landing.faq.items.q1.question) }))
+    await user.click(screen.getByRole("button", { name: plain(faqFacts.items.q1.question) }))
 
     for (const message of [
       landing.hero.description,

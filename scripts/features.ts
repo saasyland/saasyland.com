@@ -116,6 +116,8 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
     files: [
       "e2e/data/content.{flows,pages}.ts",
       "messages/*/{navigation.content,pages.landing.notes}.json",
+      "messages/*/{pages.app,pages.landing.gate,pages.landing.quality}.content.json",
+      "messages/*/pages.landing.notes.repository-facts.json",
       "src/data/{blog,head-start}.ts",
       "src/data/__test__/{blog,head-start}.test.ts",
       "src/integrations/fumadocs/**",
@@ -244,6 +246,7 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
       "e2e/specs/{admin-licence-machines,affiliate-checkout,checkout-funnel,cli-licence-api,course-licences,license,license-webhooks,published-cli,regional-pricing,sign-up-order-summary,withdrawal}.spec.ts",
       "messages/*/{pages.withdrawal,purchase-email.courses,withdrawal.validations}.json",
       "messages/*/components.custom.{pricing,sign-up-order-summary}.json",
+      "messages/*/pages.landing.pricing.license.json",
       "messages/*/emails.{purchase-confirmation-email,unmatched-order-alert-email,withdrawal-acknowledgement-email,withdrawal-notification-email}.json",
     ],
     names: { [ROUTES_FILE]: ["ROUTES.APP.LICENSE", "ROUTES.WITHDRAWAL"] },
@@ -340,6 +343,7 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
     files: [
       "src/data/__test__/navigation.website.test.ts",
       "messages/*/pages.landing.proof.json",
+      "messages/*/pages.landing.{faq,line,manifesto,notes,pricing,quality,record}.repository-facts.json",
       "src/presentation/components/custom/landing-page/sections/proof-section.tsx",
       "src/presentation/components/custom/landing-page/sections/__test__/proof-section.component.test.tsx",
       "src/presentation/components/custom/repository-fact.tsx",

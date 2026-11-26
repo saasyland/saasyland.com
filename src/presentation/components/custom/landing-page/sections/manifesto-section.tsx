@@ -31,7 +31,7 @@ export const ManifestoSection = (): JSX.Element => {
               className="group inline-flex items-center gap-4 text-display-gate text-foreground focus-visible:outline-2 focus-visible:outline-offset-6 focus-visible:outline-ring"
               href={`#${MARKETING_SECTION_IDS.PRICING}`}
             >
-              <Accent id="manifesto" text={t("p3", REPOSITORY_FACTS)} />
+              <Accent id="manifesto" text={t("p3")} />
               <ArrowRight
                 aria-hidden
                 className="size-[0.62em] shrink-0 text-ring transition-transform duration-200 ease-exp group-hover:translate-x-1.5 motion-reduce:transition-none"

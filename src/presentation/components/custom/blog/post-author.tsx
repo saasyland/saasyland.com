@@ -40,7 +40,7 @@ export const PostAuthor = (): JSX.Element => {
         </p>
         <p className="mt-1 text-body-sm text-muted-foreground">{t(`authors.${post.author}.role`)}</p>
         <p className="mt-4 max-w-[64ch] text-body text-pretty text-muted-foreground">{t(`authors.${post.author}.bio`)}</p>
-        <div className="mt-4 -ml-2">
+        <div className="mt-4 -ml-1.5">
           <AuthorLinks author={post.author} />
         </div>
       </div>

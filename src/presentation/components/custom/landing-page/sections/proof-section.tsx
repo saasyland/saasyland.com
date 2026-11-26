@@ -3,8 +3,6 @@ import type { JSX } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useFormatter, useTranslations } from "use-intl/react"
 
-import { useAdminSections } from "~/src/hooks/use-admin-sections"
-
 import { starCountQuery } from "~/src/lib/github"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
@@ -16,7 +14,6 @@ const FACT_KEYS = ["coverage", "tests", "languages", "components", "mau", "stars
 
 export const ProofSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.proof")
-  const sections = useAdminSections()
   const format = useFormatter()
 
   const { data: stars } = useQuery(starCountQuery)
@@ -33,9 +30,7 @@ export const ProofSection = (): JSX.Element => {
               <dd className="mt-3 text-headline-support leading-none text-foreground tabular-nums">
                 {key === "stars" ? starCount : t(`facts.${key}.value`, REPOSITORY_FACTS)}
               </dd>
-              <dd className="mt-2 text-body-sm text-pretty text-muted-foreground">
-                {t(`facts.${key}.note`, { ...REPOSITORY_FACTS, sections })}
-              </dd>
+              <dd className="mt-2 text-body-sm text-pretty text-muted-foreground">{t(`facts.${key}.note`, REPOSITORY_FACTS)}</dd>
             </HighlightItem>
           ))}
         </HighlightGroup>

@@ -1,8 +1,10 @@
 import { type JSX, type ReactNode, Suspense } from "react"
 
-import { useTranslations } from "use-intl/react"
+import { CHOICE } from "@saasyland/stack"
+import { Link } from "react-aria-components"
+import { useFormatter, useTranslations } from "use-intl/react"
 
-import { CLI_GENERATION_VALUES } from "~/src/data/cli"
+import { CLI_GENERATION_VALUES, CLI_TEMPLATE_SUPPORT } from "~/src/data/cli"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
@@ -10,11 +12,51 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { CliConfigurator } from "~/src/presentation/components/custom/landing-page/components/cli-configurator"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 
+import * as ROUTES from "~/src/routes"
+
 const FRAME_DELAY_MS = 100
 
 const REUSE_VALUES = {
   ...CLI_GENERATION_VALUES,
   accent: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,
+}
+
+const GENERATED_STACK = [CHOICE.FRAMEWORK, CHOICE.LIBRARY, CHOICE.DEPLOYMENT] as const
+
+const useGeneratedStack = (): Record<string, string> => {
+  const stack = useTranslations("stack")
+  const format = useFormatter()
+
+  return Object.fromEntries(
+    GENERATED_STACK.map((choice) => [
+      choice,
+      format.list(
+        CLI_TEMPLATE_SUPPORT.choices[choice].map((option) => stack(`${choice}.options.${option}`)),
+        { type: "disjunction" },
+      ),
+    ]),
+  )
+}
+
+const GeneratedStack = (): JSX.Element => {
+  const values = useGeneratedStack()
+  const t = useTranslations("pages.landing.cli")
+
+  return (
+    <p className="mt-4 max-w-2xl text-lead text-pretty text-muted-foreground">
+      {t.rich("stack", {
+        ...values,
+        roadmap: (chunks: ReactNode) => (
+          <Link
+            className="rounded-sm text-foreground underline underline-offset-4 outline-none hover:text-muted-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-4 data-focus-visible:outline-ring data-focus-visible:outline-solid"
+            href={ROUTES.DOCS_ROADMAP}
+          >
+            {chunks}
+          </Link>
+        ),
+      })}
+    </p>
+  )
 }
 
 export const CliSection = (): JSX.Element => {
@@ -28,6 +70,7 @@ export const CliSection = (): JSX.Element => {
           <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">
             {t("lead", { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
           </p>
+          <GeneratedStack />
         </Reveal>
 
         <Reveal className="-mx-6 mt-14 sm:mx-0 md:mt-20" delay={FRAME_DELAY_MS} variant="quiet">

@@ -174,7 +174,6 @@ const CLAIMS: readonly Claim[] = [
     pattern: /requires \*\*(?<threshold>\d+)% statements, branches, functions, and lines\*\*/gu,
     value: equals({ threshold: REPOSITORY_FACTS.coverageThreshold }),
   },
-  { name: "the head start", pattern: /The (?<hours>\d+)\+ hour head start/gu, value: equals({ hours: REPOSITORY_FACTS.headStartHours }) },
   {
     name: "the dashboard periods",
     pattern: /over the last (?<ranges>\d+ \w+, \d+ \w+ or \d+ \w+) in UTC/gu,

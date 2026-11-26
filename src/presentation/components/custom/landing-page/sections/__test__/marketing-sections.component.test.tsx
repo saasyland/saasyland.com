@@ -37,6 +37,7 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { SCHEMA_AVAILABILITY, SOCIAL_IMAGE } from "~/src/lib/seo"
 
 import { CasesSection } from "~/src/presentation/components/custom/landing-page/sections/cases-section"
+import { CliSection } from "~/src/presentation/components/custom/landing-page/sections/cli-section"
 import { CompareSection } from "~/src/presentation/components/custom/landing-page/sections/compare-section"
 import { FaqSection } from "~/src/presentation/components/custom/landing-page/sections/faq-section"
 import { GateSection } from "~/src/presentation/components/custom/landing-page/sections/gate-section"
@@ -58,7 +59,7 @@ import stackMessages from "~/messages/en-US/stack.json"
 import { APP_GITHUB_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import * as ROUTES from "~/src/routes"
 
-const HERO_STACK = [CHOICE.FRAMEWORK, CHOICE.LIBRARY, CHOICE.DEPLOYMENT] as const
+const GENERATED_STACK = [CHOICE.FRAMEWORK, CHOICE.LIBRARY, CHOICE.DEPLOYMENT] as const
 
 const ADMIN_SECTION_NAMES = new Intl.ListFormat(I18N.DEFAULT_LOCALE).format(
   ADMIN_NAVIGATION.flatMap(({ items }) => items).map((entry) => getNavigationLabel(I18N.DEFAULT_LOCALE)(entry)),
@@ -165,7 +166,8 @@ describe("regional pricing", () => {
     expect(screen.getByRole("link", { name: english.hero.ctaPrimary })).toHaveAttribute("href", "#pricing")
     expect(screen.getByRole("link", { name: english.rally.ctaPrimary })).toHaveAttribute("href", "#cli")
     expect(english.rally.ctaPrimary).not.toBe(english.hero.ctaPrimary)
-    expect(screen.getByText(`${PACKAGE_MANAGER.NPM.exec} ${SCAFFOLD_TARGET}`, { selector: "p code" })).toBeVisible()
+    expect(screen.getByText(`${PACKAGE_MANAGER.BUN.exec} ${SCAFFOLD_TARGET}`, { selector: ".truncate" })).toBeVisible()
+    expect(screen.queryByText(`${PACKAGE_MANAGER.NPM.exec} ${SCAFFOLD_TARGET}`, { selector: "p code" })).not.toBeInTheDocument()
   })
 
   it("says under the tiers who sells, how tax works, when the refund ends and that the CLI is in beta", () => {
@@ -185,7 +187,7 @@ describe("regional pricing", () => {
     const { container } = renderSection(<PricingSection />)
     const regular = [...container.querySelectorAll("s.pv-regional")].map((element) => regionalText(element))
 
-    expect(regular).toEqual(["Regular price $249", "Regular price $399", "Regular price $899", "Regular price $899", "Regular price $249"])
+    expect(regular).toEqual(["Regular price $249", "Regular price $399", "Regular price $899", "Regular price $249"])
     for (const price of ["$199", "$174", "$149", "$124", "$279", "$629"]) {
       expect(container.querySelectorAll(`.pv.ppp-text[data-text="${price}"]`).length).toBeGreaterThan(0)
     }
@@ -520,10 +522,10 @@ describe("record evidence", () => {
   })
 })
 
-describe("positioning beside the hero and the tiers", () => {
+describe("positioning in the CLI section and beside the tiers", () => {
   it("names the stack the CLI writes today from its templates and links the roadmap for the others", () => {
-    renderSection(<HeroSection />)
-    const label = (choice: (typeof HERO_STACK)[number]): string =>
+    renderSection(<CliSection />)
+    const label = (choice: (typeof GENERATED_STACK)[number]): string =>
       new Intl.ListFormat(I18N.DEFAULT_LOCALE, { type: "disjunction" }).format(
         CLI_TEMPLATE_SUPPORT.choices[choice].flatMap((option) =>
           Object.entries(stackMessages[choice].options)
@@ -531,34 +533,32 @@ describe("positioning beside the hero and the tiers", () => {
             .map(([, text]) => text),
         ),
       )
-    const sentence = createTranslator({ locale: I18N.DEFAULT_LOCALE, messages: english.hero }).markup("stack", {
-      ...Object.fromEntries(HERO_STACK.map((choice) => [choice, label(choice)])),
+    const sentence = createTranslator({ locale: I18N.DEFAULT_LOCALE, messages: english.cli }).markup("stack", {
+      ...Object.fromEntries(GENERATED_STACK.map((choice) => [choice, label(choice)])),
       roadmap: (chunks: string) => chunks,
     })
 
-    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent.endsWith(sentence))).toBeVisible()
+    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === sentence)).toBeVisible()
     expect(screen.getByRole("link", { name: "roadmap" })).toHaveAttribute("href", ROUTES.DOCS_ROADMAP)
   })
 
-  it("offers the free MIT source, the Agency licence and consulting as ways in beside the tiers", () => {
+  it("offers the free MIT source and consulting under other options, and the Agency licence only as a tier", () => {
     renderSection(<PricingSection />)
 
-    expect(screen.getByRole("heading", { name: english.pricing.free.title })).toBeVisible()
-    expect(screen.getByText(withFacts(english.pricing.free.body))).toBeVisible()
-    expect(screen.getByRole("link", { name: english.pricing.free.cta })).toHaveAttribute("href", APP_GITHUB_URL)
-    expect(screen.getByText(english.pricing.free.period).previousElementSibling).toHaveTextContent(
+    const others = screen.getByRole("heading", { name: english.pricing.otherOptions }).parentElement
+    if (!others) {
+      throw new Error("Other options are missing")
+    }
+    expect(within(others).getAllByRole("listitem")).toHaveLength(2)
+    expect(within(others).getByRole("heading", { name: english.pricing.free.title })).toBeVisible()
+    expect(within(others).getByText(withFacts(english.pricing.free.body))).toBeVisible()
+    expect(within(others).getByRole("link", { name: english.pricing.free.cta })).toHaveAttribute("href", APP_GITHUB_URL)
+    expect(within(others).getByText(english.pricing.free.period).previousElementSibling).toHaveTextContent(
       new Intl.NumberFormat("en-US", CURRENCY_FORMAT).format(0),
     )
-    expect(screen.getByRole("heading", { name: english.pricing.agency.title })).toBeVisible()
-    expect(
-      screen.getByText(
-        createTranslator({ locale: I18N.DEFAULT_LOCALE, messages: english.pricing.agency })("body", {
-          ...TIER_SUPPORT_VALUES,
-          machines: LICENSE_ACTIVATION_LIMITS.agency,
-        }),
-      ),
-    ).toBeVisible()
-    expect(screen.getAllByRole("link", { name: pricing.tiers.agency.cta })).toHaveLength(2)
-    expect(screen.getByRole("heading", { name: english.pricing.consulting.title })).toBeVisible()
+    expect(within(others).getByRole("heading", { name: english.pricing.consulting.title })).toBeVisible()
+    expect(within(others).queryByRole("link", { name: pricing.tiers.agency.cta })).not.toBeInTheDocument()
+    expect(screen.getAllByRole("link", { name: pricing.tiers.agency.cta })).toHaveLength(1)
+    expect(screen.getByText(pricing.tiers.agency.whoFor)).toBeVisible()
   })
 })

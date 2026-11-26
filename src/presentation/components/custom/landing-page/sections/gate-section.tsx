@@ -1,4 +1,4 @@
-import type { JSX } from "react"
+import type { JSX, ReactNode } from "react"
 
 import { Link } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
@@ -11,8 +11,6 @@ import { CTA_CLASSES } from "~/src/data/cta"
 import { TIER_PRICES } from "~/src/data/license"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
-import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
-
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 import { Price } from "~/src/presentation/components/custom/pricing"
 
@@ -22,6 +20,8 @@ const DETAIL_DELAY_MS = 100
 const TERMS_DELAY_MS = 200
 
 const BADGES = ["projects", "license", "fees"] as const
+
+const TITLE_TAGS = { line: (chunks: ReactNode) => <span className="block">{chunks}</span> }
 
 export const GateSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.gate")
@@ -33,7 +33,7 @@ export const GateSection = (): JSX.Element => {
 
       <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-28 text-center md:py-36">
         <Reveal variant="heading">
-          <h2 className="text-display-gate text-balance text-foreground">{t("title", REPOSITORY_FACTS)}</h2>
+          <h2 className="text-display-gate text-balance text-foreground">{t.rich("title", TITLE_TAGS)}</h2>
           <p className="mx-auto mt-6 max-w-xl text-lead text-pretty text-muted-foreground">{t("description")}</p>
         </Reveal>
 

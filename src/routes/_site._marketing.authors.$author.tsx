@@ -58,7 +58,7 @@ const AuthorPage = (): JSX.Element => {
             <h1 className="mt-3 text-display-gate text-balance text-foreground">{name}</h1>
             <p className="mt-4 text-statement text-pretty text-foreground">{role}</p>
             <p className="mt-5 max-w-[62ch] text-lead text-pretty text-muted-foreground">{bio}</p>
-            <div className="mt-6 -ml-2">
+            <div className="mt-6 -ml-1.5">
               <AuthorLinks author={author} />
             </div>
           </div>

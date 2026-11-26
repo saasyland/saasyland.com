@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query"
+import { QueryClient, dehydrate, hydrate } from "@tanstack/react-query"
 import type { AnyRouteMatch } from "@tanstack/react-router"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -7,6 +7,7 @@ import { SESSION_EXPIRED_CODE } from "~/src/integrations/better-auth/auth.errors
 import { ROLE_CODES, type Role } from "~/src/integrations/better-auth/auth.roles"
 import {
   recheckRefusedSession,
+  recordUserDataOwner,
   redirectAfterAuth,
   redirectIfSignedIn,
   requireAdmin,
@@ -31,7 +32,14 @@ vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOrig
     recheckSessionQuery: { ...original.recheckSessionQuery, queryFn: getSession },
   }
 })
-const routeContext = () => ({ context: { queryClient: new QueryClient() } })
+const trackedQueryClient = (): QueryClient => {
+  const queryClient = new QueryClient()
+  queryClient.getQueryCache().subscribe(() => {
+    recordUserDataOwner(queryClient)
+  })
+  return queryClient
+}
+const routeContext = (queryClient = trackedQueryClient()) => ({ context: { queryClient } })
 const protectedPageContext = (publicHref = "/app", cause: AnyRouteMatch["cause"] = "enter") => ({
   ...routeContext(),
   cause,
@@ -161,6 +169,12 @@ describe("route authorization and locale handling", () => {
   })
 })
 
+const anotherAccount = () => createAuthSessionFixture({ userId: "another-customer" })
+
+const fetchSessionElsewhere = async (queryClient: QueryClient): Promise<void> => {
+  await queryClient.query({ ...getCurrentSessionQuery, staleTime: 0 })
+}
+
 describe("cached data when the visitor changes", () => {
   const STAR_COUNT = 441
 
@@ -176,12 +190,38 @@ describe("cached data when the visitor changes", () => {
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
   }
 
-  it("keeps the public data of a prerendered page, which knew no session, when the visitor turns out to be signed in", async () => {
-    const context = authPageContext()
+  const expectDataKept = (queryClient: QueryClient): void => {
+    expect(queryClient.getQueryData(starCountQuery.queryKey)).toBe(STAR_COUNT)
+    expect(queryClient.getQueryData(SESSION_QUERY_KEYS.ACTIVE)).toEqual([{ id: "previous-session" }])
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(1)
+  }
+
+  it("keeps what a page loaded before its first session check when that check finds a signed-in account", async () => {
+    const context = protectedPageContext()
     await fillCache(context.context.queryClient)
     session(ROLE_CODES.CUSTOMER)
-    await expect(redirectIfSignedIn(context)).rejects.toHaveProperty("options.to", "/app")
-    expectOnlyPublicData(context.context.queryClient)
+    await requireSignedIn(context)
+    expectDataKept(context.context.queryClient)
+  })
+  it("keeps what a guest's page loaded when its first session check finds no session", async () => {
+    const context = authPageContext()
+    await fillCache(context.context.queryClient)
+    signedOut()
+    await redirectIfSignedIn(context)
+    expectDataKept(context.context.queryClient)
+  })
+  it("keeps the data of a page whose session check another component started first", async () => {
+    const context = protectedPageContext()
+    const { queryClient } = context.context
+    await fillCache(queryClient)
+    const pending = Promise.withResolvers<ReturnType<typeof createAuthSessionFixture>>()
+    getSession.mockReturnValue(pending.promise)
+    const elsewhere = fetchSessionElsewhere(queryClient)
+    const guarded = requireSignedIn(context)
+    pending.resolve(createAuthSessionFixture())
+    await Promise.all([elsewhere, guarded])
+    expectDataKept(queryClient)
+    expect(getSession).toHaveBeenCalledOnce()
   })
   it("removes what a guest loaded and keeps public data when the guest signs in", async () => {
     const context = authPageContext()
@@ -208,12 +248,36 @@ describe("cached data when the visitor changes", () => {
     session(ROLE_CODES.CUSTOMER)
     await requireSignedIn(context)
     await fillCache(context.context.queryClient)
-    const nextSession = createAuthSessionFixture({ userId: "another-customer" })
+    const nextSession = anotherAccount()
     getSession.mockResolvedValue(nextSession)
     outliveTheCachedSession()
     await expect(requireSignedIn(context)).resolves.toEqual({ session: nextSession })
     expectOnlyPublicData(context.context.queryClient)
     expect(context.context.queryClient.getQueryData(getCurrentSessionQuery.queryKey)).toEqual(nextSession)
+  })
+  it("removes the previous account's data at the next check when a component fetched the session again and found another account", async () => {
+    const context = protectedPageContext()
+    const { queryClient } = context.context
+    session(ROLE_CODES.CUSTOMER)
+    await requireSignedIn(context)
+    await fillCache(queryClient)
+    const nextSession = anotherAccount()
+    getSession.mockResolvedValue(nextSession)
+    await fetchSessionElsewhere(queryClient)
+    await expect(requireSignedIn(context)).resolves.toEqual({ session: nextSession })
+    expectOnlyPublicData(queryClient)
+    expect(getSession).toHaveBeenCalledTimes(2)
+  })
+  it("removes the previous account's data when the cached session was dropped before another account signed in", async () => {
+    const context = protectedPageContext()
+    const { queryClient } = context.context
+    session(ROLE_CODES.CUSTOMER)
+    await requireSignedIn(context)
+    await fillCache(queryClient)
+    queryClient.removeQueries({ exact: true, queryKey: getCurrentSessionQuery.queryKey })
+    getSession.mockResolvedValue(anotherAccount())
+    await requireSignedIn(context)
+    expectOnlyPublicData(queryClient)
   })
   it("keeps the account's data when a recheck finds the same account", async () => {
     const context = protectedPageContext()
@@ -222,9 +286,27 @@ describe("cached data when the visitor changes", () => {
     await fillCache(context.context.queryClient)
     outliveTheCachedSession()
     await requireSignedIn(context)
-    expect(context.context.queryClient.getQueryData(SESSION_QUERY_KEYS.ACTIVE)).toEqual([{ id: "previous-session" }])
-    expect(context.context.queryClient.getMutationCache().getAll()).toHaveLength(1)
+    expectDataKept(context.context.queryClient)
     expect(getSession).toHaveBeenCalledTimes(2)
+  })
+  it("treats the data of a server-rendered page as the account the server found, in the browser that receives it", async () => {
+    const server = protectedPageContext()
+    session(ROLE_CODES.CUSTOMER)
+    await requireSignedIn(server)
+    await fillCache(server.context.queryClient)
+    const browser = protectedPageContext()
+    hydrate(browser.context.queryClient, dehydrate(server.context.queryClient))
+    getSession.mockResolvedValue(anotherAccount())
+    await fetchSessionElsewhere(browser.context.queryClient)
+    await requireSignedIn(browser)
+    expect(browser.context.queryClient.getQueryData(SESSION_QUERY_KEYS.ACTIVE)).toBeUndefined()
+  })
+  it("clears the data at the first check when nothing records whose it is", async () => {
+    const context = routeContext(new QueryClient())
+    await fillCache(context.context.queryClient)
+    session(ROLE_CODES.CUSTOMER)
+    await requireSignedIn({ ...context, cause: "enter", location: { publicHref: "/app" } })
+    expectOnlyPublicData(context.context.queryClient)
   })
 })
 

@@ -1,16 +1,21 @@
-import type { Page, Request } from "@playwright/test"
+import type { Locator, Page, Request } from "@playwright/test"
 
+import authNavigation from "../../messages/en-US/navigation.auth.json" with { type: "json" }
 import { MILLISECONDS_PER_SECOND } from "../../src/lib/duration"
 import * as ROUTES from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_VIDEO } from "../data/videos"
 import { expect, test } from "../fixtures/auth"
-import { signUpAndVerify } from "../fixtures/sign-up"
-import type { BasePage } from "../pages"
+import { builtServerFunction } from "../fixtures/server-functions"
+import { SIGN_UP_PASSWORD, signUpAndVerify } from "../fixtures/sign-up"
+import type { AuthPage, BasePage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const [preview, account] = TEST_LESSONS
 const SERVER_FUNCTION_PATH = "/_serverFn/"
+const SESSION_FUNCTION = "getCurrentSession"
+const NO_LESSON_COMPLETED = /^0 of \d+ lessons completed$/u
+const ONE_LESSON_COMPLETED = /^1 of \d+ lessons completed$/u
 
 const lessonPath = (slug: string): string => `${ROUTES.COURSES}/${TEST_COURSE.slug}/${slug}`
 
@@ -36,6 +41,52 @@ const trackSaves = (page: Page, lessonId: string): (() => boolean) => {
   page.on("requestfinished", (sent) => pending.delete(sent))
   page.on("requestfailed", (sent) => pending.delete(sent))
   return () => started > 0 && pending.size === 0
+}
+
+const completedNote = (page: Page): Locator => page.getByRole("paragraph").filter({ hasText: /^Completed$/u })
+
+const headerAccount = (page: Page): Locator =>
+  page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("link", { exact: true, name: authNavigation.header.account })
+
+interface SessionChecks {
+  readonly path: string
+  readonly resume: () => void
+}
+
+const dropSessionChecks = async (page: Page): Promise<SessionChecks> => {
+  const path = `${SERVER_FUNCTION_PATH}${(await builtServerFunction(SESSION_FUNCTION)).id}`
+  let dropping = true
+  await page.route(`**${path}**`, async (route) => {
+    if (dropping) {
+      await route.abort()
+      return
+    }
+    await route.continue()
+  })
+  return {
+    path,
+    resume: () => {
+      dropping = false
+    },
+  }
+}
+
+const markLessonComplete = async (appPage: BasePage, page: Page): Promise<void> => {
+  await openLesson(appPage, page, account.slug)
+  const markComplete = page.getByRole("button", { name: "Mark as complete" })
+  await appPage.waitForHydration(markComplete)
+  await markComplete.click()
+  await expect(completedNote(page)).toBeVisible()
+  await expect(markComplete).toHaveCount(0)
+  await expect(page.getByText(ONE_LESSON_COMPLETED)).toBeVisible()
+}
+
+const signInWithForm = async (authPage: AuthPage, page: Page, email: string): Promise<void> => {
+  await authPage.emailField().fill(email)
+  await authPage.passwordField().fill(SIGN_UP_PASSWORD)
+  await authPage.signInSubmitButton().click()
+  await expect(page).toHaveURL(ROUTES.APP)
+  await authPage.waitForAppReady()
 }
 
 const setPlaying = async (page: Page, playing: boolean): Promise<void> => {
@@ -77,6 +128,67 @@ test.describe("lesson progress", () => {
     await page.goto(`${ROUTES.COURSES}/${TEST_COURSE.slug}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
     await expect(page.getByText(/^1 of \d+ lessons completed$/u)).toBeVisible()
+  })
+
+  test("a learner who points at Your account before the header knows the session sees the lesson marked complete at once, without a reload", async ({
+    appPage,
+    authPage,
+    page,
+    request,
+  }) => {
+    await signUpAndVerify({ authPage, page, request })
+    const sessionChecks = await dropSessionChecks(page)
+    const dropped = page.waitForEvent("requestfailed", (failed) => failed.url().includes(sessionChecks.path))
+    await openLesson(appPage, page, account.slug)
+    const markComplete = page.getByRole("button", { name: "Mark as complete" })
+    await appPage.waitForHydration(markComplete)
+    await dropped
+    await page.waitForLoadState("networkidle")
+    await expect(headerAccount(page)).toHaveAttribute("href", ROUTES.SIGN_IN)
+
+    sessionChecks.resume()
+    const checked = page.waitForResponse((response) => response.url().includes(sessionChecks.path))
+    await headerAccount(page).hover()
+    await checked
+    await expect(headerAccount(page)).toHaveAttribute("href", ROUTES.APP)
+
+    await markComplete.click()
+    await expect(completedNote(page)).toBeVisible()
+    await expect(markComplete).toHaveCount(0)
+    await expect(page.getByText(ONE_LESSON_COMPLETED)).toBeVisible()
+  })
+
+  test("after signing out and signing in as another learner, no course page shows the first learner's progress", async ({
+    appPage,
+    authPage,
+    page,
+    request,
+  }) => {
+    const other = await signUpAndVerify({ authPage, page, request })
+    await page.context().clearCookies()
+    await signUpAndVerify({ authPage, page, request })
+    await markLessonComplete(appPage, page)
+
+    await headerAccount(page).click()
+    await expect(page).toHaveURL(ROUTES.APP)
+    await appPage.waitForAppReady()
+    await page.getByRole("button", { name: "Sign out", exact: true }).click()
+    await expect(page).toHaveURL(ROUTES.SIGN_IN)
+    await authPage.waitForAppReady()
+    await signInWithForm(authPage, page, other.email)
+
+    await page.getByRole("navigation", { name: "App navigation", exact: true }).getByRole("link", { name: "Courses", exact: true }).click()
+    await expect(page).toHaveURL(ROUTES.COURSES)
+    await page.getByRole("link", { name: new RegExp(TEST_COURSE.title["en-US"], "u") }).first().click()
+    await expect(page).toHaveURL(`${ROUTES.COURSES}/${TEST_COURSE.slug}`)
+    await expect(page.getByText(NO_LESSON_COMPLETED)).toBeVisible()
+    await expect(page.getByText(ONE_LESSON_COMPLETED)).toHaveCount(0)
+
+    await page.getByRole("link", { name: new RegExp(account.title["en-US"], "u") }).first().click()
+    await expect(page).toHaveURL(lessonPath(account.slug))
+    await expect(page.getByRole("button", { name: "Mark as complete" })).toBeVisible()
+    await expect(completedNote(page)).toHaveCount(0)
+    await expect(page.getByText(ONE_LESSON_COMPLETED)).toHaveCount(0)
   })
 
   test("the position where a signed-in learner pauses is saved, and the lesson resumes there", async ({ appPage, authPage, page, request }) => {

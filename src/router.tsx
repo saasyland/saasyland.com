@@ -3,7 +3,7 @@ import { type AnyRouter, createRouter } from "@tanstack/react-router"
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query"
 import { getGlobalStartContext } from "@tanstack/react-start"
 
-import { recheckRefusedSession } from "~/src/integrations/better-auth/auth.routes"
+import { recheckRefusedSession, recordUserDataOwner } from "~/src/integrations/better-auth/auth.routes"
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS, ROUTER_PRELOAD_STALE_TIME_MS } from "~/src/integrations/tanstack-query/query.cache"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
 import "~/src/integrations/zod/zod.config"
@@ -27,6 +27,8 @@ interface QueryError {
 
 const QUERY_ERROR_HANDLERS: readonly ((queryError: QueryError) => Promise<void>)[] = [recheckRefusedSession]
 
+const QUERY_CACHE_LISTENERS: readonly ((queryClient: QueryClient) => void)[] = [recordUserDataOwner]
+
 export const getRouter = () => {
   const onError = (error: Error): void => {
     for (const handle of QUERY_ERROR_HANDLERS) {
@@ -43,6 +45,12 @@ export const getRouter = () => {
     },
     mutationCache: new MutationCache({ onError }),
     queryCache: new QueryCache({ onError }),
+  })
+
+  queryClient.getQueryCache().subscribe(() => {
+    for (const listen of QUERY_CACHE_LISTENERS) {
+      listen(queryClient)
+    }
   })
 
   const router = createRouter({

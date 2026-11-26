@@ -9,7 +9,7 @@ import { runWithStartContext } from "@tanstack/start-storage-context"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, expect, it, vi } from "vite-plus/test"
 
-import { recheckRefusedSession } from "~/src/integrations/better-auth/auth.routes"
+import { recheckRefusedSession, recordUserDataOwner } from "~/src/integrations/better-auth/auth.routes"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
@@ -21,6 +21,7 @@ const beforeLoad = vi.hoisted(() => vi.fn<() => void>())
 vi.mock(import("~/src/integrations/better-auth/auth.routes"), async (importOriginal) => ({
   ...(await importOriginal()),
   recheckRefusedSession: vi.fn<typeof recheckRefusedSession>().mockResolvedValue(undefined),
+  recordUserDataOwner: vi.fn<typeof recordUserDataOwner>(),
 }))
 
 vi.mock(import("@tanstack/react-start/server"), async (importOriginal) => ({
@@ -41,6 +42,7 @@ vi.mock("~/src/routeTree.gen", async () => {
 afterEach(() => {
   beforeLoad.mockReset()
   vi.mocked(recheckRefusedSession).mockClear()
+  vi.mocked(recordUserDataOwner).mockClear()
 })
 
 it("gives the router the nonce of the request it renders, so its scripts match the page's policy", () => {
@@ -114,6 +116,12 @@ it("hands every failed query and mutation to the session recheck with the router
     [{ error: refused, queryClient, router }],
     [{ error: refused, queryClient, router }],
   ])
+})
+
+it("shows every change to the query cache to the record of whose data it holds", () => {
+  const { queryClient } = getRouter().options.context
+  queryClient.setQueryData(["router-data"], "Router content")
+  expect(vi.mocked(recordUserDataOwner).mock.calls).toContainEqual([queryClient])
 })
 
 it("leaves loading to TanStack Query: a preloaded route runs its loader again, which reads the query cache", () => {

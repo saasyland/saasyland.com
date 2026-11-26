@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test"
+import * as zod from "zod"
 
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import { LESSON_ATTACHMENT_FILE_TYPES, LESSON_ATTACHMENT_PATH_PREFIX } from "../../src/modules/lesson-attachment/lesson-attachment.constants"
@@ -16,6 +17,10 @@ const SIGNED_DOWNLOAD = new RegExp(`^${LESSON_ATTACHMENT_PATH_PREFIX}/[\\da-z]+\
 const FORGED_SIGNATURE = "0".repeat(64)
 
 const lessonPath = (slug: string): string => `/courses/${TEST_COURSE.slug}/${slug}`
+
+const signedPathsSchema = zod.object({ download: zod.string(), playlist: zod.string() })
+
+const signedPathsResponseSchema = zod.object({ current: signedPathsSchema, expired: signedPathsSchema })
 
 const materials = (page: Page) => page.getByRole("region", { name: "Materials" })
 
@@ -90,5 +95,24 @@ test.describe("lesson materials", () => {
     await expect(recordingPage.getByText("The recording for this lesson is on its way.")).toBeVisible()
     expect(streams).toStrictEqual([])
     await recordingPage.close()
+  })
+})
+
+test.describe("signed media paths", () => {
+  test("a video stream or download path signed for an expiry that has passed is refused, while the same files signed now are served", async ({
+    request,
+  }) => {
+    const response = await request.get("/__test/media/signed-paths")
+    expect(response.ok()).toBe(true)
+    const { current, expired } = signedPathsResponseSchema.parse(await response.json())
+
+    for (const path of [current.download, current.playlist]) {
+      expect((await request.get(path)).status()).toBe(HTTP_STATUS.OK)
+    }
+    for (const path of [expired.download, expired.playlist]) {
+      expect((await request.get(path)).status()).toBe(HTTP_STATUS.FORBIDDEN)
+    }
+    expect(expired.download).toMatch(SIGNED_DOWNLOAD)
+    expect(expired.download.split("/").slice(-2)).toStrictEqual(current.download.split("/").slice(-2))
   })
 })

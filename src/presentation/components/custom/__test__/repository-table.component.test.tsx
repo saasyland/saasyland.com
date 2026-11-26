@@ -100,8 +100,13 @@ describe("the flow inventory", () => {
     const rows = groupedRows()
     expect(rows).toHaveLength(FLOWS.filter(({ status }) => status === FLOW_STATUS.MISSING).length)
     expect(rows.map((row) => statusOf(row))).toEqual(rows.map(() => FLOW_STATUS.MISSING))
-    expect(rows).toContainEqual(["expired-signed-path", expect.any(String), expect.stringMatching(/^An expired path must be signed/u), ""])
-    expect(captionOf("expired-signed-path")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.SECURITY}`))
+    expect(rows).toContainEqual([
+      "hsts",
+      expect.any(String),
+      expect.stringMatching(/^The browser suite reaches the local Worker over HTTP only/u),
+      "",
+    ])
+    expect(captionOf("hsts")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.SECURITY}`))
   })
 
   it("lists each flow still to build under its feature with the reason it cannot be tested yet", () => {

@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader } from "~/src/presentation/components/sha
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { AdminPageHeaderPending } from "~/src/presentation/components/custom/admin/admin-page-header"
+import { BusinessLogoCardPending, BusinessProfileCardPending } from "~/src/presentation/components/custom/admin/business-profile-pending"
 import { GridPanelPending } from "~/src/presentation/components/custom/admin/dashboard/grid-panel-pending"
 import { DashboardPanelsPending } from "~/src/presentation/components/custom/admin/dashboard/panels-pending"
 import { DASHBOARD_STATS } from "~/src/presentation/components/custom/admin/dashboard/stats"
@@ -50,6 +51,8 @@ export const AdminSettingsPending = (): JSX.Element => (
   <div aria-busy="true" className="flex w-full flex-col">
     <AdminPageHeaderPending tabs={SETTINGS_TABS.length} />
     <div className="mt-8 grid grid-cols-1 items-start gap-6 text-sm lg:grid-cols-2">
+      <BusinessProfileCardPending />
+      <BusinessLogoCardPending />
       <PreferencesCardPending />
       <EmailCardPending />
     </div>
@@ -70,7 +73,7 @@ const DASHBOARD_USER_PENDING_COLUMNS = [
   { cell: <UserPending />, id: "user", width: DASHBOARD_COLUMN_SIZES.user },
   { cell: <Skeleton className="h-5.5 w-18 rounded-md" />, id: "role", width: DASHBOARD_COLUMN_SIZES.role },
   { cell: <Skeleton className="h-5.5 w-16 rounded-md" />, id: "status", width: DASHBOARD_COLUMN_SIZES.status },
-  { cell: <Skeleton className="h-lh w-20 scale-y-70 text-sm" />, id: "joined", width: DASHBOARD_COLUMN_SIZES.date },
+  { cell: <Skeleton className="h-lh w-20 scale-y-70 text-sm" />, id: "createdAt", width: DASHBOARD_COLUMN_SIZES.date },
 ]
 
 const USER_PENDING_COLUMNS = [

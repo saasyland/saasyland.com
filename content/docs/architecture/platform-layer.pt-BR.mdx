@@ -7,13 +7,13 @@ description: "O runtime do Cloudflare: a entrada do Worker, os bindings, os ambi
 
 `wrangler.jsonc` define `src/server.ts` como a entrada do Worker. O Worker recebe estes bindings:
 
-| Binding   | Tipo              | Usado para                                                                                                               |
-| --------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `DB`      | Banco de dados D1 | Todas as tabelas, incluindo as sessões e os contadores de rate limit                                                     |
-| `CACHE`   | Namespace KV      | A contagem de estrelas do GitHub                                                                                         |
-| `MEDIA`   | Bucket R2         | Vídeos, materiais das aulas e capas dos cursos, servidos em `/media/` por `serveMedia`, `serveAttachment` e `serveCover` |
-| `BUNDLES` | Bucket R2         | Os pacotes de templates da CLI, servidos por `serveBundle` em `/bundles/`                                                |
-| `ASSETS`  | Assets estáticos  | As páginas pré-renderizadas e os arquivos de `public`                                                                    |
+| Binding   | Tipo              | Usado para                                                                                                                                                                              |
+| --------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DB`      | Banco de dados D1 | Todas as tabelas, incluindo as sessões e os contadores de rate limit                                                                                                                    |
+| `CACHE`   | Namespace KV      | A contagem de estrelas do GitHub                                                                                                                                                        |
+| `MEDIA`   | Bucket R2         | Vídeos, materiais das aulas e capas dos cursos, servidos em `/media/` por `serveMedia`, `serveAttachment` e `serveCover`; o logo da empresa, em `/media/logos/` por `serveBusinessLogo` |
+| `BUNDLES` | Bucket R2         | Os pacotes de templates da CLI, servidos por `serveBundle` em `/bundles/`                                                                                                               |
+| `ASSETS`  | Assets estáticos  | As páginas pré-renderizadas e os arquivos de `public`                                                                                                                                   |
 
 Requisições para `/assets/*`, `/fonts/*`, `/robots.txt` e `/llms.txt` são servidas a partir dos assets estáticos sem executar o Worker. O código de servidor lê os bindings, os secrets e `waitUntil` de `cloudflare:workers`. `src/server.ts` adiciona os cabeçalhos de segurança a toda resposta que retorna; os arquivos servidos sem o Worker recebem o subconjunto de `public/_headers` ([Segurança e hardening](/docs/features/security)).
 
@@ -28,6 +28,8 @@ O Worker e o build do Vite executam, cada um, as próprias listas, no arquivo qu
 | `VITE_PLUGINS`      | `vite.config.ts` | por `vp dev`, `vp build` e, nas entradas marcadas com `vitest`, pelo Vitest          |
 
 Um handler de requisições reivindica um `pathPrefix` e responde a toda requisição abaixo dele: `serveCover` as capas dos cursos abaixo de `/media/covers/`, `serveCourseSitemap` o sitemap dos cursos em `/sitemap-courses.xml`, `serveAttachment` os materiais das aulas abaixo de `/media/downloads/`, `serveMedia` o resto de `/media/` e `serveBundle` os pacotes de templates abaixo de `/bundles/`. O Worker usa o primeiro handler cujo prefixo o caminho começa, então um prefixo mais estreito vem antes do que o contém. Uma reescrita de documento recebe cada página HTML que o Worker retorna, com seu locale e a requisição, e retorna a página a enviar, como `rewritePppOffer`, em `src/modules/license/license.pricing.ts`, faz com os preços regionais e `markSession`, em `src/modules/session/session.rewrite.ts`, com o link da conta no cabeçalho. `src/server.ts` importa os prefixos e as reescritas estaticamente, então eles são avaliados a cada cold start: ele importa só constantes e helpers puros, e cada handler carrega o seu módulo com um `import()` dinâmico (veja [Desempenho](/docs/conventions/performance)).
+
+`serveBusinessLogo` (`src/modules/business-profile/business-profile.delivery.ts`) responde pelo logo da empresa em `/media/logos/` e vem primeiro, antes dos handlers de `/media/` dos cursos.
 
 Uma entrada de plugins do Vite tem `load`, que importa o pacote do plugin e retorna os plugins, e `vitest`, que diz se eles também carregam no Vitest. As entradas executam na ordem da lista: Cloudflare, Fumadocs, os índices de conteúdo, os fatos do repositório, o Tailwind CSS, o TanStack Start, o React, o chunk do zod, o Worker implantado e as peers opcionais do SDK da Polar. Os plugins de um fornecedor ficam com o fornecedor, em `src/integrations/<vendor>/<vendor>.vite.ts`: `fumadocsVitePlugins`, `zodVitePlugins` e `polarVitePlugins`. O Vite carrega a própria configuração antes de resolver o alias `~`, por isso `vite.config.ts` e os arquivos que ele importa, entre eles `shouldPrerender`, em `src/lib/prerender.ts`, importam por caminho relativo com a extensão `.ts`, e cada entrada importa o pacote do plugin só dentro de `load`, para que `vp lint` e `vp fmt` nunca o carreguem.
 

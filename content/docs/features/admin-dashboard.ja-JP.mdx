@@ -38,7 +38,7 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 - `DashboardActions`: `src/data/navigation.ts` の `ADMIN_DASHBOARD_ACTIONS` の各項目を、リストの順に並べたリンクで、ラベルはその `label` が指すメッセージから付きます。決済機能のページである **注文** と **顧客** です（[注文と顧客](/docs/features/orders)を参照）。
 - `DashboardStats`: `DASHBOARD_STATS` の統計で、`custom/admin/dashboard/stats.tsx` が下の表の順に宣言します。各統計は `icon`、その機能の `dashboard.<feature>.json` にある `label` の完全なキー、ローダーが実行する `prefetch`、数値を読み取る `useValue` フックを持ち、数値はページのロケールで書式設定されます。`to` を持つ統計は、カード全体がその統計の数える対象を一覧するページへのリンクになります。
 - `DashboardPanels`: `DASHBOARD_PANELS` のパネルで、`custom/admin/dashboard/panels-pending.tsx` が表示する順に宣言します。それぞれ、`AdminDashboardPending` が表示するパネルの `-pending.tsx` ファイルのスケルトンと、ローダーが実行する `prefetch` を持ちます。`panels.tsx` は各項目の `key` にパネルを対応させ、その型はすべてのキーにパネルを要求します。ページがパネルそのものをインポートするため、ボタン、タブ、表はダッシュボードのコードと一緒に、ページのハイドレーションより前に読み込まれ、パネルの操作は最初の瞬間から効きます。グラフの描画（`TimeSeriesBars`）だけは専用のチャンクで読み込まれ、ローダーがプリロードします（[パフォーマンス](/docs/conventions/performance#a-section-with-controls-loads-with-its-page)を参照）。
-- ユーザーカード: 最新のアカウントを 1 ページ <RepositoryFact name="adminPreviewPageSize" /> 行で表示し、検索とステータスのフィルターを備えます。各ユーザーの名前はそのユーザーのプロフィールへリンクし、アクションはそこにあります。
+- ユーザーカード: 最新のアカウントから順に 1 ページ <RepositoryFact name="adminPreviewPageSize" /> 行で表示し、検索とフィルターはサーバーがすべてのアカウントに適用します。各ユーザーの名前はそのユーザーのプロフィールへリンクし、アクションはそこにあります。
 
 | 統計                     | 機能         | 取得元                                                                                                 |
 | ------------------------ | ------------ | ------------------------------------------------------------------------------------------------------ |
@@ -96,15 +96,16 @@ description: "/admin の骨格とダッシュボード: カウンター、売上
 ```tsx
 <DataGrid
   columns={columns}
-  data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+  defaultPageSize={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize}
   id={DASHBOARD_USER_GRID_ID}
   label={t("users.title")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
   search={t("users.search")}
   selectable
 />
 ```
 
-このグリッドはブラウザー上で、`getUsersQuery` の最初のページ（<RepositoryFact name="defaultPageSize" /> 人、新しい順）のうち最新のユーザーを扱い、サーバーに再度問い合わせることなく、検索、ユーザー・ステータス・登録日での絞り込み、並べ替えを行います。**登録日** の列はアカウントの `created_at` です。**すべて表示** は `/admin/users` へリンクします。
+グリッドは `/admin/users` の一覧と同じく、各ページをサーバーに問い合わせます。`getUsers` がすべてのアカウントを検索し、ユーザー、ロール、ステータス、登録日で絞り込み、新しい順に並べるため、1 ページ目にないアカウントも検索で見つかります。ローダーは最初のページ（<RepositoryFact name="adminPreviewPageSize" /> 人）を事前に読み込みます。**ロール** 列はユーザー一覧と同じ名前でロールを表示し、**登録日** 列はアカウントの `created_at` です。**全ユーザーを表示** は `/admin/users` にリンクします。
 
 ## 実データのみ [#real-data-only]
 

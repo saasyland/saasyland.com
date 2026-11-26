@@ -1,4 +1,5 @@
 export { account, accountRelations } from "~/src/modules/account/account.schema"
+export { businessProfile } from "~/src/modules/business-profile/business-profile.schema"
 export { category } from "~/src/modules/category/category.schema"
 export { chapter, chapterRelations } from "~/src/modules/chapter/chapter.schema"
 export { course, courseRelations } from "~/src/modules/course/course.schema"

@@ -11,8 +11,7 @@ import { localize } from "~/src/modules/_core/utils/localized-text"
 import { COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
 
-import { rethrowAsNotFound } from "~/src/lib/not-found"
-import { buildPageHead } from "~/src/lib/seo"
+import { recordHead, rethrowAsNotFound } from "~/src/lib/not-found"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
@@ -74,7 +73,6 @@ export const Route = createFileRoute("/admin/courses/$courseId")({
     const data = await context.queryClient.query(courseEditorQuery({ courseId: params.courseId })).catch(rethrowAsNotFound)
     return { locale, pathname: `${ROUTES.ADMIN_COURSES}/${data.course.id}`, title: localize(data.course.title, locale) }
   },
-  head: ({ loaderData }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
+  head: recordHead(ROUTES.ADMIN_COURSES),
   pendingComponent: AdminCourseEditorPending,
 })

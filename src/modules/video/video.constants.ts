@@ -2,8 +2,6 @@ export const VIDEO_KEY_PREFIX = "videos"
 
 export const VIDEO_TITLE_MAX_LENGTH = 255
 
-export const MEDIA_PATH_PREFIX = "/media"
-
 export const MEDIA_BINDING = "MEDIA"
 
 export const POSTER_WIDTH = 1920
@@ -19,12 +17,6 @@ export const VIDEO_FILES = {
   STORYBOARD_IMAGE: "storyboard.webp",
   STORYBOARD_TRACK: "storyboard.vtt",
 } as const
-
-export const BYTES_PER_KILOBYTE = 1000
-
-export const BYTES_PER_MEGABYTE = 1_000_000
-
-export const BYTES_PER_GIGABYTE = 1_000_000_000
 
 export const VIDEO_SIZE_FORMAT = { maximumFractionDigits: 1, style: "unit", unit: "megabyte" } as const
 

@@ -13,8 +13,7 @@ import { findEditorLesson } from "~/src/modules/course/course.utils"
 import { courseEditorQuery } from "~/src/modules/course/use-cases/get-course-editor"
 import { LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 
-import { rethrowAsNotFound } from "~/src/lib/not-found"
-import { buildPageHead } from "~/src/lib/seo"
+import { recordHead, rethrowAsNotFound } from "~/src/lib/not-found"
 
 import { LinkButton } from "~/src/presentation/components/shadcn/button"
 
@@ -91,7 +90,6 @@ export const Route = createFileRoute("/admin/courses/$courseId_/lessons/$lessonI
       title: `${localize(lesson.title, locale)} · ${localize(data.course.title, locale)}`,
     }
   },
-  head: ({ loaderData }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_COURSES, title: loaderData?.title }),
+  head: recordHead(ROUTES.ADMIN_COURSES),
   pendingComponent: AdminLessonEditorPending,
 })

@@ -5,10 +5,19 @@ description: "/app/settings と /admin/settings の画面: 環境設定、メー
 
 `src/routes/app.settings.tsx` と `src/routes/admin.settings.tsx` は、`SETTINGS_TABS`（`src/data/auth.ts`）から **一般** と **セキュリティ** の 2 つのタブを表示します。タブは `tab` 検索パラメーターで表し、`settingsSearchSchema` が検証して、既定のタブのときはアドレスから省きます。そのため、OAuth のリンクは `?tab=security` に戻ってきます。カードは `src/presentation/components/custom/settings` にあり、`/app` と `/admin` のレイアウトが読み込む `auth.security` 名前空間を共有して、顧客と管理者の両方に使われます。最後に **アカウントを削除** があるのは、顧客の一般タブだけです。どちらのローダーもセッション一覧（`getActiveSessionsQuery`）とサインイン方法（`listAccountsQuery`）をプリロードし、`/app/settings` はさらにアカウント削除の案内の読み込みも実行します。
 
-| タブ         | `/app/settings`                                                          | `/admin/settings`                                                        |
-| ------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| 一般         | `PreferencesCard`、`EmailCard`、`DeleteAccountCard`                      | `PreferencesCard`、`EmailCard`                                           |
-| セキュリティ | `PasswordCard`、`TwoFactorCard`、`ConnectedAccountsCard`、`SessionsCard` | `PasswordCard`、`TwoFactorCard`、`ConnectedAccountsCard`、`SessionsCard` |
+| タブ         | `/app/settings`                                                          | `/admin/settings`                                                         |
+| ------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| 一般         | `PreferencesCard`、`EmailCard`、`DeleteAccountCard`                      | `BusinessProfileCard`、`BusinessLogoCard`、`PreferencesCard`、`EmailCard` |
+| セキュリティ | `PasswordCard`、`TwoFactorCard`、`ConnectedAccountsCard`、`SessionsCard` | `PasswordCard`、`TwoFactorCard`、`ConnectedAccountsCard`、`SessionsCard`  |
+
+## 事業者プロフィール [#business-profile]
+
+`/admin/settings` の「一般」タブは、ログイン中の管理者ではなくサイトを運営する事業者についての 2 枚のカードから始まります。`BusinessProfileCard` と `BusinessLogoCard` で、どちらも `src/presentation/components/custom/admin/business-profile-card.tsx` にあります。両方ともページのローダーが事前に読み込む `businessProfileQuery` を読み、背後のユースケースはすべて `settings: ["manage"]` をチェックします。
+
+- `business_profile` テーブル（`src/modules/business-profile`）は `BUSINESS_PROFILE_ID` の 1 行だけを持ち、この行はテーブルを作るマイグレーションが挿入します。名称とサポート用メールアドレスの初期値は `APP_NAME` と `CONTACT_EMAIL` で、所在地は空、ロゴはありません。
+- **プロフィールを保存** は `updateBusinessProfile` を呼びます。3 つの項目の前後の空白を取り除き、`businessProfileZodSchemas.updateBusinessProfile` で検証します。名称は `BUSINESS_NAME_MAX_LENGTH` 文字以内、メールアドレスは有効な形式、所在地は `BUSINESS_ADDRESS_MAX_LENGTH` 文字以内で、入力した行のまま保存されます。
+- **ロゴをアップロード** は、選んだ画像をブラウザーで `encodeContainedImage`（`src/lib/image-encoding.ts`）により長辺が `BUSINESS_LOGO_MAX_SIDE` に収まるまで縮小し、縦横比と透明部分を保ったまま WebP、WebP をエンコードできないブラウザーでは PNG にします。`uploadBusinessLogo`（レート制限あり）はそれを R2 の `logos/<logoId>.<extension>` に保存してキーを記録し、置き換えた古いロゴを削除します。**ロゴを削除** は `removeBusinessLogo` を呼びます。ロゴは `serveBusinessLogo` が `/media/logos/` 配下で配信します。[Cloudflare R2](/docs/integrations/cloudflare-r2) を参照してください。
+- これらのカード以外で、まだプロフィールを読む箇所はありません。フッター、メール、法的ページ、構造化データは引き続き `src/presentation/branding` の定数を表示します。
 
 ## 環境設定
 
@@ -50,4 +59,4 @@ description: "/app/settings と /admin/settings の画面: 環境設定、メー
 
 ## スケルトン
 
-`preferences-card-pending.tsx` の `PreferencesCardPending` と、`custom/settings/settings-pending.tsx` の `SettingsTabsPending`、`EmailCardPending`、`DeleteAccountCardPending` が、`AdminSettingsPending`、`AppSettingsPending`、`AppDeleteAccountPending` を描画します。すべてのページがスケルトンを読み込み、カードのファイルにはフォームがあるため、これらは専用のファイルに置いています（[パフォーマンス](/docs/conventions/performance#skeletons-stay-in-the-entry-script)を参照）。スケルトンが描画するのは一般タブです。
+`preferences-card-pending.tsx` の `PreferencesCardPending` と、`custom/settings/settings-pending.tsx` の `SettingsTabsPending`、`EmailCardPending`、`DeleteAccountCardPending` が、`AdminSettingsPending`、`AppSettingsPending`、`AppDeleteAccountPending` を描画します。すべてのページがスケルトンを読み込み、カードのファイルにはフォームがあるため、これらは専用のファイルに置いています（[パフォーマンス](/docs/conventions/performance#skeletons-stay-in-the-entry-script)を参照）。スケルトンが描画するのは一般タブです。 `custom/admin/business-profile-pending.tsx` の `BusinessProfileCardPending` と `BusinessLogoCardPending` が、`AdminSettingsPending` で管理者の「一般」タブの先頭を描画します。

@@ -38,7 +38,7 @@ Chaque recherche est une fonction serveur derrière `authorized(...)`, et la pal
 - `DashboardActions` : un lien pour chaque entrée de `ADMIN_DASHBOARD_ACTIONS` dans `src/data/navigation.ts`, dans l’ordre de la liste, avec le libellé du message que nomme son `label` : **Commandes** et **Clients**, dont les pages appartiennent à la fonctionnalité des paiements (voir [Commandes et clients](/docs/features/orders)).
 - `DashboardStats` : les statistiques de `DASHBOARD_STATS`, que `custom/admin/dashboard/stats.tsx` déclare dans l’ordre du tableau ci-dessous, chacune avec son `icon`, la clé complète de son `label` dans le `dashboard.<feature>.json` de sa fonctionnalité, un `prefetch` qu’exécute le loader et un hook `useValue` qui lit le nombre, mis en forme pour la langue de la page. Une statistique dotée d’un `to` relie toute sa carte à la page qui liste ce qu’elle compte.
 - `DashboardPanels` : les panneaux de `DASHBOARD_PANELS`, que `custom/admin/dashboard/panels-pending.tsx` déclare dans leur ordre, chacun avec le squelette du fichier `-pending.tsx` du panneau, qu’affiche `AdminDashboardPending` pour lui, et un `prefetch` que le loader exécute. `panels.tsx` associe à la `key` de chaque entrée son panneau, et son type exige un panneau pour chaque clé. La page importe les panneaux eux-mêmes, si bien que leurs boutons, leurs onglets et leurs tableaux se chargent avec le code du tableau de bord, avant que la page ne s’hydrate, et qu’un clic sur un panneau agit dès le premier instant ; seul le dessin d’un graphique, `TimeSeriesBars`, se charge dans un chunk à part, que le loader précharge (voir [Performances](/docs/conventions/performance#a-section-with-controls-loads-with-its-page)).
-- Une carte des utilisateurs : les comptes les plus récents, <RepositoryFact name="adminPreviewPageSize" /> lignes par page, avec filtres de recherche et de statut. Chaque nom renvoie vers le profil de l’utilisateur, où se trouvent les actions.
+- Une carte des utilisateurs : les comptes les plus récents d’abord, <RepositoryFact name="adminPreviewPageSize" /> lignes par page, avec une recherche et des filtres que le serveur applique à tous les comptes. Chaque nom renvoie vers le profil de l’utilisateur, où se trouvent les actions.
 
 | Statistique                               | Fonctionnalité | Source                                                                                                                      |
 | ----------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -96,15 +96,16 @@ Chaque panneau garde sa période dans l’état du composant. `RangePicker` la c
 ```tsx
 <DataGrid
   columns={columns}
-  data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+  defaultPageSize={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize}
   id={DASHBOARD_USER_GRID_ID}
   label={t("users.title")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
   search={t("users.search")}
   selectable
 />
 ```
 
-La grille travaille dans le navigateur sur les utilisateurs les plus récents de la première page de `getUsersQuery`, qui contient <RepositoryFact name="defaultPageSize" /> utilisateurs, les plus récents d’abord ; elle permet de les rechercher, de les filtrer par utilisateur, statut et jour d’inscription, et de les trier sans interroger de nouveau le serveur. Sa colonne **Inscription** est le `created_at` du compte. **Tout voir** renvoie vers `/admin/users`.
+La grille demande chaque page au serveur, comme la liste de `/admin/users` : `getUsers` recherche, filtre par utilisateur, rôle, statut et jour d’inscription, et trie tous les comptes, les plus récents d’abord, si bien qu’une recherche trouve aussi un compte absent de la première page. Le loader précharge la première page, <RepositoryFact name="adminPreviewPageSize" /> utilisateurs. La colonne **Rôle** nomme chaque rôle comme la liste des utilisateurs, et la colonne **Inscription** est le `created_at` du compte. **Afficher tous les utilisateurs** renvoie vers `/admin/users`.
 
 ## Uniquement des données réelles [#real-data-only]
 

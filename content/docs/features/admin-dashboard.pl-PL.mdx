@@ -38,7 +38,7 @@ Każde wyszukiwanie to funkcja serwerowa chroniona przez `authorized(...)`, a pa
 - `DashboardActions`: link dla każdej pozycji z `ADMIN_DASHBOARD_ACTIONS` w `src/data/navigation.ts`, w kolejności listy, z etykietą z komunikatu wskazanego w jej `label`: **Zamówienia** i **Klienci**, których strony należą do funkcji płatności (zobacz [Zamówienia i klienci](/docs/features/orders)).
 - `DashboardStats`: statystyki z `DASHBOARD_STATS`, które `custom/admin/dashboard/stats.tsx` deklaruje w kolejności z poniższej tabeli, każda ze swoim `icon`, pełnym kluczem swojego `label` w pliku `dashboard.<feature>.json` swojej funkcji, `prefetch`, który uruchamia loader, oraz hookiem `useValue`, który odczytuje liczbę sformatowaną zgodnie z językiem strony. Statystyka z `to` zamienia całą swoją kartę w link do strony, która wymienia to, co statystyka liczy.
 - `DashboardPanels`: panele z `DASHBOARD_PANELS`, które `custom/admin/dashboard/panels-pending.tsx` deklaruje w kolejności wyświetlania, każdy ze szkieletem z pliku `-pending.tsx` panelu, który pokazuje dla niego `AdminDashboardPending`, i z funkcją `prefetch`, którą uruchamia loader. `panels.tsx` przypisuje kluczowi `key` każdego wpisu jego panel, a typ tego przypisania wymaga panelu dla każdego klucza. Strona importuje same panele, więc ich przyciski, zakładki i tabele wczytują się razem z kodem pulpitu, zanim strona przejdzie hydratację, a kliknięcie w panelu działa od pierwszej chwili; we własnym chunku, który loader pobiera z wyprzedzeniem, wczytuje się tylko rysunek wykresu, `TimeSeriesBars` (zobacz [Wydajność](/docs/conventions/performance#a-section-with-controls-loads-with-its-page)).
-- Karta użytkowników: najnowsze konta, wyświetlane po <RepositoryFact name="adminPreviewPageSize" /> na stronę, z filtrami wyszukiwania i statusu. Imię i nazwisko każdego użytkownika prowadzi do jego profilu, gdzie znajdują się akcje.
+- Karta użytkowników: najpierw najnowsze konta, po <RepositoryFact name="adminPreviewPageSize" /> na stronę, z wyszukiwaniem i filtrami, które serwer stosuje do wszystkich kont. Imię i nazwisko każdego użytkownika prowadzi do jego profilu, gdzie znajdują się akcje.
 
 | Statystyka                    | Funkcja      | Źródło                                                                                                       |
 | ----------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
@@ -96,15 +96,16 @@ Każdy panel przechowuje swój okres w stanie komponentu. `RangePicker` zmienia 
 ```tsx
 <DataGrid
   columns={columns}
-  data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+  defaultPageSize={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize}
   id={DASHBOARD_USER_GRID_ID}
   label={t("users.title")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
   search={t("users.search")}
   selectable
 />
 ```
 
-Siatka pokazuje najnowszych użytkowników z pierwszej strony `getUsersQuery` (liczba użytkowników na stronie: <RepositoryFact name="defaultPageSize" />, od najnowszych) i w przeglądarce, bez kolejnych zapytań do serwera, wyszukuje ich, filtruje według użytkownika, statusu i dnia rejestracji oraz sortuje. Jej kolumna **Rejestracja** to `created_at` konta. **Wszyscy użytkownicy** prowadzi do `/admin/users`.
+Siatka pobiera każdą stronę z serwera, tak jak lista w `/admin/users`: `getUsers` przeszukuje, filtruje po użytkowniku, roli, statusie i dniu rejestracji oraz sortuje wszystkie konta, od najnowszych, więc wyszukiwanie znajdzie też konto spoza pierwszej strony. Loader wczytuje z wyprzedzeniem pierwszą stronę, <RepositoryFact name="adminPreviewPageSize" /> użytkowników. Kolumna **Rola** nazywa każdą rolę tak jak lista użytkowników, a kolumna **Rejestracja** to `created_at` konta. **Pokaż wszystkich użytkowników** prowadzi do `/admin/users`.
 
 ## Tylko prawdziwe dane [#real-data-only]
 

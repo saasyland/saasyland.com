@@ -112,6 +112,8 @@ it.each(["root", "loader", "render"] as const)(
   async (failure) => {
     const { error, load, log } = renderFailure(failure)
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong")
+    expect(screen.getByRole("heading", { level: 1, name: "Something went wrong" })).toBeVisible()
+    expect(screen.queryByRole("main")).not.toBeInTheDocument()
     expect(screen.getByRole("alert")).not.toHaveTextContent(error.message)
     expect(log).toHaveBeenCalledWith(error)
     if (failure !== "root") {
@@ -151,7 +153,7 @@ it.each([
   await waitFor(() => {
     expect(navigate).toHaveBeenCalledWith(RELOAD)
   })
-  expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true")
+  expect(document.querySelector("[data-slot=default-error]")).toHaveAttribute("aria-busy", "true")
   expect(screen.queryByRole("alert")).not.toBeInTheDocument()
 })
 
@@ -167,7 +169,7 @@ it("leaves a visitor who is going to another page alone and loads the page again
   })
 
   await waitFor(() => {
-    expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true")
+    expect(document.querySelector("[data-slot=default-error]")).toHaveAttribute("aria-busy", "true")
   })
   expect(navigate).not.toHaveBeenCalled()
   globalThis.dispatchEvent(new Event("pageshow"))

@@ -2,6 +2,7 @@ import { setTimeout as delay } from "node:timers/promises"
 
 import type { Locator, Page } from "@playwright/test"
 
+import { ROLE_CODES } from "../../src/integrations/better-auth/auth.roles"
 import { HTTP_STATUS } from "../../src/modules/_core/constants/api"
 import * as ROUTES from "../../src/routes"
 import {
@@ -253,4 +254,28 @@ test("the admin filters the newest users by status, sorts them by join day, hide
   await expect(headerNames).toHaveText(arranged)
   await resetLayout(grid)
   await expect(headerNames).toHaveText(["", columns.user, columns.role, columns.status, columns.joined])
+})
+
+test("the admin finds any account from the newest users on the server and reads each role by its name", async ({ page }) => {
+  await signInAsAdmin(page)
+  const { columns, role } = pagesAdminDashboardMessages.users.table
+  const grid = gridOf(page, pagesAdminDashboardMessages.users.title)
+  const rows = grid.locator("tbody tr")
+  const search = grid.getByRole("searchbox", { name: pagesAdminDashboardMessages.users.search })
+
+  await search.fill(customer.email)
+  await expect(rows).toHaveCount(1)
+  await expect(rows).toContainText(customer.name)
+  await expect(rows.getByText(role.customer, { exact: true })).toBeVisible()
+
+  await search.fill(admin.email)
+  await expect(rows).toHaveCount(1)
+  await expect(rows.getByText(role.admin, { exact: true })).toBeVisible()
+  await expect(rows.getByText(ROLE_CODES.ADMIN, { exact: true })).toHaveCount(0)
+
+  await search.fill("")
+  await filterByOption(grid, columns.role, role.admin)
+  for (const cell of await grid.locator("tbody tr td:nth-child(3)").all()) {
+    await expect(cell).toHaveText(role.admin)
+  }
 })

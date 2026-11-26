@@ -38,7 +38,7 @@ Ogni ricerca è una funzione server dietro `authorized(...)`, e la palette trala
 - `DashboardActions`: un link per ogni voce di `ADMIN_DASHBOARD_ACTIONS` in `src/data/navigation.ts`, nel loro ordine, con l’etichetta del messaggio indicato dal suo `label`: **Ordini** e **Clienti**, le cui pagine appartengono alla funzionalità dei pagamenti (vedi [Ordini e clienti](/docs/features/orders)).
 - `DashboardStats`: le statistiche di `DASHBOARD_STATS`, che `custom/admin/dashboard/stats.tsx` dichiara nell’ordine della tabella qui sotto, ciascuna con il suo `icon`, la chiave completa del suo `label` nel `dashboard.<feature>.json` della sua funzionalità, un `prefetch` che il loader esegue e un hook `useValue` che legge il numero, formattato per la lingua della pagina. Una statistica con `to` collega l’intera scheda alla pagina che elenca ciò che conta.
 - `DashboardPanels`: i pannelli di `DASHBOARD_PANELS`, che `custom/admin/dashboard/panels-pending.tsx` dichiara nel loro ordine, ciascuno con lo scheletro del file `-pending.tsx` del pannello, che `AdminDashboardPending` mostra per esso, e un `prefetch` che il loader esegue. `panels.tsx` associa alla `key` di ogni voce il suo pannello, e il suo tipo richiede un pannello per ogni chiave. La pagina importa direttamente i pannelli, così i loro pulsanti, le loro schede e le loro tabelle si caricano con il codice della dashboard, prima che la pagina si idrati, e un clic su un pannello funziona fin dal primo istante; solo il disegno di un grafico, `TimeSeriesBars`, si carica in un chunk tutto suo, che il loader precarica (vedi [Prestazioni](/docs/conventions/performance#a-section-with-controls-loads-with-its-page)).
-- Una scheda utenti: gli account più recenti, <RepositoryFact name="adminPreviewPageSize" /> righe per pagina, con filtri di ricerca e di stato. Ogni nome porta al profilo dell’utente, dove si trovano le azioni.
+- Una scheda utenti: prima gli account più recenti, <RepositoryFact name="adminPreviewPageSize" /> righe per pagina, con una ricerca e dei filtri che il server applica a tutti gli account. Ogni nome porta al profilo dell’utente, dove si trovano le azioni.
 
 | Statistica                   | Funzionalità | Fonte                                                                                                             |
 | ---------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
@@ -96,15 +96,16 @@ Ogni pannello tiene il suo periodo nello stato del componente. `RangePicker` lo 
 ```tsx
 <DataGrid
   columns={columns}
-  data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+  defaultPageSize={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize}
   id={DASHBOARD_USER_GRID_ID}
   label={t("users.title")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
   search={t("users.search")}
   selectable
 />
 ```
 
-La griglia lavora nel browser sugli utenti più recenti della prima pagina di `getUsersQuery`, che contiene <RepositoryFact name="defaultPageSize" /> utenti, i più recenti per primi; permette di cercarli, filtrarli per utente, stato e giorno di iscrizione e ordinarli senza interrogare di nuovo il server. La sua colonna **Iscrizione** è il `created_at` dell’account. **Vedi tutti** porta a `/admin/users`.
+La griglia chiede ogni pagina al server, come l’elenco di `/admin/users`: `getUsers` cerca, filtra per utente, ruolo, stato e giorno di iscrizione e ordina tutti gli account, prima i più recenti, così una ricerca trova anche un account che non è nella prima pagina. Il loader precarica la prima pagina, <RepositoryFact name="adminPreviewPageSize" /> utenti. La colonna **Ruolo** chiama ogni ruolo come l’elenco degli utenti, e la colonna **Iscrizione** è il `created_at` dell’account. **Visualizza tutti gli utenti** porta a `/admin/users`.
 
 ## Solo dati reali [#real-data-only]
 

@@ -1,7 +1,8 @@
-import { MEDIA_PATH_PREFIX, VIDEO_FILES } from "~/src/modules/video/video.constants"
+import { VIDEO_FILES } from "~/src/modules/video/video.constants"
 import type { Video } from "~/src/modules/video/video.types"
 
 import { signHmac, verifyHmac } from "~/src/lib/hmac"
+import { MEDIA_PATH_PREFIX } from "~/src/lib/media-response"
 import { isUnexpired, signedExpiry } from "~/src/lib/signed-expiry"
 
 const SIGNING_INFO = "saasyland:video-playback"

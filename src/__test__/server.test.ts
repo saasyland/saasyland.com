@@ -10,14 +10,15 @@ import { POLAR_SERVER, polarCheckoutOrigin } from "~/src/integrations/polar/pola
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { COUNTRY_HEADER, HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
+import { BUSINESS_LOGO_PATH_PREFIX } from "~/src/modules/business-profile/business-profile.logo"
 import { COURSE_COVER_PATH_PREFIX } from "~/src/modules/course/course.cover"
 import { bundleObjectKey, signBundle } from "~/src/modules/license/license.bundles"
 import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
 import { PPP_ATTRIBUTE } from "~/src/modules/license/license.pricing"
 import { SESSION_ATTRIBUTE, SESSION_COOKIE_NAMES } from "~/src/modules/session/session.rewrite"
-import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { documentPolicy } from "~/src/lib/content-security-policy"
+import { MEDIA_PATH_PREFIX } from "~/src/lib/media-response"
 
 import * as ROUTES from "~/src/routes"
 import worker from "~/src/server"
@@ -474,6 +475,21 @@ it("writes the course sitemap itself, without the locale middleware or TanStack 
   expect(response.status).toBe(HTTP_STATUS.OK)
   expect(response.headers.get("content-type")).toBe("application/xml; charset=utf-8")
   expect(response.headers.get("set-cookie")).toBeNull()
+  expect(fetchHandler).not.toHaveBeenCalled()
+})
+
+it("serves the business logo itself, before the courses' media handler", async () => {
+  createEdgeCache()
+  const logo = "logos/0195a2b4-6c8d-7e9f-8a0b-00000000b0b0.png"
+  await env.MEDIA.put(logo, "PNG")
+
+  const response = await worker.fetch(new Request(`https://localhost${MEDIA_PATH_PREFIX}/${logo}`), env)
+
+  expect(BUSINESS_LOGO_PATH_PREFIX.startsWith(`${MEDIA_PATH_PREFIX}/`)).toBe(true)
+  expect(response.status).toBe(HTTP_STATUS.OK)
+  expect(await response.text()).toBe("PNG")
+  expect(response.headers.get("content-type")).toBe("image/png")
+  expect(headersNamed(response, Object.keys(HTTPS_SECURITY_HEADERS))).toStrictEqual(HTTPS_SECURITY_HEADERS)
   expect(fetchHandler).not.toHaveBeenCalled()
 })
 

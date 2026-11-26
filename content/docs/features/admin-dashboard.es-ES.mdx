@@ -38,7 +38,7 @@ Cada búsqueda es una función de servidor tras `authorized(...)`, y la paleta o
 - `DashboardActions`: un enlace por cada entrada de `ADMIN_DASHBOARD_ACTIONS` en `src/data/navigation.ts`, en su orden, con la etiqueta del mensaje que nombra su `label`: **Pedidos** y **Clientes**, cuyas páginas pertenecen a la funcionalidad de pagos (consulta [Pedidos y clientes](/docs/features/orders)).
 - `DashboardStats`: las estadísticas de `DASHBOARD_STATS`, que `custom/admin/dashboard/stats.tsx` declara en el orden de la tabla siguiente, cada una con su `icon`, la clave completa de su `label` en el `dashboard.<feature>.json` de su funcionalidad, un `prefetch` que ejecuta el loader y un hook `useValue` que lee el número, con el formato del idioma de la página. Una estadística con `to` enlaza toda su tarjeta a la página que lista lo que cuenta.
 - `DashboardPanels`: los paneles de `DASHBOARD_PANELS`, que `custom/admin/dashboard/panels-pending.tsx` declara en su orden, cada uno con el esqueleto del archivo `-pending.tsx` del panel, que `AdminDashboardPending` muestra para él, y un `prefetch` que ejecuta el loader. `panels.tsx` asigna a la `key` de cada entrada su panel, y su tipo exige un panel para cada clave. La página importa los propios paneles, así que sus botones, pestañas y tablas se cargan con el código del panel de administración, antes de que la página se hidrate, y un clic en un panel funciona desde el primer momento; solo el dibujo de un gráfico, `TimeSeriesBars`, se carga en un chunk propio, que el loader precarga (consulta [Rendimiento](/docs/conventions/performance#a-section-with-controls-loads-with-its-page)).
-- Una tarjeta de usuarios: las cuentas más recientes, <RepositoryFact name="adminPreviewPageSize" /> filas por página, con filtros de búsqueda y de estado. Cada nombre enlaza al perfil del usuario, donde están las acciones.
+- Una tarjeta de usuarios: las cuentas más recientes primero, <RepositoryFact name="adminPreviewPageSize" /> filas por página, con una búsqueda y unos filtros que el servidor aplica a todas las cuentas. Cada nombre enlaza al perfil del usuario, donde están las acciones.
 
 | Estadística                                  | Funcionalidad | Origen                                                                                                                  |
 | -------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -96,15 +96,16 @@ Cada panel guarda su periodo en el estado del componente. `RangePicker` lo cambi
 ```tsx
 <DataGrid
   columns={columns}
-  data={users.rows.slice(0, ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize)}
+  defaultPageSize={ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize}
   id={DASHBOARD_USER_GRID_ID}
   label={t("users.title")}
+  query={(request) => getUsersPageQuery(userZodSchemas.getUsers.parse(request))}
   search={t("users.search")}
   selectable
 />
 ```
 
-La cuadrícula trabaja en el navegador con los usuarios más recientes de la primera página de `getUsersQuery`, que contiene <RepositoryFact name="defaultPageSize" /> usuarios, los más recientes primero; permite buscarlos, filtrarlos por usuario, estado y día de alta, y ordenarlos sin volver a consultar al servidor. Su columna **Alta** es el `created_at` de la cuenta. **Ver todos** enlaza a `/admin/users`.
+La cuadrícula pide cada página al servidor, como la lista de `/admin/users`: `getUsers` busca, filtra por usuario, rol, estado y día de alta y ordena todas las cuentas, las más recientes primero, así que una búsqueda encuentra también una cuenta que no está en la primera página. El loader carga de antemano la primera página, <RepositoryFact name="adminPreviewPageSize" /> usuarios. La columna **Rol** nombra cada rol como la lista de usuarios, y la columna **Alta** es el `created_at` de la cuenta. **Ver todos los usuarios** enlaza a `/admin/users`.
 
 ## Solo datos reales [#real-data-only]
 

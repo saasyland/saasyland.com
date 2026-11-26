@@ -8,6 +8,7 @@ import { loadPageMetadata, preloadNamespaces } from "~/src/integrations/use-intl
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { listAccountsQuery } from "~/src/modules/account/use-cases/list-accounts"
+import { businessProfileQuery } from "~/src/modules/business-profile/use-cases/get-business-profile"
 import { getActiveSessionsQuery } from "~/src/modules/session/use-cases/get-active-sessions"
 
 import { SETTINGS_TAB } from "~/src/data/auth"
@@ -19,6 +20,7 @@ import { Tabs, TabsContent } from "~/src/presentation/components/shadcn/tabs"
 
 import { AdminPageHeader } from "~/src/presentation/components/custom/admin/admin-page-header"
 import { AdminSettingsPending } from "~/src/presentation/components/custom/admin/auth-pending"
+import { BusinessLogoCard, BusinessProfileCard } from "~/src/presentation/components/custom/admin/business-profile-card"
 import { PreferencesCard } from "~/src/presentation/components/custom/preferences-card"
 import { EmailCard } from "~/src/presentation/components/custom/settings/email-card"
 import { SecurityCards, SettingsTabs } from "~/src/presentation/components/custom/settings/settings-tabs"
@@ -39,6 +41,8 @@ const SettingsPage = (): JSX.Element => {
       />
 
       <TabsContent className="mt-8 grid grid-cols-1 items-start gap-6 outline-none lg:grid-cols-2" id={SETTINGS_TAB.GENERAL}>
+        <BusinessProfileCard />
+        <BusinessLogoCard />
         <PreferencesCard />
         <EmailCard />
       </TabsContent>
@@ -60,6 +64,7 @@ export const Route = createFileRoute("/admin/settings")({
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
       preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      context.queryClient.query({ ...businessProfileQuery, staleTime: "static" }),
       context.queryClient.query({ ...getActiveSessionsQuery, staleTime: "static" }),
       context.queryClient.query({ ...listAccountsQuery, staleTime: "static" }),
     ])

@@ -4,15 +4,16 @@ import { resolveLocale } from "~/src/integrations/use-intl/i18n.middleware"
 import { extractLocaleFromPath, shouldIgnorePath } from "~/src/integrations/use-intl/i18n.paths"
 
 import { HTTPS_SECURITY_HEADERS, HTTP_STATUS, SECURITY_HEADERS } from "~/src/modules/_core/constants/api"
+import { BUSINESS_LOGO_PATH_PREFIX } from "~/src/modules/business-profile/business-profile.logo"
 import { COURSE_COVER_PATH_PREFIX } from "~/src/modules/course/course.cover"
 import { LESSON_ATTACHMENT_PATH_PREFIX } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { BUNDLE_PATH_PREFIX } from "~/src/modules/license/license.constants"
 import { rewritePppOffer } from "~/src/modules/license/license.pricing"
 import { markSession } from "~/src/modules/session/session.rewrite"
-import { MEDIA_PATH_PREFIX } from "~/src/modules/video/video.constants"
 
 import { createNonce, documentPolicy, withNonce } from "~/src/lib/content-security-policy"
 import { serializeCookie } from "~/src/lib/cookie"
+import { MEDIA_PATH_PREFIX } from "~/src/lib/media-response"
 
 import { fontPreloads } from "~/src/presentation/document-assets"
 import * as ROUTES from "~/src/routes"
@@ -36,6 +37,14 @@ interface RequestHandler {
 type DocumentRewrite = (document: Response, context: { locale: SupportedLocale; request: Request }) => Response
 
 const REQUEST_HANDLERS: readonly RequestHandler[] = [
+  {
+    fetch: async (request) => {
+      const { serveBusinessLogo } = await import("~/src/modules/business-profile/business-profile.delivery")
+
+      return serveBusinessLogo(request)
+    },
+    pathPrefix: `${BUSINESS_LOGO_PATH_PREFIX}/`,
+  },
   {
     fetch: async (request) => {
       const { serveCover } = await import("~/src/modules/course/course.delivery")

@@ -1,0 +1,5 @@
+export const BYTES_PER_KILOBYTE = 1000
+
+export const BYTES_PER_MEGABYTE = 1_000_000
+
+export const BYTES_PER_GIGABYTE = 1_000_000_000

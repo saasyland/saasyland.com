@@ -5,10 +5,13 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
+import { BUSINESS_PROFILE_ID } from "~/src/modules/business-profile/business-profile.constants"
 import { COURSE_ICON, COURSE_LEVEL } from "~/src/modules/course/course.constants"
 import { LESSON_ATTACHMENT_KIND } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LICENSE_STATUS, LICENSE_TIER } from "~/src/modules/license/license.constants"
 import { WITHDRAWAL_CHANNEL, WITHDRAWAL_ELIGIBILITY } from "~/src/modules/withdrawal/withdrawal.constants"
+
+import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 
 const MIGRATIONS = resolve("src/integrations/drizzle-orm/migrations")
 const BILLING_MIRRORS = "20261116002710_cute_thunderball.sql"
@@ -414,6 +417,42 @@ describe("the migration that copies the discount and billing country of orders",
     ])
     expect(plain(database.prepare("SELECT * FROM `order`").all())).toStrictEqual([
       { ...orderBefore, ...Object.fromEntries(ORDER_TERM_COLUMNS.map(([column]) => [column, null])) },
+    ])
+  })
+})
+
+const BUSINESS_PROFILE = "20261125223438_sturdy_leech.sql"
+const BUSINESS_PROFILE_TABLE = "business_profile"
+
+const isBusinessProfileEntry = (entry: Record<string, unknown>): boolean => entry["tbl_name"] === BUSINESS_PROFILE_TABLE
+
+describe("the migration that adds the business profile", () => {
+  it("creates the business profile table and its one row, and nothing else", () => {
+    const created = statements(BUSINESS_PROFILE)
+
+    expect(created.map((statement) => STATEMENT_HEAD.exec(statement)?.[0].trim())).toStrictEqual([
+      "CREATE TABLE `business_profile`",
+      "INSERT INTO `business_profile` DEFAULT VALUES;",
+    ])
+  })
+
+  it("leaves every table and index that existed before it as it was", () => {
+    const database = databaseBefore(BUSINESS_PROFILE)
+    const before = schemaOf(database)
+
+    database.exec(migrationSql(BUSINESS_PROFILE))
+
+    expect(before.filter((entry) => isBusinessProfileEntry(entry))).toStrictEqual([])
+    expect(schemaOf(database).filter((entry) => !isBusinessProfileEntry(entry))).toStrictEqual(before)
+  })
+
+  it("starts the profile from the site's name and contact address, with no postal address and no logo", () => {
+    const database = databaseBefore(BUSINESS_PROFILE)
+
+    database.exec(migrationSql(BUSINESS_PROFILE))
+
+    expect(plain(database.prepare(`SELECT id, name, support_email, address, logo FROM ${BUSINESS_PROFILE_TABLE}`).all())).toStrictEqual([
+      { address: "", id: BUSINESS_PROFILE_ID, logo: null, name: APP_NAME, support_email: CONTACT_EMAIL },
     ])
   })
 })

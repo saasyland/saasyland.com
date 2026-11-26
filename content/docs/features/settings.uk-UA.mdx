@@ -5,10 +5,19 @@ description: "Екрани /app/settings і /admin/settings: параметри,
 
 `src/routes/app.settings.tsx` і `src/routes/admin.settings.tsx` показують дві вкладки з `SETTINGS_TABS` (`src/data/auth.ts`), **Загальні** і **Безпека**. Вкладка — це параметр пошуку `tab`, який перевіряє `settingsSearchSchema` і який зникає з адреси, коли вкладка типова, тож посилання OAuth повертає на `?tab=security`. Картки розташовані в `src/presentation/components/custom/settings`, мають спільний простір імен `auth.security`, який завантажують макети `/app` і `/admin`, і однаково служать клієнтам та адміністраторам; лише вкладка «Загальні» клієнта закінчується карткою **Видалення облікового запису**. Обидва loader попередньо завантажують список сесій (`getActiveSessionsQuery`) і способи входу (`listAccountsQuery`), а `/app/settings` також виконує завантаження для попереджень про видалення облікового запису.
 
-| Вкладка  | `/app/settings`                                                          | `/admin/settings`                                                        |
-| -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| Загальні | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `PreferencesCard`, `EmailCard`                                           |
-| Безпека  | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` |
+| Вкладка  | `/app/settings`                                                          | `/admin/settings`                                                         |
+| -------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Загальні | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `BusinessProfileCard`, `BusinessLogoCard`, `PreferencesCard`, `EmailCard` |
+| Безпека  | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard`  |
+
+## Профіль компанії [#business-profile]
+
+Вкладка «Загальні» в `/admin/settings` починається з двох карток про компанію, яка керує сайтом, а не про адміністратора, що увійшов: `BusinessProfileCard` і `BusinessLogoCard`, обидві в `src/presentation/components/custom/admin/business-profile-card.tsx`. Вони читають `businessProfileQuery`, який loader сторінки завантажує заздалегідь, і кожен сценарій використання за ними перевіряє `settings: ["manage"]`.
+
+- Таблиця `business_profile` (`src/modules/business-profile`) має один рядок, `BUSINESS_PROFILE_ID`, який вставляє міграція, що створює таблицю. Назва й адреса підтримки спершу дорівнюють `APP_NAME` і `CONTACT_EMAIL`, поштова адреса порожня, логотипа немає.
+- **Зберегти профіль** викликає `updateBusinessProfile`, який обрізає пробіли на краях трьох полів і перевіряє їх через `businessProfileZodSchemas.updateBusinessProfile`: назва не довша за `BUSINESS_NAME_MAX_LENGTH` символів, дійсна електронна адреса та поштова адреса не довша за `BUSINESS_ADDRESS_MAX_LENGTH` символів, збережена рядок за рядком так, як її ввели.
+- **Завантажити логотип** зменшує вибране зображення в браузері через `encodeContainedImage` (`src/lib/image-encoding.ts`), доки його довша сторона не вміститься в `BUSINESS_LOGO_MAX_SIDE`, зі збереженням пропорцій і прозорості, у WebP або, у браузері, який не кодує WebP, у PNG. `uploadBusinessLogo` (з обмеженням частоти) зберігає його в R2 під `logos/<logoId>.<extension>`, записує ключ і видаляє замінений логотип; **Вилучити логотип** викликає `removeBusinessLogo`. Логотип віддає `serveBusinessLogo` під `/media/logos/`; див. [Cloudflare R2](/docs/integrations/cloudflare-r2).
+- Поза цими картками профіль поки ніщо не читає: футер, листи, юридичні сторінки та структуровані дані й далі показують константи з `src/presentation/branding`.
 
 ## Параметри
 
@@ -50,4 +59,4 @@ description: "Екрани /app/settings і /admin/settings: параметри,
 
 ## Скелетони
 
-`PreferencesCardPending` з `preferences-card-pending.tsx`, а також `SettingsTabsPending`, `EmailCardPending` і `DeleteAccountCardPending` з `custom/settings/settings-pending.tsx` малюють `AdminSettingsPending`, `AppSettingsPending` і `AppDeleteAccountPending`. Вони мають власні файли, бо кожна сторінка завантажує скелетони, а файли карток містять форми (див. [Продуктивність](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Скелетон малює вкладку «Загальні».
+`PreferencesCardPending` з `preferences-card-pending.tsx`, а також `SettingsTabsPending`, `EmailCardPending` і `DeleteAccountCardPending` з `custom/settings/settings-pending.tsx` малюють `AdminSettingsPending`, `AppSettingsPending` і `AppDeleteAccountPending`. Вони мають власні файли, бо кожна сторінка завантажує скелетони, а файли карток містять форми (див. [Продуктивність](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Скелетон малює вкладку «Загальні». `BusinessProfileCardPending` і `BusinessLogoCardPending` з `custom/admin/business-profile-pending.tsx` відкривають вкладку «Загальні» адміністратора в `AdminSettingsPending`.

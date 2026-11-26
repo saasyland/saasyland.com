@@ -10,8 +10,7 @@ import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
 import { getOrderQuery } from "~/src/modules/order/use-cases/get-order"
 
-import { rethrowAsNotFound } from "~/src/lib/not-found"
-import { buildPageHead } from "~/src/lib/seo"
+import { recordHead, rethrowAsNotFound } from "~/src/lib/not-found"
 
 import { AnchorButton } from "~/src/presentation/components/shadcn/button"
 
@@ -70,8 +69,7 @@ export const Route = createFileRoute("/admin/orders/$orderId")({
     ])
     return { locale, pathname: `${ROUTES.ADMIN_ORDERS}/${order.id}`, title: order.description }
   },
-  head: ({ loaderData }) =>
-    buildPageHead({ locale: loaderData?.locale, pathname: loaderData?.pathname ?? ROUTES.ADMIN_ORDERS, title: loaderData?.title }),
+  head: recordHead(ROUTES.ADMIN_ORDERS),
   pendingComponent: AdminOrderPending,
   staticData: { namespaces: NAMESPACES },
 })

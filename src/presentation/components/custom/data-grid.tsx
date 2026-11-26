@@ -86,6 +86,7 @@ export interface DataGridProps<TData extends DataGridRow> {
   readonly bulkActions?: (rows: readonly TData[]) => ReactNode
   readonly columns: readonly DataGridColumn<TData>[]
   readonly data?: readonly TData[]
+  readonly defaultPageSize?: PageSize
   readonly empty?: string
   readonly emptyDescription?: string
   readonly id: string
@@ -242,7 +243,11 @@ const useGridColumns = <TData extends DataGridRow>(
     ]
   }, [columns, fixed, rowActions])
 
-const useGridLayout = <TData extends DataGridRow>(id: string, columns: readonly DataGridColumn<TData>[], fixed: FixedColumns) => {
+const useGridLayout = <TData extends DataGridRow>(
+  id: string,
+  columns: readonly DataGridColumn<TData>[],
+  { defaultPageSize, fixed }: { readonly defaultPageSize: PageSize; readonly fixed: FixedColumns },
+) => {
   const { preferences, reset, update } = useDataGridPreferences(id)
   const defaults = useMemo(() => ({ columnPinning: defaultPinning(columns), columnVisibility: defaultVisibility(columns) }), [columns])
   const columnPinning = useMemo(
@@ -271,7 +276,7 @@ const useGridLayout = <TData extends DataGridRow>(id: string, columns: readonly 
     onColumnVisibilityChange: (updater: Updater<ColumnVisibilityState>) => {
       update({ columnVisibility: functionalUpdate(updater, columnVisibility) })
     },
-    pageSize: preferences.pageSize ?? DEFAULT_PAGE_SIZE,
+    pageSize: preferences.pageSize ?? defaultPageSize,
     reset,
     setDensity: (density: DataGridDensity) => {
       update({ density })
@@ -488,14 +493,23 @@ const useRowDrag = <TData extends DataGridRow>({
 }
 
 const useDataGrid = <TData extends DataGridRow>(
-  { columns, data = NO_ROWS, id, onReorder, query, rowActions, selectable = false }: DataGridProps<TData>,
+  {
+    columns,
+    data = NO_ROWS,
+    defaultPageSize = DEFAULT_PAGE_SIZE,
+    id,
+    onReorder,
+    query,
+    rowActions,
+    selectable = false,
+  }: DataGridProps<TData>,
   announce: (message: string) => void,
 ) => {
   const queryClient = useQueryClient()
   const hasActions = rowActions !== undefined
   const reorderable = onReorder !== undefined
   const fixed = useMemo(() => ({ actions: hasActions, reorderable, selectable }), [hasActions, reorderable, selectable])
-  const layout = useGridLayout(id, columns, fixed)
+  const layout = useGridLayout(id, columns, { defaultPageSize, fixed })
   const grid = useGridState(layout.pageSize, layout.setPageSize)
   const request = requestOf(grid.state, layout.pageSize)
   const page = useGridPage(query, request, data)

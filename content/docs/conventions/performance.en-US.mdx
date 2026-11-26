@@ -14,7 +14,7 @@ Each rule on this page came from a measurement, and several replaced an intuitiv
 
 ## Keep the Worker's boot graph small
 
-`src/server.ts` runs for every HTML request (`run_worker_first` in `wrangler.jsonc`), and everything it imports statically is evaluated on every cold start. It and the Worker handlers that the areas add import only constants and pure helpers, and load the rest when a request needs it:
+`src/server.ts` runs for every HTML request (`run_worker_first` in `wrangler.jsonc`), and everything it imports statically is evaluated on every cold start. It and the Worker handlers that the features add import only constants and pure helpers, and load the rest when a request needs it:
 
 ```ts
 const { default: handler } = await import("@tanstack/react-start/server-entry")
@@ -180,7 +180,7 @@ Every page would load about 115 KiB more to save one round trip on the clicks th
 
 TanStack Router runs a layout's `beforeLoad` on every navigation below it and starts the loaders only once it has finished. `requireSignedIn` and `requireAdmin` used to read `getCurrentSessionQuery` with `staleTime: 0`, so every click in `/app` and `/admin`, even back to a page already open, waited for a session request before the page's own requests could start. On saasyland.com that request took 60 to 70 ms of each 190 to 300 ms click in the admin sidebar.
 
-The guards now read the session with its own stale time, `SESSION_STALE_TIME_MS` (<RepositoryFact name="sessionStaleTimeMinutes" unit="minute" />): a fresh session lets the navigation through without a request, and a stale one is fetched again before the page loads. Guards only decide what the visitor sees; every server function still checks the session of its own request (see [Authentication and security](/docs/architecture/security-model)). So that an ended session is still noticed at once, `getRouter` gives its `QueryCache` and `MutationCache` one `onError`, which passes every failure to each handler in `QUERY_ERROR_HANDLERS`; the auth area's `recheckRefusedSession` is the only one. When a server function answers `UNAUTHORIZED` or `FORBIDDEN`, `recheckRefusedSession` fetches the session into a cache entry of its own; if the user or the role changed, it marks the cached session stale and runs the guards again with `router.invalidate()`, which sends the visitor to sign-in with the notice that the session ended, or a former admin to `/app`. An unchanged session leaves the page alone, so a refusal can never loop.
+The guards now read the session with its own stale time, `SESSION_STALE_TIME_MS` (<RepositoryFact name="sessionStaleTimeMinutes" unit="minute" />): a fresh session lets the navigation through without a request, and a stale one is fetched again before the page loads. Guards only decide what the visitor sees; every server function still checks the session of its own request (see [Authentication and security](/docs/architecture/security-model)). So that an ended session is still noticed at once, `getRouter` gives its `QueryCache` and `MutationCache` one `onError`, which passes every failure to each handler in `QUERY_ERROR_HANDLERS`; the auth feature's `recheckRefusedSession` is the only one. When a server function answers `UNAUTHORIZED` or `FORBIDDEN`, `recheckRefusedSession` fetches the session into a cache entry of its own; if the user or the role changed, it marks the cached session stale and runs the guards again with `router.invalidate()`, which sends the visitor to sign-in with the notice that the session ended, or a former admin to `/app`. An unchanged session leaves the page alone, so a refusal can never loop.
 
 Measured on a `bun run build:test` build served by `bun run start:test`, in Chromium with 40 ms of added latency per request, signed in as the seeded admin, in 2 interleaved rounds of 5 runs per build. Each run opened `/admin` and then every sidebar entry twice, the pointer resting on the entry for 250 ms before the press; a click is timed from the press to the first frame after the router rendered the page. Each cell gives the median over every entry and, in brackets, the range:
 
@@ -309,7 +309,7 @@ The CLI configurator on the landing page renders forty React Aria buttons, each 
 
 TanStack Router does not split `pendingComponent` into its own chunk by default, and `vite.config.ts` keeps that default, so every skeleton is in the entry script and shows the moment a navigation passes `pendingMs`. Splitting them was measured and rejected:
 
-- When this was measured, the layout skeletons `AdminPending`, `AppPending` and `MarketingPending` drew the page skeleton from a list that imported every area's skeletons, and the router loads the pending components of the matched routes before the page hydrates. `/`, `/app` and `/admin` still loaded every skeleton, now in chunks of their own, and grew by 3.5 to 6.5 KiB gzipped; only pages whose layout has a skeleton of its own, such as `/docs` and `/blog`, got lighter.
+- When this was measured, the layout skeletons `AdminPending`, `AppPending` and `MarketingPending` drew the page skeleton from a list that imported every feature's skeletons, and the router loads the pending components of the matched routes before the page hydrates. `/`, `/app` and `/admin` still loaded every skeleton, now in chunks of their own, and grew by 3.5 to 6.5 KiB gzipped; only pages whose layout has a skeleton of its own, such as `/docs` and `/blog`, got lighter.
 - A split skeleton has to load before it can show. In headless Chromium with 400 ms of added latency and 200 KiB/s, a client navigation from `/` to `/blog` rendered the blog after 2,290 ms instead of 1,390 ms, behind a skeleton the unsplit build never needed; with 150 ms of latency it took 800 ms instead of 640 ms.
 
 Because every page loads every skeleton, a skeleton imports `Skeleton`, the shadcn primitives, other skeletons and the constants that give it its lengths, never a form. `PreferencesCardPending` was exported from `preferences-card.tsx`, so the `/admin` and `/app` skeletons put the preferences form, TanStack Form, the time zone list and the user schemas into every page's entry script; it now has a file of its own, `preferences-card-pending.tsx`. Every script each page loads, gzipped, from the `bun run build:test` output:
@@ -329,7 +329,7 @@ Because every page loads every skeleton, a skeleton imports `Skeleton`, the shad
 | Entry script with its static imports | 557.8 KiB | 410.9 KiB |
 | Files                                | 176       | 172       |
 
-The customer overview's sections still pair each skeleton with its component in the area's list, so those components load with the skeletons.
+The customer overview's sections still pair each skeleton with its component in their list, so those components load with the skeletons.
 
 ## A section with controls loads with its page
 

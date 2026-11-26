@@ -55,6 +55,7 @@ import { PRICING_TRUST_ITEMS } from "~/src/presentation/components/custom/pricin
 
 import pricing from "~/messages/en-US/components.custom.pricing.json"
 import english from "~/messages/en-US/pages.landing.json"
+import masterclass from "~/messages/en-US/pages.landing.studio.masterclass.json"
 import stackMessages from "~/messages/en-US/stack.json"
 import { APP_GITHUB_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
@@ -389,8 +390,8 @@ describe("marketing content and purchase links", () => {
     renderSection(<StudioSection />)
     expect(screen.getByRole("heading", { name: english.studio.builder.title })).toBeVisible()
     expect(screen.getByLabelText(english.studio.builder.imageAlt)).toHaveAttribute("preload", "none")
-    expect(screen.getByRole("heading", { name: english.studio.masterclass.title })).toBeVisible()
-    expect(screen.getByRole("link", { name: english.studio.masterclass.browse })).toHaveAttribute("href", "/courses")
+    expect(screen.getByRole("heading", { name: masterclass.title })).toBeVisible()
+    expect(screen.getByRole("link", { name: masterclass.browse })).toHaveAttribute("href", "/courses")
   })
 
   it("highlights only the hovered foundation card and resets the highlight on exit", () => {

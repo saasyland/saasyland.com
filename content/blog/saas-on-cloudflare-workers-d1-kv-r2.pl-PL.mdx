@@ -169,7 +169,7 @@ Plik konfiguracyjny Workera to mapa całego Twojego systemu i warto traktować g
 
 **Rób tak:**
 
-- **Daj każdemu etapowi własne zasoby.** Produkcja nigdy nie powinna dzielić bazy danych, przestrzeni nazw ani bucketu ze środowiskiem preview. Wdrożenie preview, które uruchamia migrację albo usuwa dane testowe, nie może mieć dostępu do danych klientów.
+- **Daj każdemu etapowi własne zasoby.** Produkcja nigdy nie powinna dzielić bazy danych, przestrzeni nazw ani bucketu ze środowiskiem podglądowym. Wdrożenie podglądowe, które uruchamia migrację albo usuwa dane testowe, nie może mieć dostępu do danych klientów.
 - **Utrzymuj jedno środowisko, które działa wyłącznie na lokalnych zasobach.** Testy przeglądarkowe potrzebują bazy danych, cache i bucketów, które mogą zresetować w kilka sekund, bez dostępu do sieci i bez danych uwierzytelniających.
 - **Deklaruj sekrety, których potrzebuje każde środowisko**, i odmawiaj wdrożenia, dopóki któregoś brakuje, jest pusty albo jest wartością zastępczą, taką jak `[UPDATE]`.
 - **Sprawdzaj konfigurację przed buildem.** Brakujący binding albo zastępczy identyfikator taniej znaleźć przed dziesięciominutowym buildem niż po nieudanym wdrożeniu.
@@ -182,7 +182,7 @@ Plik konfiguracyjny Workera to mapa całego Twojego systemu i warto traktować g
 
 ### Przykład z praktyki: cztery środowiska i dwie kontrole przed wdrożeniem
 
-`wrangler.jsonc` definiuje środowiska z tymi samymi bindingami: `production`, `preview`, `development`, które dla `bun run dev` wiąże własną lokalną bazę D1, przestrzeń nazw KV i buckety, oraz `test`, które trzyma lokalną bazę D1, przestrzeń nazw KV i buckety w `.wrangler/test` na potrzeby testów przeglądarkowych. Każde środowisko wymienia sekrety, których wymaga. Przed każdym wdrożeniem `scripts/verify-bindings.ts` kończy się błędem, gdy środowisku brakuje bindingu, gdy wciąż ma zastępczy identyfikator D1 lub KV albo gdy produkcja dzieli bazę danych, przestrzeń nazw lub bucket ze środowiskiem preview, a `scripts/prepare-deploy-secrets.ts` kończy się błędem, gdy wymaganego sekretu brakuje, jest pusty albo jest wartością zastępczą, i podaje nazwę klucza bez wypisywania jego wartości.
+`wrangler.jsonc` definiuje środowiska z tymi samymi bindingami: `production`, `preview`, `development`, które dla `bun run dev` wiąże własną lokalną bazę D1, przestrzeń nazw KV i buckety, oraz `test`, które trzyma lokalną bazę D1, przestrzeń nazw KV i buckety w `.wrangler/test` na potrzeby testów przeglądarkowych. Każde środowisko wymienia sekrety, których wymaga. Przed każdym wdrożeniem `scripts/verify-bindings.ts` kończy się błędem, gdy środowisku brakuje bindingu, gdy wciąż ma zastępczy identyfikator D1 lub KV albo gdy produkcja dzieli bazę danych, przestrzeń nazw lub bucket ze środowiskiem podglądowym, a `scripts/prepare-deploy-secrets.ts` kończy się błędem, gdy wymaganego sekretu brakuje, jest pusty albo jest wartością zastępczą, i podaje nazwę klucza bez wypisywania jego wartości.
 
 Druga kontrola wzięła się z prawdziwego błędu, odnotowanego w [#223](https://github.com/saasyland/saasyland.com/pull/223). Plik sekretów produkcji wciąż zawierał `[UPDATE]` jako identyfikator klienta Google OAuth, wdrożenie go przesłało, bo kontrola odrzucała wtedy tylko puste wartości, a logowanie przez Google kończyło się błędem `invalid_client`. Poprawka objęła dwie warstwy: kontrolę działającej witryny po każdym lokalnym wdrożeniu, która rozpoczyna logowanie u każdego dostawcy i sprawdza adres URL, na który jest kierowane, oraz odrzucanie wartości zastępczych, zanim build w ogóle się zacznie. Każda z warstw wyłapałaby ten błąd sama; razem wyłapują go dwukrotnie.
 
@@ -449,7 +449,7 @@ W saasyland.com schematy są w modułach tabel. `bun run db:generate` zamienia z
     "db:migrate:production": "vp exec wrangler d1 migrations apply DB --env production --remote",
 ```
 
-Pull request przesyła nową wersję Workera preview bez wdrażania jej, a Cloudflare sprawdza ją tak jak wdrożenie; scalenie z `main` wdraża współdzielone środowisko preview, a potem produkcję. Oba wdrożenia wykonują te same kroki: sprawdzenie bindingów, build, zastosowanie migracji danego środowiska, a potem `wrangler deploy`. Baza danych zmienia się pierwsza, więc przez krótki czas Worker, który wciąż działa, korzysta już z nowego schematu. Migracja, która dodała zapisy o dostarczeniu licencji, pokazuje rodzaj zmiany, który to przetrwa: trzy kolumny dopuszczające null, które poprzednie wydanie po prostu ignorowało. Zaczyna się tak:
+Pull request przesyła nową wersję Workera preview bez wdrażania jej, a Cloudflare sprawdza ją tak jak wdrożenie; scalenie z `main` wdraża współdzielone środowisko podglądowe, a potem produkcję. Oba wdrożenia wykonują te same kroki: sprawdzenie bindingów, build, zastosowanie migracji danego środowiska, a potem `wrangler deploy`. Baza danych zmienia się pierwsza, więc przez krótki czas Worker, który wciąż działa, korzysta już z nowego schematu. Migracja, która dodała zapisy o dostarczeniu licencji, pokazuje rodzaj zmiany, który to przetrwa: trzy kolumny dopuszczające null, które poprzednie wydanie po prostu ignorowało. Zaczyna się tak:
 
 ```sql title="src/integrations/drizzle-orm/migrations/20261116195637_great_blazing_skull.sql"
 ALTER TABLE `license` ADD `activated_at` integer;--> statement-breakpoint
@@ -598,7 +598,7 @@ Odmowa przy awarii to właściwe ustawienie domyślne dla logowania, resetu has�
 
 Wdrożenie w Workers trwa kilka sekund, co kusi, żeby pominąć kroki wokół niego. Każdy z poniższych kroków jest częścią wdrożenia saasyland.com.
 
-1. **Sprawdź konfigurację i sekrety** przed buildem: bindingi są na miejscu, nie ma zastępczych identyfikatorów, produkcja nie dzieli zasobów ze środowiskiem preview, każdy wymagany sekret jest ustawiony.
+1. **Sprawdź konfigurację i sekrety** przed buildem: bindingi są na miejscu, nie ma zastępczych identyfikatorów, produkcja nie dzieli zasobów ze środowiskiem podglądowym, każdy wymagany sekret jest ustawiony.
 2. **Zbuduj i sprawdź build:** budżet ścieżki zimnego startu, to, czy każda strona, która powinna być prerenderowana, rzeczywiście jest, i to, czy żaden kod tylko serwerowy nie trafił do przeglądarki.
 3. **Zmigruj docelową bazę danych.**
 4. **Wdróż.**
@@ -672,7 +672,7 @@ Rachunek za taki miesiąc to więc 5 USD plus przechowywanie w R2 ponad darmowe 
 
 **Konfiguracja i środowiska**
 
-- Każdy etap ma własną bazę D1, przestrzeń nazw KV i buckety; produkcja nie dzieli niczego ze środowiskiem preview.
+- Każdy etap ma własną bazę D1, przestrzeń nazw KV i buckety; produkcja nie dzieli niczego ze środowiskiem podglądowym.
 - Jedno środowisko działa wyłącznie na lokalnych zasobach, na potrzeby testów.
 - Każde środowisko deklaruje wymagane sekrety, a wdrożenie odrzuca puste i zastępcze wartości.
 - Klucze do różnych celów są wyprowadzane osobno z jednego sekretu.
@@ -758,7 +758,7 @@ Każdy cytowany tu plik jest w publicznym kodzie źródłowym saasyland.com, a [
 
 ### Źródła
 
-- Cloudflare Workers: [cennik](https://developers.cloudflare.com/workers/platform/pricing/), [limity](https://developers.cloudflare.com/workers/platform/limits/), [jak działa Workers](https://developers.cloudflare.com/workers/reference/how-workers-works/), [rozliczanie zasobów statycznych](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/), [nagłówki zasobów statycznych](https://developers.cloudflare.com/workers/static-assets/headers/), [Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/), [binding Rate Limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) i [wpis w changelogu o limicie rozmiaru 64 MiB](https://developers.cloudflare.com/changelog/post/2026-09-04-increased-worker-size-limit/)
+- Cloudflare Workers: [cennik](https://developers.cloudflare.com/workers/platform/pricing/), [limity](https://developers.cloudflare.com/workers/platform/limits/), [jak działa Workers](https://developers.cloudflare.com/workers/reference/how-workers-works/), [rozliczanie zasobów statycznych](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/), [nagłówki zasobów statycznych](https://developers.cloudflare.com/workers/static-assets/headers/), [Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/), [binding Rate Limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) i [wpis na liście zmian o limicie rozmiaru 64 MiB](https://developers.cloudflare.com/changelog/post/2026-09-04-increased-worker-size-limit/)
 - Cloudflare D1: [limity](https://developers.cloudflare.com/d1/platform/limits/), [cennik](https://developers.cloudflare.com/d1/platform/pricing/), [Worker API i `batch()`](https://developers.cloudflare.com/d1/worker-api/d1-database/), [obiekt wyniku](https://developers.cloudflare.com/d1/worker-api/return-object/), [migracje](https://developers.cloudflare.com/d1/reference/migrations/), [klucze obce](https://developers.cloudflare.com/d1/sql-api/foreign-keys/) i [replikacja odczytów](https://developers.cloudflare.com/d1/best-practices/read-replication/)
 - Cloudflare KV: [jak działa KV](https://developers.cloudflare.com/kv/concepts/how-kv-works/) i [limity](https://developers.cloudflare.com/kv/platform/limits/)
 - Cloudflare R2: [cennik](https://developers.cloudflare.com/r2/pricing/) i [wstępnie podpisane adresy URL](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)

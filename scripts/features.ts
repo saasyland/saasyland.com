@@ -168,6 +168,7 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
       "src/presentation/components/custom/app/course-unlocks.tsx",
       "src/presentation/components/custom/app/__test__/course-unlocks.component.test.tsx",
       "src/presentation/components/custom/video-player.tsx",
+      "messages/*/pages.landing.studio.masterclass.json",
       "src/presentation/components/custom/landing-page/components/course-showcase.tsx",
       "src/presentation/components/custom/landing-page/components/__test__/course-showcase.component.test.tsx",
       "src/presentation/components/custom/__test__/video-player.*",
@@ -339,6 +340,9 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
   [FEATURE.REPOSITORY_FACTS]: {
     files: [
       "src/data/__test__/navigation.website.test.ts",
+      "messages/*/pages.landing.proof.json",
+      "src/presentation/components/custom/landing-page/sections/proof-section.tsx",
+      "src/presentation/components/custom/landing-page/sections/__test__/proof-section.component.test.tsx",
       "src/presentation/components/custom/repository-fact.tsx",
       "src/presentation/components/custom/__test__/repository-fact.component.test.tsx",
       "src/lib/{github,repository-facts}.ts",

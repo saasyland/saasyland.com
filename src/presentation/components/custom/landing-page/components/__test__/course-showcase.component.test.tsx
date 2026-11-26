@@ -16,11 +16,9 @@ import { CourseShowcase } from "~/src/presentation/components/custom/landing-pag
 
 import facts from "~/messages/en-US/components.custom.course-facts.json"
 import meta from "~/messages/en-US/components.custom.lesson-meta.json"
-import english from "~/messages/en-US/pages.landing.json"
+import copy from "~/messages/en-US/pages.landing.studio.masterclass.json"
 
 type ShowcaseCourse = Course["showcase"][number]
-
-const copy = english.studio.masterclass
 
 const withOffer = (message: string): string => message.replace("{offer}", COURSE_ACCESS_TEST_NAMES.offer)
 

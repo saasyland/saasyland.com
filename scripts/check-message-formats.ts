@@ -14,6 +14,7 @@ import process from "node:process"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { formOfAddressProblems } from "~/src/lib/forms-of-address"
+import { literalTextOf } from "~/src/lib/polish-copy"
 
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
 
@@ -58,25 +59,6 @@ const argumentsOf = (nodes: MessageFormatElement[], result = new Set<string>()):
 
   return [...result].toSorted()
 }
-
-const literalTextOf = (nodes: MessageFormatElement[]): string =>
-  nodes
-    .map((node) => {
-      if (isLiteralElement(node)) {
-        return node.value
-      }
-      if (isSelectElement(node) || isPluralElement(node)) {
-        return Object.values(node.options)
-          .map((option) => literalTextOf(option.value))
-          .join(" ")
-      }
-      if (isTagElement(node)) {
-        return literalTextOf(node.children)
-      }
-
-      return " "
-    })
-    .join("")
 
 const codeOf = (text: string): string[] => [...(text.match(PATH_PATTERN) ?? []), ...(text.match(COMMAND_PATTERN) ?? [])]
 

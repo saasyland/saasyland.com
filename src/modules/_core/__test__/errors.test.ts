@@ -2,14 +2,16 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 
+const AUTH_ERROR_KEY = "accountNotLinked"
+
 describe("app error", () => {
   it("carries the code and message", () => {
     expect.hasAssertions()
-    const error = new AppError(ERROR_CODES.NOT_FOUND, "category.errors.notFound")
+    const error = new AppError(ERROR_CODES.AUTH_API_ERROR, AUTH_ERROR_KEY)
     expect(error).toBeInstanceOf(AppError)
     expect(error).toBeInstanceOf(Error)
-    expect(error.code).toBe(ERROR_CODES.NOT_FOUND)
-    expect(error.message).toBe("category.errors.notFound")
+    expect(error.code).toBe(ERROR_CODES.AUTH_API_ERROR)
+    expect(error.message).toBe(AUTH_ERROR_KEY)
     expect(error.name).toBe("AppError")
   })
 

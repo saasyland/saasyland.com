@@ -35,6 +35,7 @@ import gridMessages from "~/messages/en-US/components.custom.data-grid.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import navigationAuthMessages from "~/messages/en-US/navigation.auth.json"
 import navigationTeamMessages from "~/messages/en-US/navigation.team.json"
+import pagesAdminUsersInvitationsMessages from "~/messages/en-US/pages.admin.users.invitations.json"
 import pagesAdminUsersMessages from "~/messages/en-US/pages.admin.users.json"
 
 const create = vi.hoisted(() => vi.fn<NonNullable<typeof createInvitationMutation.mutationFn>>())
@@ -52,9 +53,9 @@ vi.mock(import("~/src/modules/invitation/use-cases/revoke-invitation"), () => ({
   revokeInvitationMutation: { mutationFn: revoke, mutationKey: INVITATION_MUTATION_KEYS.REVOKE },
 }))
 
-const labels = pagesAdminUsersMessages.invitations
+const labels = pagesAdminUsersInvitationsMessages
 const roleLabels = pagesAdminUsersMessages.filters.role.options
-const t = createTranslator({ locale: "en-US", messages: pagesAdminUsersMessages, namespace: "invitations" })
+const t = createTranslator({ locale: "en-US", messages: pagesAdminUsersInvitationsMessages })
 const grace = adminInvitation()
 const INVITEE = "linus@example.com"
 const LANGUAGE: SupportedLocale = "pl-PL"

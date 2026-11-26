@@ -1,15 +1,18 @@
-import { posix } from "node:path"
 import type { ESTree } from "vite/rolldown/utils"
 
-import { BINDING_KIND, type ModuleBinding, type SourceModule, analyzeModule, childNodes, nameOf } from "./module-bindings.ts"
+import {
+  BINDING_KIND,
+  type ModuleBinding,
+  type SourceModule,
+  analyzeModule,
+  childNodes,
+  nameOf,
+  resolveSourceFile,
+} from "./module-bindings.ts"
 import { LINE_BREAK, applyEdits, editsOf, isRemoved } from "./prune-edits.ts"
 import { FUNCTIONS, ancestorsOf, callUnit, emptiedUnit, isRemovableDeclarator, unitOf } from "./prune-units.ts"
 import { type ModuleMock, TEST_KIND, type TestCall, isTestFile, moduleMocksOf, testCallsOf } from "./test-cases.ts"
 
-const ROOT_ALIAS = "~/"
-const RELATIVE_PREFIX = "."
-const MODULE_SUFFIXES = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"] as const
-const QUERY = /\?.*$/u
 const CODE_FILE = /\.[cm]?[jt]sx?$/u
 const DECLARATION_FILE = ".d.ts"
 const PATH_SEPARATOR = "."
@@ -99,20 +102,11 @@ interface MemberStep {
   readonly node: ESTree.Node
 }
 
-const resolveFile = (from: string, specifier: string, files: ReadonlySet<string>): string | undefined => {
-  const path = specifier.replace(QUERY, "")
-  const isAliased = path.startsWith(ROOT_ALIAS)
-  const base = isAliased ? path.slice(ROOT_ALIAS.length) : posix.join(posix.dirname(from), path)
-  const candidates = isAliased || path.startsWith(RELATIVE_PREFIX) ? MODULE_SUFFIXES.map((suffix) => `${base}${suffix}`) : []
-
-  return candidates.find((candidate) => files.has(candidate))
-}
-
 export const resolveModule = (
   from: string,
   specifier: string,
   { deleted, files }: Pick<Context, "deleted" | "files">,
-): string | undefined => (deleted.has(specifier) ? specifier : resolveFile(from, specifier, files))
+): string | undefined => (deleted.has(specifier) ? specifier : resolveSourceFile(from, specifier, files))
 
 const pathsOf = (context: Context, owner: string | undefined): string[] =>
   owner === undefined ? [] : [...(context.paths.get(owner) ?? [])]

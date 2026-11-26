@@ -26,6 +26,7 @@ const InvitationsPage = (): JSX.Element => (
 )
 
 const NAMESPACE = "pages.admin.users"
+const NAMESPACES = [NAMESPACE, "pages.admin.users.invitations"] as const
 
 export const Route = createFileRoute("/admin/users/invitations")({
   component: InvitationsPage,
@@ -33,12 +34,12 @@ export const Route = createFileRoute("/admin/users/invitations")({
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
-      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      preloadNamespaces({ locale, namespaces: NAMESPACES, queryClient: context.queryClient }),
       context.queryClient.query({ ...listInvitationsQuery, staleTime: "static" }),
     ])
     return { locale, metadata }
   },
   head: pageHead(ROUTES.ADMIN.USERS.INVITATIONS),
   pendingComponent: AdminUsersInvitationsPending,
-  staticData: { namespaces: [NAMESPACE] },
+  staticData: { namespaces: NAMESPACES },
 })

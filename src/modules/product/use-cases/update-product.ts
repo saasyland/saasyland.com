@@ -20,7 +20,7 @@ export const updateProduct = createServerFn({ method: "POST" })
     const [row] = await db.update(product).set(fields).where(eq(product.id, productId)).returning()
 
     if (row === undefined) {
-      throw new AppError(ERROR_CODES.NOT_FOUND, "product.errors.notFound")
+      throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
     return row

@@ -32,7 +32,15 @@ root 名前空間は、`src/integrations/use-intl/i18n.messages.ts` でファイ
 const t = useTranslations("pages.admin.courses.form")
 ```
 
-`scripts/check-i18n.ts` は、`src` の `.tsx` ファイルにあるすべての静的な `t("key")` を、その上にある `useTranslations` 呼び出しの名前空間に照らして解決し、英語に存在しないキーがあれば失敗します。また、どのソースファイルもレンダリングしない英語のキーがあっても失敗するため、削除した文言がメッセージファイルに残り続けることはありません。キーがレンダリングされているとみなされるのは、`t()` 呼び出しがそのキーかその上位のキーを指定している場合、`kinds.${kind}` のようなテンプレートが、`src` または CLI の契約 `@saasyland/stack` が宣言する文字列ですべてのプレースホルダーを埋めてそのキーを組み立てる場合、または変数を受け取る `t()` 呼び出しの下で、そうした文字列か、名前空間の文字列に続くそうした文字列が、パスの残りと一致する場合です。そのため、表の見出しの下にある `filters.status` のように、別の場所で使われている単語を通してしかプレースホルダーが届かないキーは失敗します。さらに `navigation.website.test.ts` が、`navigation.<feature>.json` ファイルのラベルが各機能の宣言するメニュー項目とユーザータブにちょうど一致することを確認します。`countries`、`currencies`、`flow-features`、`locales`、`timezones` のカタログは対象外で、代わりに `catalogues.test.ts` がそれらのキーが定数と一致することを確認します。`flow-features` の場合、その定数は `e2e/data/flows.ts` の `FLOW_FEATURE` です。値がユーザーに表示される定数は、`enum-labels.test.ts` がすべてのロケールでそのラベルを確認します。このテストは、そうした定数とそのラベルとなるメッセージを、各機能が `src/integrations/use-intl/__test__/<feature>.labels.ts` で宣言する一覧から読み取ります。同じコンポーネントで `useTranslations` を 2 回呼び出すと、それ以降のすべての `t()` のスコープが気づかないうちに変わってしまいます。呼び出しが 1 回だけなのはそのためです。2 つの名前空間のキーが必要なコンポーネントは、名前空間を指定せずに `useTranslations()` を呼び出し、`sign-in-form.tsx` の `t("pages.auth.sign-in.form.resetPassword")` のように完全なキーを使います。
+`scripts/check-i18n.ts` は `src` にあるアプリケーションのすべてのファイルを oxc のパーサーで解析し、`useTranslations` または `createTranslator` が返す翻訳関数を、渡された名前空間、または `loadNamespace` がメッセージを読み込んだ名前空間とともに追跡します。英語に存在しない静的なキーと、どのソースファイルもレンダリングしない英語のキーで失敗するため、削除した文言がメッセージファイルに残ることはありません。キーは次の場合にレンダリングされているとみなされます。
+
+- 呼び出しがキーを書き表している場合: 文字列、または `kinds.${kind}` のようなテンプレートで、そのプレースホルダーが `const` 宣言とインポートをたどって、コードがそこに入れうる文字列に解決されるもの。指定したキーの下にあるキーまでレンダリングするのは `t.raw` だけです。
+- 解決できないプレースホルダー、または変数に入ったキーを、宣言された名前が埋める場合: `src` のモジュールレベルの定数の値、Zod の issue の `message`、CLI のコントラクト `@saasyland/stack` の値、または呼び出し元のファイル自身の文字列です。
+- `use-error-message.ts` の `${namespace}.${message}` や `t(item.label)` のように静的な名前空間を持たないキーを、1 つの宣言された名前がそのまま書き表している場合、またはそのキーが、呼び出し元のファイル自身が書いているか JSX 属性として受け取る名前空間で始まる場合。後者の例は `ValidationFieldError` の `namespace="auth.validations"` です。
+
+そのため、用語集の語や別のコンポーネント内の文字列のように、ほかの場所にしか現れない語はどのキーの根拠にもならず、テンプレートはその下にあるキーの根拠になりません。
+
+`navigation.website.test.ts` が、`navigation.<feature>.json` ファイルのラベルが各機能の宣言するメニュー項目とユーザータブにちょうど一致することを確認します。`countries`、`currencies`、`flow-features`、`locales`、`timezones` のカタログは対象外で、代わりに `catalogues.test.ts` がそれらのキーが定数と一致することを確認します。`flow-features` の場合、その定数は `e2e/data/flows.ts` の `FLOW_FEATURE` です。値がユーザーに表示される定数は、`enum-labels.test.ts` がすべてのロケールでそのラベルを確認します。このテストは、そうした定数とそのラベルとなるメッセージを、各機能が `src/integrations/use-intl/__test__/<feature>.labels.ts` で宣言する一覧から読み取ります。同じコンポーネントで `useTranslations` を 2 回呼び出すと、それ以降のすべての `t()` のスコープが気づかないうちに変わってしまいます。呼び出しが 1 回だけなのはそのためです。2 つの名前空間のキーが必要なコンポーネントは、名前空間を指定せずに `useTranslations()` を呼び出し、`sign-in-form.tsx` の `t("pages.auth.sign-in.form.resetPassword")` のように完全なキーを使います。
 
 ## メッセージ
 

@@ -4,7 +4,7 @@ import * as STACK from "@saasyland/stack"
 import * as STACK_API from "@saasyland/stack/api"
 import * as STACK_CLI from "@saasyland/stack/cli"
 import { readFileSync, readdirSync } from "node:fs"
-import { join } from "node:path"
+import { join, posix } from "node:path"
 import process from "node:process"
 import type { AbstractIntlMessages } from "use-intl"
 
@@ -12,29 +12,26 @@ import { I18N } from "~/src/integrations/use-intl/i18n.config"
 
 import { loadLocaleMessages } from "./i18n-messages"
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
+import {
+  KEY_SEPARATOR,
+  type KeyRead,
+  TRANSLATOR_METHOD,
+  type TranslationUsage,
+  WHOLE_KEY,
+  analyzeTranslations,
+} from "./translation-usage.ts"
 
-const LAST_SCOPE_INDEX = -1
 const SOURCE_LOCALE = I18N.DEFAULT_LOCALE
-const SOURCE_ROOT = join(import.meta.dirname, "../src")
-const KEY_SEPARATOR = "."
+const ROOT = join(import.meta.dirname, "..")
+const SOURCE_DIRECTORY = "src"
+const SOURCE_EXTENSIONS = [".ts", ".tsx"] as const
+const TEST_DIRECTORY = "/__test__/"
+const DECLARATION_EXTENSION = ".d.ts"
 
 const CATALOGUE_NAMESPACES = ["countries", "currencies", "flow-features", "locales", "timezones"] as const
 
-const SCOPE_PATTERN = /(?:useTranslations\(\s*|getTranslations\(\s*|namespace:\s+)(?:["'`](?<namespace>.*?)["'`])?/gu
-const KEY_PATTERN = /[^\w]t(?:\.rich|\.markup|\.raw)?\s*\(\s*(?<quote>["'`])(?<key>[\w.-]+)\k<quote>/gu
-const CALL_PATTERN = /(?<![\w.])t(?:\.rich|\.markup|\.raw|\.has)?\(/gu
-const ARGUMENT_PATTERN = /^(?:"[^"]*"|'[^']*'|`[^`]*`|[^,()[\]{}"'`]|\((?:[^()]|\([^()]*\))*\)|\[[^\]]*\]|\{[^{}]*\})*/u
-const QUOTED_PATTERN = /(?<quote>["'])(?<key>(?:(?!\k<quote>).)*)\k<quote>/gu
-const TEMPLATE_PATTERN = /`(?<template>[^`]*)`/gu
-const PLACEHOLDER_PATTERN = /\$\{[^}]*\}/u
-const NAME_PATTERN = /["'`](?<name>[\w.-]+)["'`]/gu
 const PAGE_METADATA_PATTERN = /^[\w.-]+\.metadata\.(?:description|title)$/u
-
-interface TranslationScope {
-  end: number
-  namespace: string
-  start: number
-}
+const NO_NAMES: ReadonlySet<string> = new Set()
 
 const compareAlphabetically = (left: string, right: string): number => left.localeCompare(right)
 
@@ -90,12 +87,12 @@ const checkLocaleParity = (): boolean => {
 }
 
 const collectSourceFiles = (dir: string, found: string[] = []): string[] => {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name)
+  for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+    const path = posix.join(dir, entry.name)
 
     if (entry.isDirectory()) {
       collectSourceFiles(path, found)
-    } else if (path.endsWith(".ts") || path.endsWith(".tsx")) {
+    } else if (SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension))) {
       found.push(path)
     }
   }
@@ -103,10 +100,14 @@ const collectSourceFiles = (dir: string, found: string[] = []): string[] => {
   return found
 }
 
+const isApplicationSource = (file: string): boolean => !file.includes(TEST_DIRECTORY) && !file.endsWith(DECLARATION_EXTENSION)
+
+const readSource = (file: string): string => readFileSync(join(ROOT, file), "utf8")
+
 const hasMessage = (messages: AbstractIntlMessages, key: string): boolean => {
   let node: AbstractIntlMessages | string | undefined = messages
 
-  for (const segment of key.split(".")) {
+  for (const segment of key.split(KEY_SEPARATOR)) {
     if (node === undefined || typeof node === "string") {
       return false
     }
@@ -116,109 +117,26 @@ const hasMessage = (messages: AbstractIntlMessages, key: string): boolean => {
   return node !== undefined
 }
 
-const translationScopes = (source: string): TranslationScope[] => {
-  const scopes: TranslationScope[] = []
-  let isScoped = false
+export const missingKeys = (usage: TranslationUsage, messages: AbstractIntlMessages): string[] => [
+  ...new Set(
+    usage.reads
+      .filter(({ method, parts }) => parts.length === 1 && method !== TRANSLATOR_METHOD.HAS && !hasMessage(messages, parts.join("")))
+      .map(({ file, line, parts }) => `  ${file}:${String(line)}: ${parts.join("")}`),
+  ),
+]
 
-  for (const match of source.matchAll(SCOPE_PATTERN)) {
-    const previous = scopes.at(LAST_SCOPE_INDEX)
-    const namespace = match.groups?.["namespace"]
-
-    if (isScoped && previous !== undefined) {
-      previous.end = match.index
-    }
-
-    isScoped = namespace !== undefined && namespace.length > 0
-
-    if (namespace !== undefined && namespace.length > 0) {
-      scopes.push({ end: source.length, namespace, start: match.index })
-    }
-  }
-
-  return scopes
-}
-
-const missingKeys = (file: string, messages: AbstractIntlMessages): string[] => {
-  const source = readFileSync(file, "utf8")
-  const scopes = translationScopes(source)
-
-  return [...source.matchAll(KEY_PATTERN)].flatMap((match) => {
-    const key = match.groups?.["key"] ?? ""
-    const scope = scopes.find(({ end, start }) => start <= match.index && match.index < end)
-    const fullKey = scope === undefined ? key : `${scope.namespace}.${key}`
-
-    if (hasMessage(messages, fullKey)) {
-      return []
-    }
-
-    const line = source.slice(0, match.index).split("\n").length
-    return [`  ${file.replace(SOURCE_ROOT, "src")}:${line}: ${fullKey}`]
-  })
-}
-
-const isApplicationSource = (file: string): boolean => !file.includes("/__test__/") && !file.endsWith(".d.ts")
-
-const checkStaticKeys = (): boolean => {
-  const messages = loadLocaleMessages(SOURCE_LOCALE)
-  const missing = collectSourceFiles(SOURCE_ROOT)
-    .filter((file) => isApplicationSource(file) && file.endsWith(".tsx"))
-    .flatMap((file) => missingKeys(file, messages))
+const checkStaticKeys = (usage: TranslationUsage): boolean => {
+  const missing = missingKeys(usage, loadLocaleMessages(SOURCE_LOCALE))
 
   if (missing.length === 0) {
-    process.stdout.write("✅ Every static translation key resolves in its useTranslations scope.\n")
+    process.stdout.write("✅ Every static translation key resolves in the namespace of its translator.\n")
     return true
   }
 
-  process.stderr.write("\n❌ Translation keys do not resolve in their useTranslations scope.\n\n")
+  process.stderr.write("\n❌ Translation keys do not resolve in the namespace of their translator.\n\n")
   process.stderr.write(`${missing.join("\n")}\n\n`)
-  process.stderr.write("Use one useTranslations per component; a later call re-scopes every t() after it.\n\n")
+  process.stderr.write(`Add the key to messages/${SOURCE_LOCALE}/*.json, or read it with a translator of the namespace that holds it.\n\n`)
   return false
-}
-
-interface KeyTemplate {
-  readonly parts: readonly string[]
-}
-
-export interface KeyUsage {
-  readonly dynamicScopes: Set<string>
-  readonly keys: Set<string>
-  readonly names: Set<string>
-  readonly templates: KeyTemplate[]
-}
-
-export const emptyKeyUsage = (): KeyUsage => ({ dynamicScopes: new Set(), keys: new Set(), names: new Set(), templates: [] })
-
-const quotedKeys = (argument: string): string[] => [...argument.matchAll(QUOTED_PATTERN)].map((match) => match.groups?.["key"] ?? "")
-
-const templateParts = (argument: string): string[][] =>
-  [...argument.matchAll(TEMPLATE_PATTERN)].map((match) => (match.groups?.["template"] ?? "").split(PLACEHOLDER_PATTERN))
-
-export const recordSourceUsage = (source: string, usage: KeyUsage): void => {
-  const scopes = translationScopes(source)
-
-  for (const match of source.matchAll(NAME_PATTERN)) {
-    usage.names.add(match.groups?.["name"] ?? "")
-  }
-
-  for (const call of source.matchAll(CALL_PATTERN)) {
-    const argument = ARGUMENT_PATTERN.exec(source.slice(call.index + call[0].length))?.[0] ?? ""
-    const scope = scopes.find(({ end, start }) => start <= call.index && call.index < end)
-    const prefix = scope === undefined ? "" : `${scope.namespace}${KEY_SEPARATOR}`
-    const keys = quotedKeys(argument)
-    const templates = templateParts(argument)
-
-    if (keys.length === 0 && templates.length === 0) {
-      usage.dynamicScopes.add(prefix)
-    }
-
-    for (const key of keys) {
-      usage.keys.add(`${prefix}${key}`)
-    }
-
-    for (const [first = "", ...rest] of templates) {
-      usage.templates.push({ parts: [`${prefix}${first}`, ...rest] })
-    }
-  }
 }
 
 const stringValues = (value: unknown): string[] => {
@@ -233,15 +151,20 @@ const stringValues = (value: unknown): string[] => {
   return Object.values(value).flatMap((nested) => stringValues(nested))
 }
 
-export const recordContractNames = (modules: readonly unknown[], usage: KeyUsage): void => {
+export const recordContractNames = (modules: readonly unknown[], usage: TranslationUsage): void => {
   for (const name of modules.flatMap((module) => stringValues(module))) {
-    usage.names.add(name)
+    usage.declared.add(name)
   }
 }
 
-const isKeyOrChild = (key: string, path: string): boolean => key === path || key.startsWith(`${path}${KEY_SEPARATOR}`)
+const nameEnds = (text: string): number[] => Array.from({ length: text.length }, (_, index) => index + 1)
 
-const matchesParts = (key: string, parts: readonly string[], names: Set<string>): boolean => {
+interface Placeholders {
+  readonly isName: (name: string) => boolean
+  readonly subtree: boolean
+}
+
+const matchesParts = (key: string, parts: readonly string[], placeholders: Placeholders): boolean => {
   const [first = "", ...rest] = parts
 
   if (!key.startsWith(first)) {
@@ -251,42 +174,37 @@ const matchesParts = (key: string, parts: readonly string[], names: Set<string>)
   const remaining = key.slice(first.length)
 
   if (rest.length === 0) {
-    return remaining.length === 0 || remaining.startsWith(KEY_SEPARATOR)
+    return remaining.length === 0 || (placeholders.subtree && remaining.startsWith(KEY_SEPARATOR))
   }
 
-  return Array.from({ length: remaining.length }, (_, index) => index + 1).some(
-    (end) => names.has(remaining.slice(0, end)) && matchesParts(remaining.slice(end), rest, names),
+  return nameEnds(remaining).some(
+    (end) => placeholders.isName(remaining.slice(0, end)) && matchesParts(remaining.slice(end), rest, placeholders),
   )
 }
 
-const isNamePath = (path: string, names: Set<string>): boolean => {
-  const segments = path.split(KEY_SEPARATOR)
+const isWholeKey = (parts: readonly string[]): boolean => parts.length === WHOLE_KEY.length && parts.every((part) => part.length === 0)
 
-  return (
-    names.has(path) ||
-    segments.some(
-      (_, index) =>
-        index > 0 && names.has(segments.slice(0, index).join(KEY_SEPARATOR)) && names.has(segments.slice(index).join(KEY_SEPARATOR)),
-    )
-  )
+const readsKey = (usage: TranslationUsage, { file, method, parts }: KeyRead, key: string): boolean => {
+  const own = usage.own.get(file) ?? NO_NAMES
+  const given = usage.given.get(file) ?? NO_NAMES
+  const isLocal = (name: string): boolean => own.has(name) || given.has(name)
+  const isName = (name: string): boolean => usage.declared.has(name) || isLocal(name)
+  const placeholders = { isName, subtree: method === TRANSLATOR_METHOD.RAW }
+  const [first, ...rest] = parts
+
+  if (first !== "" || isWholeKey(parts)) {
+    return matchesParts(key, parts, placeholders)
+  }
+
+  return nameEnds(key).some((end) => isLocal(key.slice(0, end)) && matchesParts(key.slice(end), rest, placeholders))
 }
 
-export const isUsedKey = (key: string, usage: KeyUsage): boolean =>
+export const isUsedKey = (key: string, usage: TranslationUsage): boolean =>
   CATALOGUE_NAMESPACES.some((namespace) => key.startsWith(`${namespace}${KEY_SEPARATOR}`)) ||
   PAGE_METADATA_PATTERN.test(key) ||
-  [...usage.keys].some((path) => isKeyOrChild(key, path)) ||
-  usage.templates.some(({ parts }) => matchesParts(key, parts, usage.names)) ||
-  [...usage.dynamicScopes].some((scope) => key.startsWith(scope) && isNamePath(key.slice(scope.length), usage.names))
+  usage.reads.some((read) => readsKey(usage, read, key))
 
-const checkUnusedKeys = (): boolean => {
-  const usage = emptyKeyUsage()
-
-  for (const file of collectSourceFiles(SOURCE_ROOT).filter((path) => isApplicationSource(path))) {
-    recordSourceUsage(readFileSync(file, "utf8"), usage)
-  }
-
-  recordContractNames([STACK, STACK_API, STACK_CLI], usage)
-
+const checkUnusedKeys = (usage: TranslationUsage): boolean => {
   const unused = [...loadLocaleKeys(SOURCE_LOCALE)].filter((key) => !isUsedKey(key, usage)).toSorted(compareAlphabetically)
 
   if (unused.length === 0) {
@@ -300,6 +218,17 @@ const checkUnusedKeys = (): boolean => {
   return false
 }
 
-if (import.meta.main && (!checkLocaleParity() || !checkStaticKeys() || !checkUnusedKeys())) {
+const checkTranslationKeys = (): boolean => {
+  const usage = analyzeTranslations(
+    collectSourceFiles(SOURCE_DIRECTORY).filter((file) => isApplicationSource(file)),
+    readSource,
+  )
+
+  recordContractNames([STACK, STACK_API, STACK_CLI], usage)
+
+  return checkStaticKeys(usage) && checkUnusedKeys(usage)
+}
+
+if (import.meta.main && (!checkLocaleParity() || !checkTranslationKeys())) {
   process.exit(FAILURE_EXIT_CODE)
 }

@@ -1,6 +1,6 @@
 ---
 title: "Ein SaaS auf Cloudflare Workers: D1, KV und R2 in Produktion"
-description: "Ein praktischer Leitfaden für ein SaaS auf Cloudflare Workers mit D1, KV und R2: welche Daten wohin gehören, atomare Schreibvorgänge ohne Transaktionen, Migrationen ohne Ausfallzeit, Caching, signierte Datei-URLs, Ratenbegrenzungen, Kaltstarts, Limits und Kosten, mit dem Code von saasyland.com als Praxisbeispiel."
+description: "Ein praktischer Leitfaden für ein SaaS auf Cloudflare Workers mit D1, KV und R2: welche Daten wohin gehören, atomare Schreibvorgänge ohne Transaktionen, Migrationen ohne Ausfallzeit, Caching, signierte Datei-URLs, Rate-Limiting, Kaltstarts, Limits und Kosten, mit dem Code von saasyland.com als Praxisbeispiel."
 excerpt: "Workers, D1, KV und R2 können ein echtes SaaS tragen, wenn du nach ihrer Form baust: eine SQLite-Datenbank, die eine Abfrage nach der anderen beantwortet, ein Cache, der nur letztendlich konsistent ist, Buckets ohne Egress-Gebühren und ein Skript, das vor jedem kalten Request geladen werden muss. Dieser Leitfaden macht aus dieser Form Regeln, die du anwenden kannst, und prüft jede davon am Produktionscode von saasyland.com, mit seinen Vorfällen, Messungen und Kosten zu heutigen Preisen."
 author: piotr-borowiecki
 date: 2026-11-20
@@ -13,8 +13,8 @@ tags:
 faq:
   - question: Lässt sich ein ganzes SaaS auf Cloudflare Workers betreiben?
     answer: >-
-      Ja, wenn deine Daten zur Form von D1 passen. saasyland.com betreibt seine Seiten, Server
-      Functions, die Anmeldung, die Lizenz-API, Webhooks und die Videoauslieferung in einem einzigen
+      Ja, wenn deine Daten zur Form von D1 passen. saasyland.com betreibt seine Seiten,
+      Serverfunktionen, die Anmeldung, die Lizenz-API, Webhooks und die Videoauslieferung in einem einzigen
       Worker, mit Nutzern, Sitzungen, Lizenzen und Kursen in D1, einem Cache in KV und privaten
       Dateien in R2. Die Limits, die du zuerst prüfen solltest: 10 GB pro D1-Datenbank, nur eine
       Abfrage gleichzeitig pro Datenbank und keine Transaktionen, die offen bleiben, während dein
@@ -34,7 +34,7 @@ faq:
       oder ein BLOB höchstens 2 MB groß und eine Anweisung höchstens 100 KB, eine Abfrage nimmt
       höchstens 100 gebundene Parameter an und läuft höchstens 30 Sekunden, und jede Datenbank
       verarbeitet ihre Abfragen nacheinander.
-  - question: Sollte ich Sitzungen oder Ratenbegrenzungen in Workers KV speichern?
+  - question: Sollte ich Sitzungen oder Rate-Limits in Workers KV speichern?
     answer: >-
       Nein. KV ist nur letztendlich konsistent: Laut Cloudflare kann es 60 Sekunden oder länger
       dauern, bis Änderungen an anderen Standorten sichtbar sind, auch Abfragen nach fehlenden
@@ -42,7 +42,7 @@ faq:
       Schlüssel nimmt einen Schreibvorgang pro Sekunde an. Halte Sitzungen, Zähler und alles, was über
       den Zugriff entscheidet, in D1 oder Durable Objects, und nutze KV, um Daten zu cachen, die eine
       Minute alt sein dürfen.
-  - question: Wie setze ich Ratenbegrenzungen auf Cloudflare Workers um?
+  - question: Wie setze ich Rate-Limiting auf Cloudflare Workers um?
     answer: >-
       Das hängt davon ab, wie genau das Limit sein muss. Das Rate-Limiting-Binding von Workers ist
       ungefähr: Seine Zählungen sind nur letztendlich konsistent und gelten an jedem Cloudflare-Standort
@@ -103,16 +103,16 @@ Ein praktischer Leitfaden für ein SaaS auf Cloudflare Workers mit D1, KV und R2
 2. Bindings, Umgebungen und Secrets und welche Requests deinen Worker überhaupt ausführen sollten.
 3. Kaltstarts: was ein neues Isolate kostet und wie du den Code klein hältst, den es lädt.
 4. D1: atomare Schreibvorgänge ohne interaktive Transaktionen, Roundtrips, Indizes und Migrationen, die die Website nie lahmlegen.
-5. KV als Cache, R2 hinter signierten URLs und Ratenbegrenzungen, die über alle Isolates hinweg halten.
+5. KV als Cache, R2 hinter signierten URLs und Rate-Limits, die über alle Isolates hinweg halten.
 6. Deploys, Logs, die Limits, die zählen, was das alles kostet, und eine Checkliste zum Übernehmen.
 
 </Callout>
 
-_Zuletzt geprüft am 20. November 2026. Jedes Limit und jeder Preis von Cloudflare weiter unten wurde an diesem Tag in der eigenen Dokumentation von Cloudflare nachgelesen und ist unten verlinkt. Alles über saasyland.com stammt aus seinem Code, mit echten Dateipfaden und Auszügen. Seine aktuellen Werte werden aus dem Code ausgegeben statt getippt; die Messungen von Kaltstarts, Uploads und CPU-Zeit sind getippt, jede mit dem Pull Request und dem Datum, an dem sie entstand. Wir verkaufen ein Produkt, das auf diesem Stack aufbaut, also lies den Abschnitt darüber, wann du etwas anderes wählen solltest, genauso aufmerksam wie den Rest._
+_Zuletzt geprüft am 20. November 2026. Jedes Limit und jeder Preis von Cloudflare weiter unten wurde an diesem Tag in der eigenen Dokumentation von Cloudflare nachgelesen und ist unten verlinkt. Alles über saasyland.com stammt aus seinem Code, mit echten Dateipfaden und Auszügen. Seine aktuellen Werte werden aus dem Code ausgegeben statt getippt; die Messungen von Kaltstarts, Uploads und CPU-Zeit sind getippt, jede mit dem Pull-Request und dem Datum, an dem sie entstand. Wir verkaufen ein Produkt, das auf diesem Stack aufbaut, also lies den Abschnitt darüber, wann du etwas anderes wählen solltest, genauso aufmerksam wie den Rest._
 
 ## Die kurze Antwort
 
-Cloudflare Workers mit D1, KV und R2 können ein SaaS in Produktion tragen: saasyland.com liefert seine Marketingseiten, die Dokumentation, den Blog, die Anmeldung, den Kundenbereich, die Admin-Konsole, die Lizenz-API, die Zahlungs-Webhooks und die Kursvideos aus einem einzigen Worker aus. Die Plattform belohnt ein paar Gewohnheiten und bestraft es, wenn sie fehlen:
+Cloudflare Workers mit D1, KV und R2 können ein SaaS in Produktion tragen: saasyland.com liefert seine Marketingseiten, die Dokumentation, den Blog, die Anmeldung, den Kundenbereich, den Adminbereich, die Lizenz-API, die Zahlungs-Webhooks und die Kursvideos aus einem einzigen Worker aus. Die Plattform belohnt ein paar Gewohnheiten und bestraft es, wenn sie fehlen:
 
 - **D1 ist SQLite, und jede Datenbank beantwortet eine Abfrage nach der anderen.** Eine Datenbank fasst bei Workers Paid bis zu 10 GB, und es gibt keine Transaktion, die du offen halten kannst, während dein Code entscheidet. Schreib jeden Schritt aus Lesen, Entscheiden und Schreiben als eine einzige Anweisung oder einen einzigen `batch()`.
 - **KV ist ein Cache, keine Datenbank.** Es ist nur letztendlich konsistent, also gehören Sitzungen, Zähler und Berechtigungen in D1 oder in Durable Objects.
@@ -158,15 +158,15 @@ Die Regeln dahinter: Was über den Zugriff entscheidet, liegt an einem konsisten
 
 saasyland.com folgt der Tabelle mit diesen Bindings, deklariert in `wrangler.jsonc`:
 
-| Binding   | Produkt                      | Was es enthält                                                                                                   | Wo im Code                                                                    |
-| --------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `ASSETS`  | Statische Assets von Workers | Vorgerenderte Seiten, Skripte, Styles, Schriften und Bilder aus dem Build                                        | `src/server.ts`                                                               |
-| `DB`      | D1                           | Nutzer, Sitzungen, Lizenzen, Kopien der Bestellungen von Polar, Kurse, Videos und die Zähler der Ratenbegrenzung | `src/integrations/drizzle-orm/` und `src/modules/`                            |
-| `CACHE`   | KV                           | Eine zwischengespeicherte Antwort aus der API eines anderen Dienstes                                             | `src/lib/github.ts`                                                           |
-| `MEDIA`   | R2                           | Kursvideos, Titelbilder der Kurse und Lektionsmaterialien                                                        | `src/modules/video/`, `src/modules/course/`, `src/modules/lesson-attachment/` |
-| `BUNDLES` | R2                           | Das Vorlagen-Bundle jedes Releases der CLI                                                                       | `src/modules/license/`                                                        |
+| Binding   | Produkt                      | Was es enthält                                                                                                  | Wo im Code                                                                    |
+| --------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ASSETS`  | Statische Assets von Workers | Vorgerenderte Seiten, Skripte, Styles, Schriften und Bilder aus dem Build                                       | `src/server.ts`                                                               |
+| `DB`      | D1                           | Nutzer, Sitzungen, Lizenzen, Kopien der Bestellungen von Polar, Kurse, Videos und die Zähler des Rate-Limitings | `src/integrations/drizzle-orm/` und `src/modules/`                            |
+| `CACHE`   | KV                           | Eine zwischengespeicherte Antwort aus der API eines anderen Dienstes                                            | `src/lib/github.ts`                                                           |
+| `MEDIA`   | R2                           | Kursvideos, Titelbilder der Kurse und Lektionsmaterialien                                                       | `src/modules/video/`, `src/modules/course/`, `src/modules/lesson-attachment/` |
+| `BUNDLES` | R2                           | Das Vorlagen-Bundle jedes Releases der CLI                                                                      | `src/modules/license/`                                                        |
 
-Ein Durable Object gibt es noch nicht: Jeder Zähler der Website liegt in D1, wie der Abschnitt über Ratenbegrenzungen zeigt.
+Ein Durable Object gibt es noch nicht: Jeder Zähler der Website liegt in D1, wie der Abschnitt über Rate-Limiting zeigt.
 
 ## Bindings, Umgebungen und Secrets
 
@@ -306,9 +306,9 @@ const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^
 
 Den Check gibt es wegen eines Fehlers. Ein einziger statischer Import eines Header-Namens aus einem Modul, das auch den Polar-Client importierte, zog einmal etwa 1,4 MB SDK in jeden Kaltstart, und das erste Byte der Landingpage brauchte bis zu 1,4 Sekunden, wie die [Performance-Konvention](/docs/conventions/performance) seit [#122](https://github.com/saasyland/saasyland.com/pull/122), gemergt am 13. November 2026, festhält. Die Header-Namen liegen jetzt in einer Datei, die nichts Schweres importiert.
 
-### Praxisbeispiel: zwei Pull Requests, die den kalten Pfad halbiert haben
+### Praxisbeispiel: zwei Pull-Requests, die den kalten Pfad halbiert haben
 
-**Der Routenbaum importiert keine Inhalte mehr.** TanStack Start lädt seinen Routenbaum, bevor es irgendeinen Request verarbeitet, auch den Aufruf einer Server Function. Vor [#236](https://github.com/saasyland/saasyland.com/pull/236), gemergt am 17. November 2026, importierte der Routenbaum die Suche der Dokumentation, die wiederum das kompilierte MDX jeder Docs-Seite und jedes Blogbeitrags in jeder Sprache importierte. Das MDX jeder Seite erst zu laden, wenn ein Request es brauchte, und den Suchcode erst, wenn jemand suchte, brachte den Routenbaum von 1.635 Modulen und 21,7 MiB auf 296 Module und 4,9 MiB, und der erste Aufruf einer Server Function auf einem neuen Isolate sank im Preview-Deployment im Median von 481 ms auf 341 ms.
+**Der Routenbaum importiert keine Inhalte mehr.** TanStack Start lädt seinen Routenbaum, bevor es irgendeinen Request verarbeitet, auch den Aufruf einer Serverfunktion. Vor [#236](https://github.com/saasyland/saasyland.com/pull/236), gemergt am 17. November 2026, importierte der Routenbaum die Suche der Dokumentation, die wiederum das kompilierte MDX jeder Docs-Seite und jedes Blogbeitrags in jeder Sprache importierte. Das MDX jeder Seite erst zu laden, wenn ein Request es brauchte, und den Suchcode erst, wenn jemand suchte, brachte den Routenbaum von 1.635 Modulen und 21,7 MiB auf 296 Module und 4,9 MiB, und der erste Aufruf einer Serverfunktion auf einem neuen Isolate sank im Preview-Deployment im Median von 481 ms auf 341 ms.
 
 **Der Worker enthält überhaupt keine Inhalte mehr.** [#239](https://github.com/saasyland/saasyland.com/pull/239), gemergt am 20. November 2026, macht die Dokumentation, den Blog und den Suchindex zu Dateien, die der Build unter `/assets/` schreibt. Jede Docs-Seite und jeder Blogbeitrag wird vorgerendert, clientseitige Navigationen lesen diese Indizes im Browser, der deployte Worker löst jeden Import einer kompilierten Seite in ein Modul auf, das einen Fehler wirft, und der Build schlägt fehl, wenn der Inhalt irgendeiner Seite ihn erreicht. Der Upload sank von 30.115 KiB auf 13.465 KiB, und auf neuen Isolates des Preview-Deployments sank die Wartezeit, bevor der Handler startete, im Median von 934 ms auf 561 ms und die Time to First Byte von 1.145 ms auf 676 ms. Eine Navigation durch die Dokumentation stellt jetzt überhaupt keinen Request an den Worker mehr, und die Suche der Dokumentation, die bei ihrer ersten Anfrage zwischen 7 und 16 Sekunden gebraucht hatte, während jedes Isolate einen Index aufbaute, antwortet jetzt in weniger als zwei.
 
@@ -342,7 +342,7 @@ Vermeide das Muster, das sich von anderen Datenbanken her natürlich anfühlt: e
 
 ### Praxisbeispiel: vier atomare Schreibvorgänge
 
-**Ein Zähler, der nicht überschießen kann.** Die Ratenbegrenzung zählt einen Request mit einem Upsert pro Limit. Die Bedingung `setWhere` lässt die Datenbank das Zählen eines Requests verweigern, der bereits über seinem Limit liegt, sodass zwei Isolates, die denselben Client im selben Moment zählen, nicht beide durchrutschen können:
+**Ein Zähler, der nicht überschießen kann.** Das Rate-Limiting zählt einen Request mit einem Upsert pro Limit. Die Bedingung `setWhere` lässt die Datenbank das Zählen eines Requests verweigern, der bereits über seinem Limit liegt, sodass zwei Isolates, die denselben Client im selben Moment zählen, nicht beide durchrutschen können:
 
 ```ts title="src/lib/rate-limit.ts"
 const upsertCounter = (insert: CounterInsert, input: RateLimitInput, now: Date) => {
@@ -417,9 +417,9 @@ export const rethrowAsConflict = (error: unknown): never => {
 
 Jede Abfrage ist ein Roundtrip vom Worker zur Datenbank, und bei D1 belegt sie außerdem den einzigen Thread der Datenbank. Drei Regeln halten beide Kosten niedrig:
 
-- **Bündle die Lesezugriffe, die ein Request braucht.** Eine paginierte Tabelle braucht eine Seite und eine Gesamtzahl; schick beides in einem `batch()`. Die Admin-Listen von saasyland.com tun genau das, und seine CLI-Lizenz-API schickt die Abfrage der Lizenz und zwei Zähler der Ratenbegrenzung als einen Batch, sodass das Zulassen eines Requests einen einzigen Weg zu D1 kostet.
+- **Bündle die Lesezugriffe, die ein Request braucht.** Eine paginierte Tabelle braucht eine Seite und eine Gesamtzahl; schick beides in einem `batch()`. Die Admin-Listen von saasyland.com tun genau das, und seine CLI-Lizenz-API schickt die Abfrage der Lizenz und zwei Zähler des Rate-Limitings als einen Batch, sodass das Zulassen eines Requests einen einzigen Weg zu D1 kostet.
 - **Beachte die Limits pro Aufruf und pro Abfrage.** Ein Worker-Aufruf darf bei Workers Paid 1.000 Abfragen ausführen und bei Free 50, und eine Abfrage nimmt höchstens 100 gebundene Parameter an, also passen bei einem mehrzeiligen Insert in eine Tabelle mit zehn Spalten zehn Zeilen in eine Anweisung. Massenimporte werden zu einem Batch aus kleinen Inserts.
-- **Halte lange Arbeit aus einer einzelnen Abfrage heraus.** Eine Abfrage läuft höchstens 30 Sekunden. Ein Backfill über eine große Tabelle sollte pro Anweisung einen begrenzten Ausschnitt verarbeiten, so wie die Ratenbegrenzung von saasyland.com pro Request höchstens eine feste Zahl abgelaufener Zähler löscht, statt die ganze Tabelle zu durchkämmen.
+- **Halte lange Arbeit aus einer einzelnen Abfrage heraus.** Eine Abfrage läuft höchstens 30 Sekunden. Ein Backfill über eine große Tabelle sollte pro Anweisung einen begrenzten Ausschnitt verarbeiten, so wie das Rate-Limiting von saasyland.com pro Request höchstens eine feste Zahl abgelaufener Zähler löscht, statt die ganze Tabelle zu durchkämmen.
 
 ### Indizes und was eine Abfrage kostet
 
@@ -429,7 +429,7 @@ Auch Indizes sind nicht kostenlos: Indizes fügen eine zusätzliche geschriebene
 
 ### Praxisbeispiel: ein Schema, eine Datenbank
 
-`src/integrations/drizzle-orm/drizzle.database.ts` erstellt einen rein serverseitigen Drizzle-Client über `env.DB`, und jede Tabelle hat ihr eigenes Modul in `src/modules/<table>/`, mit ihrem Schema, ihren Zod-Schemas und ihren Anwendungsfällen. IDs sind UUID-v7-Strings, außer in den Tabellen, die die Bestellungen und Abonnements von Polar unter den eigenen IDs von Polar kopieren, und Datumswerte sind ganzzahlige Millisekunden. Better Auth schreibt seine Nutzer, Sitzungen, Konten, Verifizierungstokens und Zwei-Faktor-Secrets über den Drizzle-Adapter in dieselbe Datenbank, sodass die Admin-Konsole sie wie jede andere Tabelle mit Lizenzen und Bestellungen verknüpft. Die Website hat eine Datenbank pro Umgebung, weil ihre Daten gemeinsam genutzt statt pro Mandant getrennt werden und bei Weitem nicht an 10 GB heranreichen.
+`src/integrations/drizzle-orm/drizzle.database.ts` erstellt einen rein serverseitigen Drizzle-Client über `env.DB`, und jede Tabelle hat ihr eigenes Modul in `src/modules/<table>/`, mit ihrem Schema, ihren Zod-Schemas und ihren Anwendungsfällen. IDs sind UUID-v7-Strings, außer in den Tabellen, die die Bestellungen und Abonnements von Polar unter den eigenen IDs von Polar kopieren, und Datumswerte sind ganzzahlige Millisekunden. Better Auth schreibt seine Nutzer, Sitzungen, Konten, Verifizierungstokens und Zwei-Faktor-Secrets über den Drizzle-Adapter in dieselbe Datenbank, sodass der Adminbereich sie wie jede andere Tabelle mit Lizenzen und Bestellungen verknüpft. Die Website hat eine Datenbank pro Umgebung, weil ihre Daten gemeinsam genutzt statt pro Mandant getrennt werden und bei Weitem nicht an 10 GB heranreichen.
 
 ## Migrationen ohne Ausfallzeit
 
@@ -454,14 +454,14 @@ Bei saasyland.com liegen die Schemas in den Tabellenmodulen. `bun run db:generat
     "db:migrate:production": "vp exec wrangler d1 migrations apply DB --env production --remote",
 ```
 
-Ein Pull Request lädt eine neue Version des Preview-Workers hoch, ohne sie zu deployen, und Cloudflare prüft sie wie ein Deployment; ein Merge nach `main` deployt die gemeinsame Preview und danach die Produktion. Beide Deployments durchlaufen dieselben Schritte: die Bindings prüfen, bauen, die Migrationen der Umgebung anwenden, dann `wrangler deploy`. Die Datenbank ändert sich zuerst, also läuft der Worker, der noch live ist, für kurze Zeit gegen das neue Schema. Die Migration, die Zustellungsdaten für Lizenzen hinzugefügt hat, zeigt die Art von Änderung, die das übersteht: drei Spalten, die NULL zulassen und die das vorherige Release einfach ignoriert hat. Sie beginnt so:
+Ein Pull-Request lädt eine neue Version des Preview-Workers hoch, ohne sie zu deployen, und Cloudflare prüft sie wie ein Deployment; ein Merge nach `main` deployt die gemeinsame Preview und danach die Produktion. Beide Deployments durchlaufen dieselben Schritte: die Bindings prüfen, bauen, die Migrationen der Umgebung anwenden, dann `wrangler deploy`. Die Datenbank ändert sich zuerst, also läuft der Worker, der noch live ist, für kurze Zeit gegen das neue Schema. Die Migration, die Zustellungsdaten für Lizenzen hinzugefügt hat, zeigt die Art von Änderung, die das übersteht: drei Spalten, die NULL zulassen und die das vorherige Release einfach ignoriert hat. Sie beginnt so:
 
 ```sql title="src/integrations/drizzle-orm/migrations/20261116195637_great_blazing_skull.sql"
 ALTER TABLE `license` ADD `activated_at` integer;--> statement-breakpoint
 ALTER TABLE `license` ADD `delivered_at` integer;--> statement-breakpoint
 ```
 
-Dieselbe Regel macht Rollbacks sicher. Produktion wird zurückgerollt, indem der Code in einem Pull Request zurückgesetzt wird, und Migrationen werden nicht zurückgesetzt, also läuft der ältere Code gegen das neuere Schema, mit dem er bereits kompatibel war. Die [Seite zu CI/CD](/docs/tooling/ci-cd) formuliert das als Regel für jede Änderung: Jede Schemaänderung muss mit der Anwendung funktionieren, die vor ihr deployt wurde.
+Dieselbe Regel macht Rollbacks sicher. Produktion wird zurückgerollt, indem der Code in einem Pull-Request zurückgesetzt wird, und Migrationen werden nicht zurückgesetzt, also läuft der ältere Code gegen das neuere Schema, mit dem er bereits kompatibel war. Die [Seite zu CI/CD](/docs/tooling/ci-cd) formuliert das als Regel für jede Änderung: Jede Schemaänderung muss mit der Anwendung funktionieren, die vor ihr deployt wurde.
 
 ## KV: ein Cache mit langem Gedächtnis
 
@@ -503,7 +503,7 @@ export const getStarCount = createServerFn({ method: "GET" }).handler(async () =
 })
 ```
 
-Sitzungen, Ratenbegrenzungen, Lizenzen und alles andere, was über den Zugriff entscheidet, liegen in D1.
+Sitzungen, Rate-Limits, Lizenzen und alles andere, was über den Zugriff entscheidet, liegen in D1.
 
 ## R2: private Dateien hinter dem Worker
 
@@ -529,7 +529,7 @@ Egal, wofür du dich entscheidest, beide Arten von URL sind Bearer-Tokens. Die D
 **Gut ausliefern:**
 
 - **Beantworte `Range`-Requests** mit `206`; Player und Download-Manager sind darauf angewiesen.
-- **Cache ganze Dateien am Edge unter einem unsignierten Schlüssel**, damit sich alle Zuschauer eine Kopie teilen. Die Cache API von Workers ist allerdings lokal: Laut Cloudflare wird der Inhalt des Caches nicht außerhalb des Rechenzentrums repliziert, aus dem er stammt („the contents of the cache do not replicate outside of the originating data center“), und `cache.put` ist nicht mit Tiered Caching kompatibel („is not compatible with tiered caching“), also liest jedes Rechenzentrum jede Datei einmal aus R2.
+- **Cache ganze Dateien am Edge unter einem unsignierten Schlüssel**, damit sich alle Zuschauer eine Kopie teilen. Die Cache API von Workers ist allerdings lokal: Laut Cloudflare wird der Inhalt des Caches nicht außerhalb des Rechenzentrums repliziert, aus dem er stammt („the contents of the cache do not replicate outside of the originating data center“), und `cache.put` ist nicht mit gestaffeltem Caching kompatibel („is not compatible with tiered caching“), also liest jedes Rechenzentrum jede Datei einmal aus R2.
 
 **Gut hochladen:**
 
@@ -563,9 +563,9 @@ Die Signatur ist ein HMAC-SHA-256 mit einem Schlüssel, den HKDF allein für die
 
 Die Bundles zeigen die Regel zu den Metadaten. Jedes Release der CLI lädt sein Vorlagen-Bundle mit dem SHA-256 seines Inhalts als benutzerdefinierten Metadaten in R2 hoch, und die Lizenz-API beantwortet eine Anfrage nach einem Bundle, indem sie diesen Digest mit `head()` liest, und signiert dann eine Download-URL, die <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" /> gültig ist. Vor [#208](https://github.com/saasyland/saasyland.com/pull/208), gemergt am 17. November 2026, hat der Worker das Archiv bei jedem Request heruntergeladen, entpackt und gehasht, in unseren lokalen Messungen etwa 31 ms CPU-Zeit für ein Bundle von 1,7 MB; das Lesen der Metadaten brachte das auf etwa 3 ms, unabhängig von der Größe des Bundles.
 
-## Ratenbegrenzung, die über alle Isolates hinweg hält
+## Rate-Limiting, das über alle Isolates hinweg hält
 
-Eine Ratenbegrenzung ist nur so gut wie ihr Zähler. Requests eines Clients landen auf vielen Isolates an vielen Standorten, also zählt ein Zähler im Arbeitsspeicher nichts. Vier Orte können die Zählung halten:
+Ein Rate-Limit ist nur so gut wie sein Zähler. Requests eines Clients landen auf vielen Isolates an vielen Standorten, also zählt ein Zähler im Arbeitsspeicher nichts. Vier Orte können die Zählung halten:
 
 | Option                            | Genauigkeit                                                                                                                                   | Kosten und Abwägung                                                                                  |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -584,7 +584,7 @@ Eine Ratenbegrenzung ist nur so gut wie ihr Zähler. Requests eines Clients land
 
 ### Praxisbeispiel: Zähler in D1, bei einem Ausfall gesperrt
 
-saasyland.com hält jeden Zähler in einer einzigen Tabelle `rate_limit`, die sich der Limiter von Better Auth, die Middleware seiner Server Functions und die CLI-Lizenz-API teilen. Sensible Operationen erlauben <RepositoryFact name="sensitiveRateLimit" /> Aufrufe und Token-Einlösungen <RepositoryFact name="tokenRateLimit" /> pro <RepositoryFact name="rateLimitWindowSeconds" unit="second" /> je Client und Aktion, und Bestätigungs- und Zurücksetzungs-E-Mails sind auf <RepositoryFact name="recipientEmailsPerHour" /> je Art, Adresse und Stunde begrenzt, mit einem SHA-256-Hash der Adresse als Schlüssel. Jeder gezählte Request ist der oben gezeigte Upsert, in einem Batch gesendet zusammen mit der Abfrage, die eine Ablehnung findet, und einem begrenzten Aufräumen abgelaufener Zähler. Wenn D1 nicht erreichbar ist, lehnt der Limiter ab:
+saasyland.com hält jeden Zähler in einer einzigen Tabelle `rate_limit`, die sich der Limiter von Better Auth, die Middleware seiner Serverfunktionen und die CLI-Lizenz-API teilen. Sensible Operationen erlauben <RepositoryFact name="sensitiveRateLimit" /> Aufrufe und Token-Einlösungen <RepositoryFact name="tokenRateLimit" /> pro <RepositoryFact name="rateLimitWindowSeconds" unit="second" /> je Client und Aktion, und Bestätigungs- und Zurücksetzungs-E-Mails sind auf <RepositoryFact name="recipientEmailsPerHour" /> je Art, Adresse und Stunde begrenzt, mit einem SHA-256-Hash der Adresse als Schlüssel. Jeder gezählte Request ist der oben gezeigte Upsert, in einem Batch gesendet zusammen mit der Abfrage, die eine Ablehnung findet, und einem begrenzten Aufräumen abgelaufener Zähler. Wenn D1 nicht erreichbar ist, lehnt der Limiter ab:
 
 ```ts title="src/lib/rate-limit.ts"
 export const consumeRateLimit = async (input: RateLimitInput): Promise<RateLimitDecision> => {
@@ -621,7 +621,7 @@ Der lokale Produktions-Deploy verkettet die ganze Pipeline in einem Skript und h
     "deploy:production": "bun scripts/verify-bindings.ts production && bun scripts/prepare-deploy-secrets.ts production && bun scripts/run-deploy-checks.ts production && bun run build:production && bun run db:migrate:production && env -u CLOUDFLARE_ENV vp exec wrangler deploy --config dist/server/wrangler.json --secrets-file .wrangler/secrets.production.json && bun scripts/verify-deployment.ts production",
 ```
 
-Eine Abwägung ist bewusst: `wrangler.jsonc` setzt `upload_source_maps` auf `false`, weil der Worker und seine Source Maps zusammen einmal mehr waren, als Cloudflare in einem Upload annahm. Stacktraces in Produktion zeigen in gebündelten Code, und wir haben die Source Maps nicht wieder eingeschaltet, seit der Worker geschrumpft ist.
+Eine Abwägung ist bewusst: `wrangler.jsonc` setzt `upload_source_maps` auf `false`, weil der Worker und seine Source-Maps zusammen einmal mehr waren, als Cloudflare in einem Upload annahm. Stacktraces in Produktion zeigen in gebündelten Code, und wir haben die Source-Maps nicht wieder eingeschaltet, seit der Worker geschrumpft ist.
 
 ## Die Limits, die zählen
 
@@ -671,7 +671,7 @@ Wir veröffentlichen den Traffic von saasyland.com nicht, deshalb folgt hier sta
 - **KV:** Höchstens ein Lesevorgang pro Request ist ein Zehntel der Lesevorgänge, und die Schreibvorgänge passieren etwa einmal pro Aktualisierungsintervall.
 - **R2:** Die ersten 10 GB sind kostenlos; eine Bibliothek mit 100 GB Video kostet 1,35 $ im Monat an Speicher, egal wie oft sie angesehen wird.
 
-Die Rechnung für diesen Monat beträgt also 5 $, plus R2-Speicher über die kostenlosen 10 GB hinaus. Verzehnfache den Traffic, und die 10 Millionen Requests sind immer noch abgedeckt; die ersten Posten, die wachsen, sind die CPU-Zeit, zu 0,02 $ pro Million Millisekunden über das Kontingent hinaus, und die D1-Schreibvorgänge, zu 1,00 $ pro Million Zeilen. Das ist der praktische Grund, Requests kurz und Schreibvorgänge überlegt zu halten, und der Grund, warum eine Ratenbegrenzung, die bei jedem Request schreibt, einen zweiten Blick verdient, wenn du wächst.
+Die Rechnung für diesen Monat beträgt also 5 $, plus R2-Speicher über die kostenlosen 10 GB hinaus. Verzehnfache den Traffic, und die 10 Millionen Requests sind immer noch abgedeckt; die ersten Posten, die wachsen, sind die CPU-Zeit, zu 0,02 $ pro Million Millisekunden über das Kontingent hinaus, und die D1-Schreibvorgänge, zu 1,00 $ pro Million Zeilen. Das ist der praktische Grund, Requests kurz und Schreibvorgänge überlegt zu halten, und der Grund, warum ein Rate-Limiting, das bei jedem Request schreibt, einen zweiten Blick verdient, wenn du wächst.
 
 ## Eine Checkliste zum Übernehmen
 
@@ -713,14 +713,14 @@ Die Rechnung für diesen Monat beträgt also 5 $, plus R2-Speicher über die kos
 - Die CI wendet jede Migration auf eine leere Datenbank an.
 - Du weißt, wie du Time Travel nutzt, bevor du es brauchst.
 
-**KV, R2 und Ratenbegrenzungen**
+**KV, R2 und Rate-Limits**
 
 - KV enthält nichts, was über den Zugriff entscheidet, und nichts, was pro Schlüssel öfter als einmal pro Sekunde geschrieben wird.
 - Gecachte Werte tragen ihren Abrufzeitpunkt und werden beim Lesen validiert.
 - Buckets sind privat; über den Zugriff wird beim Ausstellen einer URL entschieden, und URLs laufen ab.
 - Große Uploads erreichen R2 in Teilen unter der Grenze für den Request-Body.
 - Fakten über Objekte, die Requests brauchen, sind als benutzerdefinierte Metadaten gespeichert.
-- Jede Ratenbegrenzung hat einen Speicher, der zur geforderten Genauigkeit passt, und eine aufgeschriebene Entscheidung, ob sie bei einem Ausfall sperrt oder durchlässt.
+- Jedes Rate-Limit hat einen Speicher, der zur geforderten Genauigkeit passt, und eine aufgeschriebene Entscheidung, ob es bei einem Ausfall sperrt oder durchlässt.
 
 **Deploy und Betrieb**
 
@@ -742,7 +742,7 @@ Die CLI von SaaSy Land erscheint auf npm unter dem Tag <RepositoryFact name="cli
 </Card>
 
 <Card title="Better Auth vs. Clerk vs. Auth.js" href="/blog/better-auth-vs-clerk-vs-authjs">
-  Warum unsere Nutzer, Sitzungen und Ratenbegrenzungen Zeilen in D1 sind statt Datensätze im Dienst eines anderen.
+  Warum unsere Nutzer, Sitzungen und Rate-Limits Zeilen in D1 sind statt Datensätze im Dienst eines anderen.
 </Card>
 
 <Card title="Polar vs. Stripe vs. Lemon Squeezy" href="/blog/polar-vs-stripe-vs-lemon-squeezy">
@@ -753,7 +753,7 @@ Die CLI von SaaSy Land erscheint auf npm unter dem Tag <RepositoryFact name="cli
 
 <Callout title="Lies den Worker, bevor du deinen eigenen baust">
 
-Jede hier zitierte Datei steht im öffentlichen Quellcode von saasyland.com, und die [Dokumentation](/docs) erklärt den Rest. Wähle deinen Stack im [Konfigurator](/#cli) und [sieh dir dann an, was jede Stufe kostet](/#pricing): eine Zahlung ab <TierPrice tier="core" />, und jede Karte zeigt, was jetzt verfügbar ist und was noch kommt. Wenn du erfahren willst, was als Nächstes erscheint, trag dich unten auf dieser Seite in das Entwicklungsjournal ein.
+Jede hier zitierte Datei steht im öffentlichen Quellcode von saasyland.com, und die [Dokumentation](/docs) erklärt den Rest. Wähle deinen Stack im [Konfigurator](/#cli) und [sieh dir dann an, was jedes Paket kostet](/#pricing): eine Zahlung ab <TierPrice tier="core" />, und jede Karte zeigt, was jetzt verfügbar ist und was noch kommt. Wenn du erfahren willst, was als Nächstes erscheint, trag dich unten auf dieser Seite in das Entwicklungsjournal ein.
 
 </Callout>
 
@@ -769,6 +769,6 @@ Jede hier zitierte Datei steht im öffentlichen Quellcode von saasyland.com, und
 - Cloudflare R2: [Preise](https://developers.cloudflare.com/r2/pricing/) und [Presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)
 - Weitere Produkte von Cloudflare: [Durable Objects](https://developers.cloudflare.com/durable-objects/), [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) und [Queues](https://developers.cloudflare.com/queues/)
 - Better Auth: der [Cloudflare-Leitfaden](https://better-auth.com/docs/guides/cloudflare)
-- SaaSy Land: die Seiten [Cloudflare Workers](/docs/integrations/cloudflare-workers), [D1](/docs/integrations/cloudflare-d1), [KV](/docs/integrations/cloudflare-kv), [R2](/docs/integrations/cloudflare-r2), [Videos](/docs/features/videos) und [Datenbankmigrationen](/docs/tooling/database), die Seiten [CI/CD](/docs/tooling/ci-cd) und [Performance](/docs/conventions/performance) sowie die Pull Requests [#208](https://github.com/saasyland/saasyland.com/pull/208), [#236](https://github.com/saasyland/saasyland.com/pull/236) und [#239](https://github.com/saasyland/saasyland.com/pull/239) für die Messungen
+- SaaSy Land: die Seiten [Cloudflare Workers](/docs/integrations/cloudflare-workers), [D1](/docs/integrations/cloudflare-d1), [KV](/docs/integrations/cloudflare-kv), [R2](/docs/integrations/cloudflare-r2), [Videos](/docs/features/videos) und [Datenbankmigrationen](/docs/tooling/database), die Seiten [CI/CD](/docs/tooling/ci-cd) und [Performance](/docs/conventions/performance) sowie die Pull-Requests [#208](https://github.com/saasyland/saasyland.com/pull/208), [#236](https://github.com/saasyland/saasyland.com/pull/236) und [#239](https://github.com/saasyland/saasyland.com/pull/239) für die Messungen
 
 _Geschrieben von Piotr J. Borowiecki, der saasyland.com auf Cloudflare Workers betreibt. Die Limits und Preise wurden am 20. November 2026 in der Dokumentation von Cloudflare nachgelesen und können sich seitdem geändert haben; die Links führen zur Quelle und nicht zu einem Screenshot. Wenn hier etwas veraltet oder falsch ist, sag es mir, und ich korrigiere es._

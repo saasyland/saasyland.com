@@ -1,3 +1,6 @@
+import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+
+import { GERMAN_NAMES, GERMAN_PHRASES, GERMAN_TERMS } from "~/src/data/german-glossary"
 import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
 
 export const STEM_MARK = "|"
@@ -10,6 +13,10 @@ const SENTENCE_START = String.raw`(?<=(?:(?<![\s\S])|\n[^\S\n]*\n|[.!?…]\s+|[|
 const TYPOGRAPHIC_APOSTROPHE = /’/gu
 const LOWERCASE_START = /^\p{Ll}/u
 
+type GlossaryRow = readonly [meaning: string, preferred: readonly string[], never: readonly string[]]
+
+type Quotation = readonly [open: string, close: string]
+
 export interface GlossaryTerm {
   readonly meaning: string
   readonly never: string
@@ -21,6 +28,16 @@ export interface GlossaryMatch {
   readonly index: number
   readonly term: GlossaryTerm
   readonly word: string
+}
+
+export interface Glossary {
+  readonly checkedTerms: readonly GlossaryTerm[]
+  readonly contextTerms: readonly string[]
+  readonly englishNote: string
+  readonly language: string
+  readonly locale: SupportedLocale
+  readonly quotations: readonly Quotation[]
+  readonly rows: readonly GlossaryRow[]
 }
 
 export const neverTermText = (term: string): string => term.replaceAll(STEM_MARK, "")
@@ -45,25 +62,49 @@ const termPattern = (term: string): RegExp => {
   return new RegExp(`(?:${WORD_BEFORE}${alternatives.join("|")})${WORD_AFTER}`, "gmu")
 }
 
-const GLOSSARY = [...POLISH_TERMS, ...POLISH_NAMES, ...POLISH_PHRASES]
+const glossary = ({ rows, ...language }: Omit<Glossary, "checkedTerms" | "contextTerms">): Glossary => {
+  const preferredTerms = rows.flatMap(([, preferred]) => preferred)
+  const neverTerms = rows.flatMap(([meaning, preferred, never]) =>
+    never.map((term) => ({ meaning, never: neverTermText(term), pattern: termPattern(term), preferred })),
+  )
+  const isPreferredElsewhere = ({ pattern }: GlossaryTerm): boolean => preferredTerms.some((text) => text.search(pattern) >= 0)
 
-const PREFERRED = GLOSSARY.flatMap(([, preferred]) => preferred)
+  return {
+    ...language,
+    checkedTerms: neverTerms.filter((term) => !isPreferredElsewhere(term)),
+    contextTerms: [...new Set(neverTerms.filter((term) => isPreferredElsewhere(term)).map(({ never }) => never))],
+    rows,
+  }
+}
 
-const NEVER_TERMS: readonly GlossaryTerm[] = GLOSSARY.flatMap(([meaning, preferred, never]) =>
-  never.map((term) => ({ meaning, never: neverTermText(term), pattern: termPattern(term), preferred })),
-)
+export const GERMAN_GLOSSARY = glossary({
+  englishNote: "engl.",
+  language: "German",
+  locale: "de-DE",
+  quotations: [
+    ["„", "“"],
+    ["‚", "‘"],
+  ],
+  rows: [...GERMAN_TERMS, ...GERMAN_NAMES, ...GERMAN_PHRASES],
+})
 
-const isPreferredElsewhere = ({ pattern }: GlossaryTerm): boolean => PREFERRED.some((text) => text.search(pattern) >= 0)
+export const POLISH_GLOSSARY = glossary({
+  englishNote: "ang.",
+  language: "Polish",
+  locale: "pl-PL",
+  quotations: [["„", "”"]],
+  rows: [...POLISH_TERMS, ...POLISH_NAMES, ...POLISH_PHRASES],
+})
 
-export const CHECKED_TERMS = NEVER_TERMS.filter((term) => !isPreferredElsewhere(term))
+export const GLOSSARIES = [GERMAN_GLOSSARY, POLISH_GLOSSARY]
 
-export const CONTEXT_TERMS = [...new Set(NEVER_TERMS.filter((term) => isPreferredElsewhere(term)).map(({ never }) => never))]
-
-export const glossaryMatches = (text: string): GlossaryMatch[] => {
+export const glossaryMatches = ({ checkedTerms }: Glossary, text: string): GlossaryMatch[] => {
   const readable = text.replaceAll(TYPOGRAPHIC_APOSTROPHE, "'")
-  const matches = CHECKED_TERMS.flatMap((term) =>
-    [...readable.matchAll(term.pattern)].map(({ 0: found, index }) => ({ index, term, word: text.slice(index, index + found.length) })),
-  ).toSorted((left, right) => left.index - right.index || right.word.length - left.word.length)
+  const matches = checkedTerms
+    .flatMap((term) =>
+      [...readable.matchAll(term.pattern)].map(({ 0: found, index }) => ({ index, term, word: text.slice(index, index + found.length) })),
+    )
+    .toSorted((left, right) => left.index - right.index || right.word.length - left.word.length)
 
   return matches.filter(
     (match, position) =>

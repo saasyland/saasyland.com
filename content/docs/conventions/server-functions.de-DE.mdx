@@ -1,9 +1,9 @@
 ---
-title: "Server Functions und Fehler"
-description: "Die eine Form einer Server Function: Middleware, Eingabevalidierung über das Modul-Interface, Berechtigungen, Eigentümerschaft, Fehlercodes und Rückgabewerte."
+title: "Serverfunktionen und Fehler"
+description: "Die eine Form einer Serverfunktion: Middleware, Eingabevalidierung über das Modul-Interface, Berechtigungen, Eigentümerschaft, Fehlercodes und Rückgabewerte."
 ---
 
-Jede Operation, die der Browser aufrufen kann, ist eine TanStack Start Server Function, gebaut mit `createServerFn`. Eine Server Function ist ein Endpunkt im öffentlichen Internet, deshalb übernimmt sie Autorisierung und Validierung selbst; ein Routen-Guard entscheidet nur, was ein Besucher zu sehen bekommt.
+Jede Operation, die der Browser aufrufen kann, ist eine Serverfunktion von TanStack Start, gebaut mit `createServerFn`. Eine Serverfunktion ist ein Endpunkt im öffentlichen Internet, deshalb übernimmt sie Autorisierung und Validierung selbst; ein Routen-Guard entscheidet nur, was ein Besucher zu sehen bekommt.
 
 ## Die Form
 
@@ -37,7 +37,7 @@ Die Kette steht immer in dieser Reihenfolge:
 3. `.validator((input: Module["operation"]) => moduleZodSchemas.operation.parse(input))`, wenn die Funktion eine Eingabe erhält. Der Parameter ist über das [Modul-Interface](/docs/conventions/modules) typisiert, und das Schema ist dasselbe, mit dem das Formular validiert.
 4. `.handler(async ({ context, data }) => ...)`.
 
-Dieselbe Datei exportiert die Optionen, die Aufrufer verwenden: `<name>Mutation`, gebaut mit `mutationOptions`, oder eine Query, gebaut mit `queryOptions` (siehe [Datenabruf und Caching](/docs/conventions/data-fetching)). Komponenten, Loader und Tests importieren diese Optionen, niemals die bloße Server Function.
+Dieselbe Datei exportiert die Optionen, die Aufrufer verwenden: `<name>Mutation`, gebaut mit `mutationOptions`, oder eine Query, gebaut mit `queryOptions` (siehe [Datenabruf und Caching](/docs/conventions/data-fetching)). Komponenten, Loader und Tests importieren diese Optionen, niemals die bloße Serverfunktion.
 
 ## Middleware
 
@@ -53,7 +53,7 @@ Alle drei stammen aus `src/integrations/better-auth/auth.middleware.ts`.
 
 Eine sensible Operation eines angemeldeten Nutzers kombiniert beides: `change-password.ts` verwendet `[withRateLimit("change-password", RATE_LIMITS.SENSITIVE), authorized()]`. `kind` benennt die Operation in kebab-case und dient als Schlüssel ihres Zählers.
 
-`authorized` und `withRateLimit` führen zuerst `withRequest` aus, sodass jede Server Function dieselbe Fehlerbehandlung erhält.
+`authorized` und `withRateLimit` führen zuerst `withRequest` aus, sodass jede Serverfunktion dieselbe Fehlerbehandlung erhält.
 
 ## Berechtigungen
 
@@ -67,8 +67,8 @@ export const ROLES = {
 ```
 
 - Eine neue Ressource ergänzt ihr Statement in `APP_STATEMENTS` an seiner sortierten Stelle, und ein Mensch prüft die Änderung (siehe [Rollen und Berechtigungen](/docs/guides/roles-and-permissions)).
-- Server Functions übergeben das Statement an `authorized`. Anderer Servercode prüft `hasPermission({ permission, role })` direkt an Ort und Stelle, wie `resolveViewer` in `lesson.viewer.ts` für den Zugriff von Mitarbeitern. Es gibt keinen Wrapper wie `canEditCourses()` darum.
-- Welche Berechtigung eine Server Function prüft, steht in der [Berechtigungsmatrix](/docs/reference/permissions).
+- Serverfunktionen übergeben das Statement an `authorized`. Anderer Servercode prüft `hasPermission({ permission, role })` direkt an Ort und Stelle, wie `resolveViewer` in `lesson.viewer.ts` für den Zugriff von Mitarbeitern. Es gibt keinen Wrapper wie `canEditCourses()` darum.
+- Welche Berechtigung eine Serverfunktion prüft, steht in der [Berechtigungsmatrix](/docs/reference/permissions).
 
 ## Eigentümerschaft
 
@@ -85,17 +85,17 @@ Servercode wirft `AppError` mit einem Code aus `ERROR_CODES` in `src/modules/_co
 | `UNAUTHORIZED`      | Keine Session (geworfen von `authorized`)                                 |
 | `FORBIDDEN`         | Fehlende Berechtigung oder fehlender Zugriff                              |
 | `VALIDATION`        | Die Eingabe hat ihr Schema nicht erfüllt (abgebildet aus `ZodError`)      |
-| `TOO_MANY_REQUESTS` | Ein Rate Limit wurde erreicht                                             |
+| `TOO_MANY_REQUESTS` | Ein Rate-Limit wurde erreicht                                             |
 | `AUTH_API_ERROR`    | Better Auth hat den Aufruf abgelehnt, mit dem Message-Key des Fehlers     |
 | `INTERNAL_ERROR`    | Alles andere; die Ursache wird geloggt, nie gesendet                      |
 
-- Ein Fehler, der in jedem Bereich auftreten kann, bekommt seinen Code in `ERROR_CODES` und eine Meldung unter `errors.codes` in jeder Locale. Der Code ist alles, was der Browser erhält. Eine Ablehnung, die nur ein Bereich erklärt, gehört dagegen zum Ergebnis seiner Server Function: `startCheckout` gibt für ein Konto, das bereits eine aktive Lizenz hat, `{ alreadyActive: true }` zurück, und die Checkout-Schaltfläche zeigt `buy.alreadyActive` aus `pages.license`.
+- Ein Fehler, der in jedem Bereich auftreten kann, bekommt seinen Code in `ERROR_CODES` und eine Meldung unter `errors.codes` in jeder Locale. Der Code ist alles, was der Browser erhält. Eine Ablehnung, die nur ein Bereich erklärt, gehört dagegen zum Ergebnis seiner Serverfunktion: `startCheckout` gibt für ein Konto, das bereits eine aktive Lizenz hat, `{ alreadyActive: true }` zurück, und die Checkout-Schaltfläche zeigt `buy.alreadyActive` aus `pages.license`.
 - Erkenne eine fehlende Zeile am Ergebnis (`const [row] = await ... .returning(...)`, dann `if (row === undefined)`), nicht mit einer zweiten Abfrage.
 - Mache aus einer Unique-Verletzung mit `.catch(rethrowAsConflict)` aus `src/integrations/drizzle-orm/drizzle.errors.ts` ein `CONFLICT`, wie es `create-course.ts` und `update-course.ts` tun.
 - `withRequest` wirft einen `AppError` nur mit seinem Code erneut, bildet Fehler von Better Auth und Zod ab und loggt alles andere, bevor es mit `INTERNAL_ERROR` antwortet, sodass weder Stacktrace noch SQL den Browser erreicht.
 - Im Browser macht `useErrorMessage()` aus `src/hooks/use-error-message.ts` aus jedem Fehler den übersetzten Text `errors.codes.<CODE>` oder `auth.errors.<key>`. Formulare zeigen ihn mit `toast.error(errorMessage(error))` an.
 - In einem Routen-Loader macht `.catch(rethrowAsNotFound)` aus `src/lib/not-found.ts` aus `NOT_FOUND` die Not-found-Seite des Routers.
-- Eine Server Function meldet einen fehlenden Datensatz oder eine Ablehnung mit einem Code von `AppError`, nie mit `redirect()` oder `notFound()` des Routers, und der Loader, der auf sie wartet, entscheidet, was die Seite tut. Heute wirft keine Server Function eines von beiden, deshalb ruft nichts `useServerFn` auf. Eine, die umleiten muss, wird über eine Query oder Mutation erreicht, deren Umleitungen `setupRouterSsrQueryIntegration` folgt, oder über `useServerFn`; ein `notFound()` nur über eine Query, auf die ein Loader wartet. `src/__test__/server-function-control-flow.test.ts` schlägt fehl, wenn eine Server Function, die eines davon wirft, auf anderem Weg erreicht wird.
+- Eine Serverfunktion meldet einen fehlenden Datensatz oder eine Ablehnung mit einem Code von `AppError`, nie mit `redirect()` oder `notFound()` des Routers, und der Loader, der auf sie wartet, entscheidet, was die Seite tut. Heute wirft keine Serverfunktion eines von beiden, deshalb ruft nichts `useServerFn` auf. Eine, die umleiten muss, wird über eine Query oder Mutation erreicht, deren Umleitungen `setupRouterSsrQueryIntegration` folgt, oder über `useServerFn`; ein `notFound()` nur über eine Query, auf die ein Loader wartet. `src/__test__/server-function-control-flow.test.ts` schlägt fehl, wenn eine Serverfunktion, die eines davon wirft, auf anderem Weg erreicht wird.
 
 ## Rückgabewerte
 
@@ -103,19 +103,19 @@ Servercode wirft `AppError` mit einem Code aus `ERROR_CODES` in `src/modules/_co
 - Sende mehrere Anweisungen mit `db.batch([...])` in einem Roundtrip. D1 führt einen Batch als eine Transaktion aus; so nummeriert `moveCourse` alle Positionen auf einmal neu, und `getCourses` liest eine Seite zusammen mit ihrer Gesamtzahl.
 - Löse die Anzeigesprache auf dem Server auf, wenn die Daten lokalisiert sind: `getCourse` gibt Titel zurück, die bereits durch `localize(text, locale)` gelaufen sind.
 
-## Wo Server Functions liegen
+## Wo Serverfunktionen liegen
 
-| Server Function                                             | Liegt in                                                                   |
+| Serverfunktion                                              | Liegt in                                                                   |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Liest oder schreibt eine Tabelle                            | `src/modules/<table>/use-cases/<verb>-<noun>.ts`                           |
 | Wird nur von einer Route genutzt und besitzt keine Tabelle  | Diese Routendatei                                                          |
 | Liest einen externen Dienst oder Inhalte, gemeinsam genutzt | `src/lib/<topic>.ts`, wie `getStarCount` in `src/lib/github.ts`            |
 | Nur auf dem Server, nie vom Browser aufgerufen              | Eine einfache `async`-Funktion in einer als `server-only` markierten Datei |
 
-Komponenten importieren niemals `db`, `env` aus `cloudflare:workers` oder einen Anbieter-Client. Sie rufen Server Functions über Query- und Mutation-Optionen auf.
+Komponenten importieren niemals `db`, `env` aus `cloudflare:workers` oder einen Anbieter-Client. Sie rufen Serverfunktionen über Query- und Mutation-Optionen auf.
 
 ## Verwandte Seiten
 
 - [Module](/docs/conventions/modules)
 - [Authentifizierung und Sicherheit](/docs/architecture/security-model)
-- [Use Case hinzufügen](/docs/guides/add-a-use-case)
+- [Use-Case hinzufügen](/docs/guides/add-a-use-case)

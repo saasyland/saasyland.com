@@ -9,7 +9,7 @@ Better Auth speichert Benutzer, Konten, Sitzungen und Verifizierungstokens über
 
 | Datei                                                  | Verantwortung                                                                                                                                                                                                                   |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.server.ts`                                       | Die `betterAuth`-Instanz: Provider, die Plugins `admin`, `twoFactor`, `lastLoginMethod` und `tanstackStartCookies` und alle weiteren Plugins, erlaubte Hosts, Ratenbegrenzung in D1 und E-Mail-Hooks                            |
+| `auth.server.ts`                                       | Die `betterAuth`-Instanz: Provider, die Plugins `admin`, `twoFactor`, `lastLoginMethod` und `tanstackStartCookies` und alle weiteren Plugins, erlaubte Hosts, Rate-Limiting in D1 und E-Mail-Hooks                              |
 | `auth.client.ts`                                       | `authClient` und seine Methoden (`signIn`, `signUp`, `signOut`, `useSession`, `twoFactor` und weitere)                                                                                                                          |
 | `auth.routes.ts`                                       | Routen-Guards für `beforeLoad`                                                                                                                                                                                                  |
 | `auth.middleware.ts`                                   | Middleware für Serverfunktionen: `withRequest`, `authorized`, `withRateLimit` und `RATE_LIMITS`                                                                                                                                 |
@@ -22,13 +22,13 @@ Better Auth speichert Benutzer, Konten, Sitzungen und Verifizierungstokens über
 
 ## Routen-Guards
 
-| Guard                | Verwendet von                    | Verhalten                                                                                                  |
-| -------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `requireSignedIn`    | `/app`                           | Leitet ohne Sitzung zur Anmeldung weiter, mit der Seite als `redirect`, und gibt die Sitzung zurück        |
-| `requireAdmin`       | `/admin`                         | Verlangt zusätzlich die Berechtigung `admin: ["access"]`, sonst Weiterleitung zu `/app`                    |
-| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Schickt angemeldete Benutzer zu `redirect` oder je nach Rolle zu `/admin` oder `/app`                      |
-| `redirectAfterAuth`  | `/auth/callback`                 | Verlangt eine Sitzung und leitet dann zu `redirect` oder in den Arbeitsbereich der jeweiligen Rolle weiter |
-| `redirectIfVerified` | `/auth/verify-email`             | Schickt eine Sitzung mit bestätigter Adresse zu `redirect` oder je nach Rolle zu `/admin` oder `/app`      |
+| Guard                | Verwendet von                    | Verhalten                                                                                             |
+| -------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `requireSignedIn`    | `/app`                           | Leitet ohne Sitzung zur Anmeldung weiter, mit der Seite als `redirect`, und gibt die Sitzung zurück   |
+| `requireAdmin`       | `/admin`                         | Verlangt zusätzlich die Berechtigung `admin: ["access"]`, sonst Weiterleitung zu `/app`               |
+| `redirectIfSignedIn` | `/auth/sign-in`, `/auth/sign-up` | Schickt angemeldete Benutzer zu `redirect` oder je nach Rolle zu `/admin` oder `/app`                 |
+| `redirectAfterAuth`  | `/auth/callback`                 | Verlangt eine Sitzung und leitet dann zu `redirect` oder in den Bereich der jeweiligen Rolle weiter   |
+| `redirectIfVerified` | `/auth/verify-email`             | Schickt eine Sitzung mit bestätigter Adresse zu `redirect` oder je nach Rolle zu `/admin` oder `/app` |
 
 Die Guards laden die Sitzung über den Query-Cache und entfernen, wenn sich der angemeldete Benutzer ändert, mit `removeUserData` aus `auth.session.ts` jede zwischengespeicherte Query, die nicht öffentlich ist. Woher sie wissen, wessen Daten der Cache enthält, erklärt [Sitzungen](/docs/features/sessions#cached-data-and-the-signed-in-account).
 
@@ -42,7 +42,7 @@ Seiten-Guards schützen nur die Navigation, deshalb prüft jede geschützte Serv
 
 ## Rollen und Berechtigungen
 
-`auth.roles.ts` definiert zwei Rollen: `admin` und `customer` (die Standardrolle für neue Konten). `auth.access.ts` deklariert die Berechtigungsdefinitionen aller Ressourcen in `APP_STATEMENTS`: `admin` und `settings` für die Admin-Konsole und ihre Einstellungen, `product` für die Produktseite, die den Polar-Katalog auflistet, und für das Produktmodul, `category` für die Use Cases des Kategoriemoduls, die kein Bildschirm verwendet, `course` und `video` für die Kurse und `order` für die Bestellungen. Es gewährt sie alle den Admins, die zusätzlich die Admin-Berechtigungen von Better Auth erhalten, und baut daraus die Zugriffskontrolle und die Rollen auf. `hasPermission({ permission, role })` wird von Guards, Middleware und der Oberfläche gemeinsam genutzt. Siehe [Rollen und Berechtigungen](/docs/guides/roles-and-permissions).
+`auth.roles.ts` definiert zwei Rollen: `admin` und `customer` (die Standardrolle für neue Konten). `auth.access.ts` deklariert die Berechtigungsdefinitionen aller Ressourcen in `APP_STATEMENTS`: `admin` und `settings` für den Adminbereich und seine Einstellungen, `product` für die Produktseite, die den Polar-Katalog auflistet, und für das Produktmodul, `category` für die Use-Cases des Kategoriemoduls, die kein Bildschirm verwendet, `course` und `video` für die Kurse und `order` für die Bestellungen. Es gewährt sie alle den Admins, die zusätzlich die Admin-Berechtigungen von Better Auth erhalten, und baut daraus die Zugriffskontrolle und die Rollen auf. `hasPermission({ permission, role })` wird von Guards, Middleware und der Oberfläche gemeinsam genutzt. Siehe [Rollen und Berechtigungen](/docs/guides/roles-and-permissions).
 
 ## Plugins
 
@@ -61,11 +61,11 @@ Seiten-Guards schützen nur die Navigation, deshalb prüft jede geschützte Serv
 | `polar-verified-customer` | `requireVerifiedEmail` vor jedem Endpunkt unter `/customer/`                                                                                      |
 | `tanstackStartCookies`    | Setzt die Cookies von Better Auth in den Antworten von TanStack Start und muss als letztes kommen                                                 |
 
-Jedes Plugin steht ausgeschrieben in der Liste, damit die Typen von Better Auth die Benutzer- und Sitzungsfelder enthalten, die jedes davon hinzufügt. Ein Element, das eine Datei eines Features nennt, etwa `revokeAccountLicense` oder `polarCore`, fällt mit diesem Feature weg, ebenso `[ROUTES.API.AUTH.POLAR.WEBHOOKS]: false` in `rateLimit.customRules`, das die Zustellungen von Polar aus der Ratenbegrenzung von Better Auth heraushält.
+Jedes Plugin steht ausgeschrieben in der Liste, damit die Typen von Better Auth die Benutzer- und Sitzungsfelder enthalten, die jedes davon hinzufügt. Ein Element, das eine Datei eines Features nennt, etwa `revokeAccountLicense` oder `polarCore`, fällt mit diesem Feature weg, ebenso `[ROUTES.API.AUTH.POLAR.WEBHOOKS]: false` in `rateLimit.customRules`, das die Zustellungen von Polar aus dem Rate-Limiting von Better Auth heraushält.
 
-## E-Mail und Ratenbegrenzung
+## E-Mail und Rate-Limiting
 
-Die E-Mail-Hooks rufen die Sender der Module verification, account und user direkt auf, weil die Authentifizierung E-Mails braucht: `sendVerifyEmail`, `sendExistingAccountEmail`, `sendResetPasswordEmail`, `sendPasswordChangedEmail`, `sendDeleteAccountEmail` und `sendChangeEmailConfirmationEmail`. Die eigene Ratenbegrenzung von Better Auth speichert ihre Zähler über `consumeRateLimit` aus `src/lib/rate-limit.ts` unter dem Präfix `auth:` in der D1-Tabelle `rate_limit`; diese Funktion verwendet atomare Upserts und lehnt Anfragen ab, wenn ihr Speicher nicht verfügbar ist. `clientAddress` in `auth.middleware.ts` ermittelt den Client einer Anfrage so wie diese Ratenbegrenzung, aus `cf-connecting-ip`, wobei IPv6-Adressen nach /64 gruppiert werden. Das Cookie-Präfix ist `APP_SLUG` aus dem Branding. `getRequestSession` umgeht den Cookie-Cache, sodass die Autorisierung die Sitzung immer aus D1 liest.
+Die E-Mail-Hooks rufen die Sender der Module verification, account und user direkt auf, weil die Authentifizierung E-Mails braucht: `sendVerifyEmail`, `sendExistingAccountEmail`, `sendResetPasswordEmail`, `sendPasswordChangedEmail`, `sendDeleteAccountEmail` und `sendChangeEmailConfirmationEmail`. Das eigene Rate-Limiting von Better Auth speichert seine Zähler über `consumeRateLimit` aus `src/lib/rate-limit.ts` unter dem Präfix `auth:` in der D1-Tabelle `rate_limit`; diese Funktion verwendet atomare Upserts und lehnt Anfragen ab, wenn ihr Speicher nicht verfügbar ist. `clientAddress` in `auth.middleware.ts` ermittelt den Client einer Anfrage so wie dieses Rate-Limiting, aus `cf-connecting-ip`, wobei IPv6-Adressen nach /64 gruppiert werden. Das Cookie-Präfix ist `APP_SLUG` aus dem Branding. `getRequestSession` umgeht den Cookie-Cache, sodass die Autorisierung die Sitzung immer aus D1 liest.
 
 ## Verwandte Anleitungen
 

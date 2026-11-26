@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
+import {
+  GERMAN_GLOSSARY,
+  GLOSSARIES,
+  type Glossary,
+  POLISH_GLOSSARY,
+  STEM_MARK,
+  glossaryMatches,
+  neverTermText,
+} from "~/src/lib/glossary-terms"
 
-import { CHECKED_TERMS, CONTEXT_TERMS, STEM_MARK, glossaryMatches, neverTermText } from "~/src/lib/glossary-terms"
+const wordsIn =
+  (glossary: Glossary) =>
+  (text: string): string[] =>
+    glossaryMatches(glossary, text).map(({ word }) => word)
 
-const GLOSSARY = [...POLISH_TERMS, ...POLISH_NAMES, ...POLISH_PHRASES]
+const found = wordsIn(POLISH_GLOSSARY)
 
-const found = (text: string): string[] => glossaryMatches(text).map(({ word }) => word)
+const foundInGerman = wordsIn(GERMAN_GLOSSARY)
 
 describe("neverTermText", () => {
   it("drops the mark where an inflected ending starts", () => {
@@ -15,20 +26,22 @@ describe("neverTermText", () => {
   })
 })
 
-describe("the glossary's never column", () => {
+describe.each(GLOSSARIES)("the $language glossary's never column", (glossary) => {
   it("marks at most one ending in a word, after a stem", () => {
-    const words = GLOSSARY.flatMap((row) => row[2].flatMap((term) => term.split(" ")))
+    const words = glossary.rows.flatMap((row) => row[2].flatMap((term) => term.split(" ")))
 
     expect(words.filter((word) => word.split(STEM_MARK).length > 2 || word.startsWith(STEM_MARK))).toEqual([])
   })
 
   it("never fails a term the glossary prefers", () => {
-    expect(GLOSSARY.flatMap(([, preferred]) => preferred.flatMap((term) => found(term)))).toEqual([])
+    expect(glossary.rows.flatMap(([, preferred]) => preferred.flatMap((term) => wordsIn(glossary)(term)))).toEqual([])
   })
+})
 
-  it("leaves a word that is right in another meaning to the reader", () => {
-    expect(CONTEXT_TERMS).toEqual(expect.arrayContaining(["karta", "zakładka", "poziom", "rachunek", "maszyna", "wysłać"]))
-    expect(CHECKED_TERMS.map(({ never }) => never)).not.toContain("poziom")
+describe("a word that is right in another meaning", () => {
+  it("is left to the reader", () => {
+    expect(POLISH_GLOSSARY.contextTerms).toEqual(expect.arrayContaining(["karta", "zakładka", "poziom", "rachunek", "maszyna", "wysłać"]))
+    expect(POLISH_GLOSSARY.checkedTerms.map(({ never }) => never)).not.toContain("poziom")
   })
 })
 
@@ -67,12 +80,32 @@ describe("glossaryMatches", () => {
   })
 
   it("names the term, its meaning and the terms the glossary prefers", () => {
-    const [match] = glossaryMatches("Nie wspiera.")
+    const [match] = glossaryMatches(POLISH_GLOSSARY, "Nie wspiera.")
 
     expect(match?.index).toBe(4)
     expect(match?.word).toBe("wspiera")
     expect(match?.term.meaning).toBe("support (a format, a provider)")
     expect(match?.term.never).toBe("wspierać")
     expect(match?.term.preferred).toEqual(["obsługiwać"])
+  })
+})
+
+describe("glossaryMatches in German", () => {
+  it.each([
+    { text: "Öffne das Armaturenbrett.", words: ["Armaturenbrett"] },
+    { text: "Jede Stufe und alle Stufenkarten.", words: ["Stufe", "Stufenkarten"] },
+    { text: "Die Admin-Konsole zeigt jeden Pull Request.", words: ["Admin-Konsole", "Pull Request"] },
+    { text: "Die Ratenbegrenzung des CLI.", words: ["Ratenbegrenzung", "des CLI"] },
+    { text: "Das macht Sinn.", words: ["macht Sinn"] },
+  ])("finds $words in “$text”", ({ text, words }) => {
+    expect(foundInGerman(text)).toEqual(words)
+  })
+
+  it.each([
+    "Das Dashboard im Adminbereich und jeder Pull-Request.",
+    "Ein Bun-Workspace mit zwei Workspaces und Graustufen.",
+    "Die CLI aus dem Paket Complete ergibt Sinn.",
+  ])("leaves “%s” alone", (text) => {
+    expect(foundInGerman(text)).toEqual([])
   })
 })

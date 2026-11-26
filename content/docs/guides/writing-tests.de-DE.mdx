@@ -38,7 +38,7 @@ bun run test:coverage
 - `.env.test` liefert Dummy-Zugangsdaten. `fetch` erreicht strikte Test-Doubles von Resend und Polar (`mocks/resend.ts`, `mocks/polar.ts`), und jeder andere Host schlägt fehl, als wäre der Rechner offline, sodass nichts ihn verlässt. Ein Request, den der Anbieter ablehnen würde, lässt den Test fehlschlagen.
 - `renderWithRouter` in `src/platform/testing/lib/render.tsx` rendert Komponenten mit einem echten Router und `QueryClient`.
 
-## Use Case testen
+## Use-Case testen
 
 Gekürzt aus `src/modules/category/use-cases/__test__/create-category.test.ts`:
 
@@ -74,7 +74,7 @@ describe("create-category", () => {
 })
 ```
 
-Jedes Ergebnis eines Use Case testen: Erfolg, jeden `AppError`-Code, fehlende Session und fehlende Berechtigung. Domänenwerte und Fehlercodes stammen aus ihren Konstanten (`CATEGORY_KIND`, `ERROR_CODES`), nie aus wiederholten Strings.
+Jedes Ergebnis eines Use-Case testen: Erfolg, jeden `AppError`-Code, fehlende Session und fehlende Berechtigung. Domänenwerte und Fehlercodes stammen aus ihren Konstanten (`CATEGORY_KIND`, `ERROR_CODES`), nie aus wiederholten Strings.
 
 ## Gegen Resend und Polar testen
 
@@ -90,7 +90,7 @@ expect(await currentLicense(buyer)).toMatchObject({ status: LICENSE_STATUS.ACTIV
 
 `paidOrder` startet den Checkout über das echte `startCheckout` und bezahlt ihn im Double. `deliver` signiert das Event mit `signedPolarWebhook` aus `lib/polar.ts`, sendet es per POST an den Polar-Endpunkt von Better Auth und gibt den Status der Antwort zurück, sodass die Signaturprüfung, das Plugin und die Handler in `license.webhooks.ts` alle laufen. Um zu testen, wie die Anwendung mit einem Fehler des Anbieters umgeht, einen einzelnen Request mit dem Fehler des Anbieters beantworten, wie es `resend.utils.test.ts` tut: `vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json(error, { status }))`.
 
-Das Double verkauft nur, was die Bereiche in `__test__/fixtures/<feature>.polar-catalogue.ts` einspielen, beim Lizenzbereich seine Stufen und deren Lizenzschlüssel-Benefits. Ein Test für ein anderes Produkt spielt es zuerst mit `seedPolarCatalogue` ein, mit ID, Namen, Preis in der kleinsten Währungseinheit samt Währung und Abrechnungsintervall, bei einem Einmalkauf `null`, und `createPolarOrder({ externalCustomerId, productId })` legt eine Bestellung dafür an. `createGuestPolarOrder({ email, name, productId })` legt eine Bestellung an, deren Kunde keine externe ID hat, und `setPolarCustomerExternalId(customerId, externalId)` gibt diesem Kunden eine, so wie Polar sie speichert: Die Bestellung, die das Double ausliefert, nennt dann das Konto, während die zuvor gebauten Ereignisse noch den alten Kunden enthalten. `src/integrations/polar/__test__/polar.webhooks.integration.test.ts` ordnet auf diese Weise eine Bestellung ohne passendes Konto nachträglich zu. Vor dem nächsten Test vergisst das Double das Produkt wieder. `src/platform/testing/__test__/providers.test.ts` öffnet so einen Checkout für ein Monatsabo. Abonnements stellt das Double nicht bereit: Ein Test, der ein Abonnement-Ereignis zustellt, baut es mit `polarSubscription({ customer, product, status })` aus `lib/polar.ts` für ein Produkt mit wiederkehrendem Intervall, so wie es `polar.webhooks.integration.test.ts` tut.
+Das Double verkauft nur, was die Bereiche in `__test__/fixtures/<feature>.polar-catalogue.ts` einspielen, beim Lizenzbereich seine Pakete und deren Lizenzschlüssel-Benefits. Ein Test für ein anderes Produkt spielt es zuerst mit `seedPolarCatalogue` ein, mit ID, Namen, Preis in der kleinsten Währungseinheit samt Währung und Abrechnungsintervall, bei einem Einmalkauf `null`, und `createPolarOrder({ externalCustomerId, productId })` legt eine Bestellung dafür an. `createGuestPolarOrder({ email, name, productId })` legt eine Bestellung an, deren Kunde keine externe ID hat, und `setPolarCustomerExternalId(customerId, externalId)` gibt diesem Kunden eine, so wie Polar sie speichert: Die Bestellung, die das Double ausliefert, nennt dann das Konto, während die zuvor gebauten Ereignisse noch den alten Kunden enthalten. `src/integrations/polar/__test__/polar.webhooks.integration.test.ts` ordnet auf diese Weise eine Bestellung ohne passendes Konto nachträglich zu. Vor dem nächsten Test vergisst das Double das Produkt wieder. `src/platform/testing/__test__/providers.test.ts` öffnet so einen Checkout für ein Monatsabo. Abonnements stellt das Double nicht bereit: Ein Test, der ein Abonnement-Ereignis zustellt, baut es mit `polarSubscription({ customer, product, status })` aus `lib/polar.ts` für ein Produkt mit wiederkehrendem Intervall, so wie es `polar.webhooks.integration.test.ts` tut.
 
 ## Auth-Ablauf testen
 
@@ -102,7 +102,7 @@ Komponententests rendern mit echten Messages aus `messages/en-US`, mocken das Us
 
 ## Browser-Tests
 
-Playwright-Specs liegen in `e2e/specs`, Page Objects in `e2e/pages` und Fixtures in `e2e/fixtures`. Sie laufen gegen die gebaute Testanwendung mit lokalem D1, KV und R2 in `.wrangler/test` und den vorbefüllten Konten aus `e2e/data/accounts.ts`. Lokal migriert, befüllt, baut und startet Playwright diese Anwendung selbst.
+Playwright-Specs liegen in `e2e/specs`, Page-Objects in `e2e/pages` und Fixtures in `e2e/fixtures`. Sie laufen gegen die gebaute Testanwendung mit lokalem D1, KV und R2 in `.wrangler/test` und den vorbefüllten Konten aus `e2e/data/accounts.ts`. Lokal migriert, befüllt, baut und startet Playwright diese Anwendung selbst.
 
 ```sh
 bun run test:e2e:install
@@ -124,4 +124,4 @@ bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 
 `build:test` führt den vollständigen Cloudflare-Build aus, den die Unit-Tests nicht abdecken, und der letzte Befehl führt die Specs, die du angibst, in Chromium aus: die, die du geschrieben oder geändert hast, und die, die den Code abdecken, den du berührt hast. `bun run test:e2e:pr` führt jede Spec in Chromium aus und `bun run test:e2e` in Chromium und WebKit, wie es die CI tut.
 
-Die CI führt Checks, Coverage und die Browser-Suite in Chromium und in WebKit bei jedem Pull Request und noch einmal in der Merge Queue aus, bevor er gemergt wird, WebKit noch einmal bei Pushes auf `main` und beide Browser wöchentlich.
+Die CI führt Checks, Coverage und die Browser-Suite in Chromium und in WebKit bei jedem Pull-Request und noch einmal in der Merge-Queue aus, bevor er gemergt wird, WebKit noch einmal bei Pushes auf `main` und beide Browser wöchentlich.

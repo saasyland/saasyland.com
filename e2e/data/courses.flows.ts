@@ -315,12 +315,30 @@ export const COURSES_FLOWS = [
   {
     feature: FLOW_FEATURE.COURSES,
     id: "lesson-progress",
-    outcome: "A signed-in learner marks a lesson complete, and the course shows it as complete after a reload",
+    outcome:
+      "A signed-in learner marks a lesson complete and the lesson shows it at once, even after pointing at a workspace link before the header knew the session, and the lesson and the course still show it after a reload",
     status: FLOW_STATUS.COVERED,
     tests: [
       {
         spec: "course-progress.spec.ts",
         title: "lesson progress › a signed-in learner marks a lesson complete, and the lesson and its course show it as complete after a reload",
+      },
+      {
+        spec: "course-progress.spec.ts",
+        title:
+          "lesson progress › a learner who points at Your account before the header knows the session sees the lesson marked complete at once, without a reload",
+      },
+    ],
+  },
+  {
+    feature: FLOW_FEATURE.SECURITY,
+    id: "lesson-progress-account-switch",
+    outcome: "After a learner signs out and another signs in, no course or lesson page the browser opens shows the first learner's progress",
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-progress.spec.ts",
+        title: "lesson progress › after signing out and signing in as another learner, no course page shows the first learner's progress",
       },
     ],
   },
@@ -435,9 +453,14 @@ export const COURSES_FLOWS = [
     feature: FLOW_FEATURE.SECURITY,
     id: "expired-signed-path",
     outcome: "A signed video or download path past its expiry is refused",
-    reason:
-      "An expired path must be signed with the Worker's AUTH_SECRET for a past expiry; a test endpoint that signs one reads that secret, which needs a person's review, and the unit tests of verifyPlayback and the download signature refuse an expired path.",
-    status: FLOW_STATUS.MISSING,
+    status: FLOW_STATUS.COVERED,
+    tests: [
+      {
+        spec: "course-materials.spec.ts",
+        title:
+          "signed media paths › a video stream or download path signed for an expiry that has passed is refused, while the same files signed now are served",
+      },
+    ],
   },
   {
     feature: FLOW_FEATURE.ADMIN_COURSES,

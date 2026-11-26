@@ -7,7 +7,7 @@ import { ownAddress } from "./address"
 import { expectVerificationEmail } from "./emails"
 import { expect } from "./test"
 
-const SIGN_UP_PASSWORD = "StrongPassword123!"
+export const SIGN_UP_PASSWORD = "StrongPassword123!"
 
 const sessionSchema = zod.object({ user: zod.object({ id: zod.string() }) })
 

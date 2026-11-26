@@ -24,6 +24,12 @@ const paidLater = (order: models.Order): models.Order => ({
   status: POLAR_ORDER_STATUS.PAID,
 })
 
+const cancelledLater = (subscription: models.Subscription): models.Subscription => {
+  const cancelledAt = new Date(Date.parse(subscription.created_at) + CONFIRMED_AFTER_MS).toISOString()
+
+  return { ...subscription, cancel_at_period_end: true, canceled_at: cancelledAt, modified_at: cancelledAt }
+}
+
 export const BILLING_TEST_WORKER = [
   {
     kind: TEST_WORKER_KIND.SETUP,
@@ -61,6 +67,9 @@ export const BILLING_TEST_WORKER = [
         orderId: placed.id,
         orderUpdated: signedPolarWebhook({ data: paidLater(placed), secret, type: POLAR_WEBHOOK_EVENT.ORDER_UPDATED }),
         subscriptionsCreated: subscriptions.map((data) => signedPolarWebhook({ data, secret, type: POLAR_WEBHOOK_EVENT.SUBSCRIPTION_CREATED })),
+        subscriptionsUpdated: subscriptions.map((data) =>
+          signedPolarWebhook({ data: cancelledLater(data), secret, type: POLAR_WEBHOOK_EVENT.SUBSCRIPTION_UPDATED }),
+        ),
       })
     },
   },

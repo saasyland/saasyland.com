@@ -31,6 +31,7 @@ const purchaseSchema = zod.object({
   orderId: zod.string(),
   orderUpdated: signedWebhookSchema,
   subscriptionsCreated: zod.array(signedWebhookSchema),
+  subscriptionsUpdated: zod.array(signedWebhookSchema),
 })
 
 type SignedWebhook = zod.infer<typeof signedWebhookSchema>
@@ -183,6 +184,28 @@ test.describe("billing", () => {
     await expect(listItem(page, TEST_BILLING_PRODUCTS.KIT.name).getByRole("button", { name: `Invoice ${kit.invoiceNumber}` })).toBeVisible()
     await expect(page.getByRole("button", { name: "Manage billing" })).toHaveCount(0)
     expect((await page.request.get(ROUTES.API_AUTH_CUSTOMER_PORTAL)).status()).toBe(HTTP_STATUS.FORBIDDEN)
+  })
+
+  test("a later subscription event changes the one copy of the subscription, and an older one delivered after it changes nothing", async ({
+    authPage,
+    page,
+    request,
+  }) => {
+    const customer = await signUp({ authPage, page, request }, { confirms: false })
+    const placed = await buy(request, { customer, product: TEST_BILLING_PRODUCTS.PLAN.id })
+    await openBilling(page, authPage)
+    const plan = listItem(page, TEST_BILLING_PRODUCTS.PLAN.name).filter({ hasText: TEST_BILLING_SHOWN.planPrice })
+    await expect(plan.getByText(/^Renews on /u)).toBeVisible()
+
+    for (const subscription of [...placed.subscriptionsUpdated, ...placed.subscriptionsCreated]) {
+      await deliver(request, subscription)
+    }
+
+    await openBilling(page, authPage)
+    await expect(plan).toHaveCount(1)
+    await expect(plan.getByText(/^Ends on /u)).toBeVisible()
+    await expect(plan.getByText(/^Renews on /u)).toHaveCount(0)
+    await expect(plan.getByText("Active", { exact: true })).toBeVisible()
   })
 
   test("an older order event delivered after a newer one leaves the one copy of the order as the newer event left it", async ({

@@ -40,12 +40,23 @@ type RouteSession = Awaited<ReturnType<typeof getCurrentSession>>
 
 const refusalSchema = zod.object({ message: zod.enum([ERROR_CODES.FORBIDDEN, ERROR_CODES.UNAUTHORIZED]) })
 
+const userDataOwners = new WeakMap<QueryClient, string | undefined>()
+
+const ownerOf = (session: RouteSession | undefined): string | undefined => session?.user.id
+
+export const recordUserDataOwner = (queryClient: QueryClient): void => {
+  if (!userDataOwners.has(queryClient) && queryClient.getQueryState(getCurrentSessionQuery.queryKey)?.status === "success") {
+    userDataOwners.set(queryClient, ownerOf(queryClient.getQueryData(getCurrentSessionQuery.queryKey)))
+  }
+}
+
 const loadRouteSession = async ({ context: { queryClient } }: AuthRouteContext, { fresh }: { fresh: boolean }): Promise<RouteSession> => {
-  const previousSession = queryClient.getQueryData(getCurrentSessionQuery.queryKey)
   const session = await queryClient.query(fresh ? { ...getCurrentSessionQuery, staleTime: 0 } : getCurrentSessionQuery)
-  if (previousSession?.user.id !== session?.user.id) {
+  const owner = ownerOf(session)
+  if (userDataOwners.get(queryClient) !== owner) {
     removeUserData(queryClient)
     queryClient.setQueryData(getCurrentSessionQuery.queryKey, session)
+    userDataOwners.set(queryClient, owner)
   }
   return session
 }

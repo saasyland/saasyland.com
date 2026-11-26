@@ -46,7 +46,6 @@ const COMPLETE: BlogPost = {
   ...noteSummary("Complete guide", "complete"),
   author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
   description: undefined,
-  faq: [{ answer: "Because.", question: "Why?" }],
   image: "/article.webp",
   path: "complete.en-US.mdx",
   related: [],
@@ -60,7 +59,6 @@ const COMPLETE: BlogPost = {
 
 const MINIMAL_ARTICLE: BlogPost = {
   ...COMPLETE,
-  faq: undefined,
   image: undefined,
   path: "minimal.en-US.mdx",
   summary: undefined,
@@ -442,7 +440,7 @@ describe("blog pages", () => {
     expect(screen.getAllByRole("link", { name: "Step 1 — Deploy" }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole("link", { name: "Ship it today" }).every((link) => link.getAttribute("href") === "#ship")).toBe(true)
     expect(document.querySelector('img[src="/article.webp"]')).toHaveAttribute("fetchpriority", "high")
-    expect(document.querySelector('script[type="application/ld+json"]')).toHaveTextContent("FAQPage")
+    expect(document.querySelector('script[type="application/ld+json"]')).toHaveTextContent("BlogPosting")
   })
 
   it("renders a minimal article without empty summary, image or tags", async () => {

@@ -2,6 +2,7 @@ import { globSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 
 import type { Page } from "@playwright/test"
+import { frontmatter } from "fumadocs-core/content/md/frontmatter"
 import { createTranslator } from "use-intl"
 import * as zod from "zod"
 
@@ -15,6 +16,7 @@ import { TIER_PRICES } from "../../src/data/license"
 import { CONSULTING_HOURLY_RATE } from "../../src/data/marketing"
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { readPageHead } from "../../src/lib/page-head"
+import { formatPostText } from "../../src/lib/post-text"
 import { SECURITY_TXT_CONTENT } from "../../src/lib/security-txt"
 import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, PAGES_SITEMAP_PATH, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
 import { isIndexable, listedPages } from "../../src/lib/sitemap"
@@ -29,11 +31,14 @@ const PNG_HEIGHT_OFFSET = 20
 const REQUESTS_AT_ONCE = 16
 const XML_CONTENT_TYPE = /^(?:application|text)\/xml/u
 const PLAIN_TEXT_UTF8 = /^text\/plain;\s*charset=utf-8$/iu
+const STRUCTURED_DATA_TYPE = /"@type":"(?<type>[^"]+)"/gu
+const BLOG_POST_SLUG = basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")
+const BLOG_POST = `${ROUTES.BLOG.INDEX}/${BLOG_POST_SLUG}`
 
 const SHARED_PAGES = [
   ROUTES.HOME,
   `${ROUTES.DOCS.INDEX}/conventions/files-and-naming`,
-  `${ROUTES.BLOG.INDEX}/${basename(globSync("content/blog/*.en-US.mdx").toSorted()[0] ?? "", ".en-US.mdx")}`,
+  BLOG_POST,
 ].flatMap((path) => [path, `/ja-JP${path === ROUTES.HOME ? "" : path}`])
 
 
@@ -55,6 +60,8 @@ const landingCopySchema = zod.object({
 })
 
 const consultingCopySchema = zod.object({ consulting: zod.object({ period: zod.string() }) })
+
+const postFaqSchema = zod.object({ faq: zod.array(zod.object({ answer: zod.string(), question: zod.string() })) })
 
 const readCopy = (locale: SupportedLocale, namespace: string): unknown =>
   JSON.parse(readFileSync(`messages/${locale}/${namespace}.json`, "utf8"))
@@ -207,6 +214,23 @@ for (const locale of I18N.SUPPORTED_LOCALES) {
     for (const answer of answers) {
       expect(collapse(answer)).not.toBe("")
       expect(text).toContain(collapse(answer))
+    }
+  })
+
+  const post = localizePathname({ locale, pathname: BLOG_POST })
+  const { faq } = postFaqSchema.parse(frontmatter(readFileSync(`content/blog/${BLOG_POST_SLUG}.${locale}.mdx`, "utf8")).data)
+
+  test(`${post} carries every FAQ question and answer in its prerendered text and no FAQPage in its structured data`, async ({ page, request }) => {
+    const html = await (await request.get(post)).text()
+    const text = await readerText(page, html)
+    const types = Array.from(html.matchAll(STRUCTURED_DATA_TYPE), ({ groups }) => groups?.["type"])
+
+    expect(types).toContain("BlogPosting")
+    expect(types).not.toContain("FAQPage")
+    expect(faq.length).toBeGreaterThan(0)
+    for (const { answer, question } of faq) {
+      expect(text).toContain(collapse(formatPostText({ locale, text: question })))
+      expect(text).toContain(collapse(formatPostText({ locale, text: answer })))
     }
   })
 }

@@ -130,7 +130,7 @@ describe("docs index", () => {
 })
 
 describe("blog index", () => {
-  it("lists a locale's published posts newest first with their frontmatter", async () => {
+  it("lists a locale's published posts newest first with their frontmatter, leaving the FAQ to the post that renders it", async () => {
     const { blog } = await createContentIndexes(createContentDirectory(BLOG))
     const posts = await blog("en-US")
 
@@ -139,7 +139,6 @@ describe("blog index", () => {
       author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
       date: "2026-09-02",
       description: "Newer description",
-      faq: undefined,
       image: undefined,
       path: "newer.en-US.mdx",
       summary: "Newer excerpt",
@@ -147,8 +146,8 @@ describe("blog index", () => {
       updated: undefined,
       url: "/blog/newer",
     })
+    expect(posts[1]).not.toHaveProperty("faq")
     expect(posts[1]).toMatchObject({
-      faq: [{ answer: "Because.", question: "Why?" }],
       image: "/older.webp",
       summary: "Older description",
       tags: [],

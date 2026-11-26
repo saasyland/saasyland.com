@@ -18,6 +18,7 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { ProofSection } from "~/src/presentation/components/custom/landing-page/sections/proof-section"
 
 import english from "~/messages/en-US/pages.landing.json"
+import proof from "~/messages/en-US/pages.landing.proof.json"
 import { getRouter } from "~/src/router"
 
 const fetchStarsMock = vi.hoisted(() => vi.fn<() => Promise<number>>())
@@ -64,7 +65,7 @@ describe("landing page star count during server rendering", () => {
       <QueryClientProvider client={queryClient}>
         <IntlProvider
           locale="en-US"
-          messages={{ navigation: getTestMessages("en-US")["navigation"], pages: { landing: english } }}
+          messages={{ navigation: getTestMessages("en-US")["navigation"], pages: { landing: { ...english, proof } } }}
           timeZone="UTC"
         >
           <ProofSection />

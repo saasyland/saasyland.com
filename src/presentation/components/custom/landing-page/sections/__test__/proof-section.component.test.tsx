@@ -12,8 +12,8 @@ import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { ProofSection } from "~/src/presentation/components/custom/landing-page/sections/proof-section"
 
-import german from "~/messages/de-DE/pages.landing.json"
-import english from "~/messages/en-US/pages.landing.json"
+import german from "~/messages/de-DE/pages.landing.proof.json"
+import english from "~/messages/en-US/pages.landing.proof.json"
 import { ROUTES } from "~/src/routes"
 
 const fetchStarsMock = vi.hoisted(() => vi.fn<() => Promise<number>>())
@@ -36,7 +36,7 @@ const shownStars = (label: string) => screen.getByText(label, { selector: "dt" }
 const renderProof = (locale: "en-US" | "de-DE" = "en-US") =>
   render(
     <QueryClientProvider client={queryClient}>
-      <IntlProvider locale={locale} messages={{ pages: { landing: locale === "de-DE" ? german : english } }} timeZone="UTC">
+      <IntlProvider locale={locale} messages={{ pages: { landing: { proof: locale === "de-DE" ? german : english } } }} timeZone="UTC">
         <ProofSection />
       </IntlProvider>
     </QueryClientProvider>,
@@ -70,8 +70,8 @@ describe("landing page proof statistics", () => {
   })
 
   it.each([
-    { formatted: "54,321", label: english.proof.facts.stars.label, locale: "en-US" },
-    { formatted: "54.321", label: german.proof.facts.stars.label, locale: "de-DE" },
+    { formatted: "54,321", label: english.facts.stars.label, locale: "en-US" },
+    { formatted: "54.321", label: german.facts.stars.label, locale: "de-DE" },
   ] as const)("formats the actual GitHub count for $locale", async ({ formatted, label, locale }) => {
     fetchStarsMock.mockResolvedValue(54_321)
 
@@ -142,6 +142,6 @@ describe("landing page proof statistics", () => {
     expect(screen.getByText("100%", { selector: "dd" })).toBeVisible()
     expect(screen.getByText("54,321", { selector: "dd" })).toBeVisible()
     expect(screen.queryByText("—", { selector: "dd" })).not.toBeInTheDocument()
-    expect(shownStars(english.proof.facts.stars.label)).toBe("54,321")
+    expect(shownStars(english.facts.stars.label)).toBe("54,321")
   })
 })

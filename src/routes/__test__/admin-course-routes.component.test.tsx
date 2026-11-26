@@ -7,6 +7,8 @@ import { toast } from "sonner"
 import { IntlProvider } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
+
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
 import { LOCALE_REWRITE } from "~/src/integrations/use-intl/i18n.utils"
@@ -267,11 +269,6 @@ const lessonRow = (title: string): HTMLElement => {
     throw new Error(`Missing lesson ${title}`)
   }
   return row
-}
-
-const fill = async (user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string): Promise<void> => {
-  await user.click(field)
-  await user.paste(text)
 }
 
 const chooseLanguage = async (user: ReturnType<typeof userEvent.setup>, locale: string): Promise<void> => {

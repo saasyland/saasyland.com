@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider, useTranslations } from "use-intl/react"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
 import { createTestRouter, renderWithRouter } from "~/src/platform/testing/lib/render"
 import { createTestRequestUrl } from "~/src/platform/testing/lib/test-request"
 
@@ -80,15 +81,15 @@ const renderOnPage = (pathname: string, ui: React.ReactElement) => {
 }
 
 const signInWith = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-  await user.type(screen.getByLabelText(/email/iu), EMAIL)
-  await user.type(screen.getByLabelText(/^password/iu), PASSWORD)
+  await fill(user, screen.getByLabelText(/email/iu), EMAIL)
+  await fill(user, screen.getByLabelText(/^password/iu), PASSWORD)
   await user.click(screen.getByTestId("sign-in-form-submit-button"))
 }
 
 const signUpWith = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-  await user.type(screen.getByLabelText(/^name$/iu), "Ada Lovelace")
-  await user.type(screen.getByLabelText(/email/iu), EMAIL)
-  await user.type(screen.getByLabelText(/^password$/iu), PASSWORD)
+  await fill(user, screen.getByLabelText(/^name$/iu), "Ada Lovelace")
+  await fill(user, screen.getByLabelText(/email/iu), EMAIL)
+  await fill(user, screen.getByLabelText(/^password$/iu), PASSWORD)
   await user.click(screen.getByRole("button", { name: "Continue" }))
 }
 
@@ -180,7 +181,7 @@ describe("return path through the auth pages", () => {
   it("carries the typed email and the return path to the forgot-password page", async () => {
     const { user } = renderOnPage(ROUTES.AUTH.SIGN_IN, <SignInForm />)
 
-    await user.type(screen.getByLabelText(/email/iu), EMAIL)
+    await fill(user, screen.getByLabelText(/email/iu), EMAIL)
 
     expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveAttribute(
       "href",

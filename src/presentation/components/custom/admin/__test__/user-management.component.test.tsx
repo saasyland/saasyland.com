@@ -4,6 +4,8 @@ import { toast } from "sonner"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
+
 import {
   createAuthSessionFixture,
   createAuthUserMutationResult,
@@ -104,9 +106,9 @@ const chooseAction = async (user: ReturnType<typeof userEvent.setup>, action: st
 const fillNewUser = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(screen.getByRole("button", { name: labels.actions.addUser }))
   const dialog = screen.getByRole("dialog")
-  await user.type(within(dialog).getByLabelText(labels.actions.createDialog.name), "Grace Hopper")
-  await user.type(within(dialog).getByLabelText(labels.actions.createDialog.email), "grace@example.com")
-  await user.type(within(dialog).getByLabelText(labels.actions.createDialog.password), "StrongerPass1!")
+  await fill(user, within(dialog).getByLabelText(labels.actions.createDialog.name), "Grace Hopper")
+  await fill(user, within(dialog).getByLabelText(labels.actions.createDialog.email), "grace@example.com")
+  await fill(user, within(dialog).getByLabelText(labels.actions.createDialog.password), "StrongerPass1!")
   return dialog
 }
 
@@ -278,7 +280,7 @@ describe("adding a user", () => {
     const { user } = renderUsers()
     await user.click(screen.getByRole("button", { name: labels.actions.addUser }))
     const dialog = screen.getByRole("dialog")
-    await user.type(within(dialog).getByLabelText(labels.actions.createDialog.email), "not-an-email")
+    await fill(user, within(dialog).getByLabelText(labels.actions.createDialog.email), "not-an-email")
     fireEvent.blur(within(dialog).getByLabelText(labels.actions.createDialog.email))
     await user.click(within(dialog).getByRole("button", { name: labels.actions.createDialog.confirm }))
 
@@ -322,7 +324,7 @@ describe("editing a user", () => {
     expect(dialog).toHaveTextContent(ada.email)
     const name = within(dialog).getByLabelText(labels.actions.editDialog.name)
     await user.clear(name)
-    await user.type(name, "Augusta Ada King")
+    await fill(user, name, "Augusta Ada King")
     await user.click(within(dialog).getByRole("button", { name: labels.actions.editDialog.confirm }))
 
     await waitFor(() => {
@@ -562,7 +564,7 @@ describe("resetting a password", () => {
     await chooseAction(user, labels.actions.row.resetPassword)
     const dialog = screen.getByRole("dialog")
     const input = within(dialog).getByLabelText(labels.actions.resetPasswordDialog.password)
-    await user.type(input, "StrongerPass1!")
+    await fill(user, input, "StrongerPass1!")
     fireEvent.blur(input)
     const submit = within(dialog).getByRole("button", { name: labels.actions.resetPasswordDialog.confirm })
     await user.click(submit)

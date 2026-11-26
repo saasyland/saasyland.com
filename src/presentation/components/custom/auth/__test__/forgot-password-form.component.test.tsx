@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
 import { createTestRouter, renderWithRouter as render } from "~/src/platform/testing/lib/render"
 
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
@@ -77,7 +78,7 @@ describe("forgot password form", () => {
     renderWithAuthMessages(<ForgotPasswordForm />)
     const email = screen.getByLabelText(/email/iu)
 
-    await user.type(email, "not-an-email")
+    await fill(user, email, "not-an-email")
     expect(email).toHaveAttribute("aria-invalid", "false")
     expect(screen.queryByText(authValidationMessages.emailInvalid)).not.toBeInTheDocument()
 
@@ -103,7 +104,7 @@ describe("forgot password form", () => {
     const email = screen.getByLabelText(/email/iu)
     const submit = screen.getByTestId("forgot-password-form-submit-button")
 
-    await user.type(email, TEST_EMAIL)
+    await fill(user, email, TEST_EMAIL)
     await user.click(submit)
     await waitFor(() => {
       expect(toastErrorMock).toHaveBeenCalledOnce()
@@ -127,7 +128,7 @@ describe("forgot password form", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<ForgotPasswordForm />, `${ROUTES.AUTH.FORGOT_PASSWORD}?redirect=%2Fapp%2Flicense`)
 
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.click(screen.getByTestId("forgot-password-form-submit-button"))
 
     await waitFor(() => {
@@ -144,7 +145,7 @@ describe("forgot password form", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime, delay: null })
     renderWithAuthMessages(<ForgotPasswordForm />)
 
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.click(screen.getByTestId("forgot-password-form-submit-button"))
 
     const resend = await screen.findByRole("button", { name: new RegExp(`^${pagesAuthForgotPasswordMessages.sent.resend}`, "u") })
@@ -175,7 +176,7 @@ describe("forgot password form", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<ForgotPasswordForm />)
 
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.click(screen.getByTestId("forgot-password-form-submit-button"))
 
     expect(await screen.findByRole("status")).toHaveTextContent("We've sent 3 links to this address in the last hour")
@@ -186,7 +187,7 @@ describe("forgot password form", () => {
     const user = userEvent.setup({ delay: null })
     renderWithAuthMessages(<ForgotPasswordForm />)
 
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.click(screen.getByTestId("forgot-password-form-submit-button"))
     await user.click(await screen.findByRole("button", { name: pagesAuthForgotPasswordMessages.sent.useDifferentEmail }))
 
@@ -202,7 +203,7 @@ describe("forgot password form", () => {
     renderWithAuthMessages(<ForgotPasswordForm />)
     const submit = screen.getByTestId("forgot-password-form-submit-button")
 
-    await user.type(screen.getByLabelText(/email/iu), TEST_EMAIL)
+    await fill(user, screen.getByLabelText(/email/iu), TEST_EMAIL)
     await user.click(submit)
 
     expect(submit).toHaveTextContent(pagesAuthForgotPasswordMessages.form.submitting)

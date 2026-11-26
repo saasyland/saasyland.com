@@ -1,9 +1,11 @@
 import { createColumnHelper } from "@tanstack/react-table"
-import { screen, waitFor, within } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import { DATA_GRID_FILTER, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
+import { controlTimers, passTime } from "~/src/platform/testing/lib/clock"
+
+import { DATA_GRID_FILTER, DATA_GRID_TYPING_DELAY_MS, type DataGridFeatures } from "~/src/integrations/tanstack-table/table.features"
 
 import {
   type Person,
@@ -50,7 +52,7 @@ describe("data grid filters", () => {
   })
 
   it("filters a text column after the visitor stops typing and counts the filter on the button", async () => {
-    const user = userEvent.setup()
+    const user = controlTimers()
     renderGrid()
 
     const dialog = await openFilter(user, "Name")
@@ -58,32 +60,29 @@ describe("data grid filters", () => {
     expect(within(dialog).getByRole("button", { name: filters.clear })).toBeDisabled()
     await user.paste(" ad ")
 
-    await waitFor(() => {
-      expect(columnTexts("Name")).toStrictEqual(["Ada"])
-    })
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
+    expect(columnTexts("Name")).toStrictEqual(["Ada"])
     expect(screen.getByRole("button", { hidden: true, name: /^Filter1/u })).toBeInTheDocument()
     await user.click(within(dialog).getByRole("button", { name: filters.back }))
     expect(screen.getByRole("option", { name: "Name: contains “ad”" })).toBeVisible()
   })
 
   it("reopens a filter from its chip", async () => {
-    const user = userEvent.setup()
+    const user = controlTimers()
     renderGrid()
 
     await openFilter(user, "Name")
     await user.paste("ad")
-    await waitFor(() => {
-      expect(columnTexts("Name")).toStrictEqual(["Ada"])
-    })
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
+    expect(columnTexts("Name")).toStrictEqual(["Ada"])
     await closePopover(user)
 
     await user.click(within(chip("Name")).getByRole("button", { name: "Name: contains “ad”" }))
     const field = within(screen.getByRole("dialog")).getByRole("textbox", { name: "Name" })
     expect(field).toHaveValue("ad")
     await user.clear(field)
-    await waitFor(() => {
-      expect(columnTexts("Name")).toHaveLength(3)
-    })
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
+    expect(columnTexts("Name")).toHaveLength(3)
   })
 
   it("keeps one option of a single choice and lets the visitor take it back", async () => {

@@ -3,6 +3,11 @@ import { act, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { controlTimers, passTime } from "~/src/platform/testing/lib/clock"
+import { fill } from "~/src/platform/testing/lib/fill"
+
+import { DATA_GRID_TYPING_DELAY_MS } from "~/src/integrations/tanstack-table/table.features"
+
 import { MAX_PAGE_SIZE } from "~/src/modules/_core/utils/pagination"
 
 import * as download from "~/src/lib/download"
@@ -73,13 +78,13 @@ describe("data grid on the server", () => {
   })
 
   it("sends the trimmed search once the visitor stops typing", async () => {
-    const user = userEvent.setup()
+    const user = controlTimers()
     const fetchPage = servedPage(PEOPLE, 3)
     renderServerGrid(fetchPage)
     await screen.findByText("Ada")
 
-    await user.click(screen.getByRole("searchbox", { name: SEARCH.search }))
-    await user.paste("  ada ")
+    await fill(user, screen.getByRole("searchbox", { name: SEARCH.search }), "  ada ")
+    await passTime(DATA_GRID_TYPING_DELAY_MS)
 
     await waitFor(() => {
       expect(fetchPage).toHaveBeenLastCalledWith({ ...FIRST_REQUEST, search: "ada" })

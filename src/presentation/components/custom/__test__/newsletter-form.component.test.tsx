@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
 import { renderWithRouter } from "~/src/platform/testing/lib/render"
 
 import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test__/fixtures/auth.session.fixture"
@@ -63,7 +64,7 @@ afterEach(() => {
 describe("newsletter form", () => {
   it("invalidates the newsletter subscription after success without invalidating the session", async () => {
     const { queryClient, user } = renderForm()
-    await user.type(screen.getByRole("textbox", { name: formMessages.label }), TEST_EMAIL)
+    await fill(user, screen.getByRole("textbox", { name: formMessages.label }), TEST_EMAIL)
     await user.click(screen.getByRole("button", { name: formMessages.button }))
 
     await waitFor(() => {
@@ -78,7 +79,7 @@ describe("newsletter form", () => {
   it("preserves both caches and the entered email when subscribing fails", async () => {
     subscribeMock.mockRejectedValue(new Error("Email delivery failed"))
     const { queryClient, user } = renderForm()
-    await user.type(screen.getByRole("textbox", { name: formMessages.label }), TEST_EMAIL)
+    await fill(user, screen.getByRole("textbox", { name: formMessages.label }), TEST_EMAIL)
     await user.click(screen.getByRole("button", { name: formMessages.button }))
 
     await waitFor(() => {
@@ -95,7 +96,7 @@ describe("newsletter form", () => {
     const { user } = renderForm()
     const field = screen.getByRole("textbox", { name: formMessages.label })
     const submit = screen.getByRole("button", { name: formMessages.button })
-    await user.type(field, TEST_EMAIL)
+    await fill(user, field, TEST_EMAIL)
     await user.click(submit)
 
     expect(submit).toHaveTextContent(formMessages.submitting)
@@ -121,7 +122,7 @@ describe("newsletter form", () => {
   it("shows the localized validation error without subscribing when the email is invalid", async () => {
     const { user } = renderForm()
     const field = screen.getByRole("textbox", { name: formMessages.label })
-    await user.type(field, "not-an-email")
+    await fill(user, field, "not-an-email")
     await user.click(screen.getByRole("button", { name: formMessages.button }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent(authValidationMessages.emailInvalid)

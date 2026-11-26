@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
+
 import { LESSON_ACCESS, LESSON_FORMAT, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import type { createLessonMutation } from "~/src/modules/lesson/use-cases/create-lesson"
 
@@ -39,11 +41,6 @@ const renderDialog = async () => {
   const dialog = await screen.findByRole("dialog")
 
   return { dialog, user }
-}
-
-const fill = async (user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string): Promise<void> => {
-  await user.click(field)
-  await user.paste(text)
 }
 
 const chooseOption = async (user: ReturnType<typeof userEvent.setup>, label: string, option: string): Promise<void> => {

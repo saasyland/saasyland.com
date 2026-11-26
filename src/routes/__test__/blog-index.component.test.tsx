@@ -7,6 +7,8 @@ import userEvent from "@testing-library/user-event"
 import { IntlProvider } from "use-intl"
 import { describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
+
 import type { BlogPostSummary } from "~/src/integrations/fumadocs/fumadocs.blog"
 import { getTestMessages } from "~/src/integrations/use-intl/__test__/fixtures/messages"
 import { I18N } from "~/src/integrations/use-intl/i18n.config"
@@ -157,7 +159,7 @@ describe("searching, filtering and sorting the blog", () => {
     const user = userEvent.setup({ delay: null })
     const router = await renderBlog({ locale: "en-US", path: "/blog", posts: ARCHIVE })
 
-    await user.type(screen.getByRole("searchbox", { name: archiveMessages.search }), "   ")
+    await fill(user, screen.getByRole("searchbox", { name: archiveMessages.search }), "   ")
 
     expect(archiveRows()).toHaveLength(ARCHIVE.length)
     expect(router.state.location.searchStr).toBe("")
@@ -229,7 +231,7 @@ describe("searching, filtering and sorting the blog", () => {
     const user = userEvent.setup({ delay: null })
     const router = await renderBlog({ locale: "en-US", path: `/blog?tag=${BLOG_TAG.AUTH}`, posts: ARCHIVE })
 
-    await user.type(screen.getByRole("searchbox", { name: archiveMessages.search }), "stripe")
+    await fill(user, screen.getByRole("searchbox", { name: archiveMessages.search }), "stripe")
 
     expect(await screen.findByText(archiveMessages.empty)).toBeVisible()
     expect(within(archiveSection()).getByText("No matches")).toBeVisible()

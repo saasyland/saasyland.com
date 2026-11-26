@@ -40,7 +40,7 @@ import {
 } from "~/src/presentation/components/shadcn/command"
 import { Kbd, KbdGroup } from "~/src/presentation/components/shadcn/kbd"
 
-const SEARCH_DEBOUNCE_MS = 200
+export const COMMAND_SEARCH_DEBOUNCE_MS = 200
 const RECENT_LIMIT = 5
 const RECENT_STORAGE_KEY = "admin-command-palette-recent"
 const APPLE_PLATFORM = /Mac|iPhone|iPad/u
@@ -143,7 +143,7 @@ const useDebounced = (value: string): string => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebounced(value)
-    }, SEARCH_DEBOUNCE_MS)
+    }, COMMAND_SEARCH_DEBOUNCE_MS)
     return () => {
       clearTimeout(timer)
     }

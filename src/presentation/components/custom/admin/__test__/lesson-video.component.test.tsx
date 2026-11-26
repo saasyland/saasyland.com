@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event"
 import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
+import { fill } from "~/src/platform/testing/lib/fill"
+
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import type { Course } from "~/src/modules/course/course.types"
 import { LESSON_ACCESS, LESSON_FORMAT, LESSON_MUTATION_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
@@ -496,10 +498,10 @@ describe("video picker", () => {
     expect(within(dialog).getByRole("button", { name: "Use Boundaries take" })).toBeDisabled()
     expect(within(dialog).getByText(copy.picker.current)).toBeVisible()
 
-    await user.type(within(dialog).getByRole("searchbox", { name: copy.picker.search }), "spare")
+    await fill(user, within(dialog).getByRole("searchbox", { name: copy.picker.search }), "spare")
     expect(within(dialog).queryByText(VIDEO.title)).toBeNull()
     await user.clear(within(dialog).getByRole("searchbox", { name: copy.picker.search }))
-    await user.type(within(dialog).getByRole("searchbox", { name: copy.picker.search }), "nothing")
+    await fill(user, within(dialog).getByRole("searchbox", { name: copy.picker.search }), "nothing")
     expect(within(dialog).getByText("No video matches “nothing”.")).toBeVisible()
   })
 

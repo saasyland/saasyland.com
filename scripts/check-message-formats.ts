@@ -14,7 +14,7 @@ import process from "node:process"
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
 import { formOfAddressProblems } from "~/src/lib/forms-of-address"
-import { literalTextOf } from "~/src/lib/polish-copy"
+import { literalTextOf } from "~/src/lib/glossary-copy"
 
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
 

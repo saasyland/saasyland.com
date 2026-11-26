@@ -143,6 +143,7 @@ import {
 } from "~/src/data/cli"
 import { DATA_GRID_ACTIONS_SIZE, DATA_GRID_DATE_PRESETS } from "~/src/data/data-grid"
 import { AUDIT_EXCEPTION_MAX_DAYS, BLOCKING_SEVERITIES } from "~/src/data/dependency-audit"
+import { GERMAN_NAMES, GERMAN_PHRASES, GERMAN_TERMS } from "~/src/data/german-glossary"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { CORE_PRICE_IN_HOURS, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import { LOCAL_SERVER_ORIGIN, TEST_SERVER_PORTS } from "~/src/data/local-server"
@@ -176,7 +177,7 @@ import { LIVE_SITE_CHECKS, LIVE_SITE_CHECK_RETRY_DELAYS_MS, LIVE_SITE_CHECK_RETR
 import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "~/src/lib/duration"
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
-import { CONTEXT_TERMS, neverTermText } from "~/src/lib/glossary-terms"
+import { POLISH_GLOSSARY, neverTermText } from "~/src/lib/glossary-terms"
 import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { SOCIAL_IMAGE } from "~/src/lib/seo"
@@ -374,7 +375,7 @@ const FACTS = {
   passwordMaxLength: PASSWORD_MAX_LENGTH,
   passwordMinLength: PASSWORD_MIN_LENGTH,
   plainUseCases: moduleTables.plainUseCases,
-  polishContextTerms: CONTEXT_TERMS,
+  polishContextTerms: POLISH_GLOSSARY.contextTerms,
   posterSmallWidth: POSTER_SMALL_WIDTH,
   posterWidth: POSTER_WIDTH,
   publicUseCases: moduleTables.publicUseCases,
@@ -473,6 +474,9 @@ const TABLES = {
 
     return [locale, form, never, neverInsideSentence, neverEndingSentence, neverStartingClause, clauseOpeners] as const
   }),
+  germanNames: glossaryTable(GERMAN_NAMES),
+  germanPhrases: glossaryTable(GERMAN_PHRASES),
+  germanTerms: glossaryTable(GERMAN_TERMS),
   missingFlowGaps: flowTables.missing.map(
     ([, feature, outcome, reason]) => [flowFeature(feature), { text: outcome }, { text: reason }] as const,
   ),

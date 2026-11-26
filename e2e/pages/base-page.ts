@@ -72,6 +72,14 @@ export class BasePage {
       .toBe(true)
   }
 
+  async waitForHydratedElement(element: Locator): Promise<void> {
+    await expect
+      .poll(async () => element.evaluate((node, prefix) => Object.keys(node).some((key) => key.startsWith(prefix)), REACT_FIBER_KEY_PREFIX), {
+        timeout: APP_READY_TIMEOUT_MS,
+      })
+      .toBe(true)
+  }
+
   async watchForText(text: string): Promise<() => Promise<boolean>> {
     const marker = `__sawText:${text}`
     await this.page.evaluate(

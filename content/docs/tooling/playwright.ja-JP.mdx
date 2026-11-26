@@ -12,18 +12,22 @@ bun run test:e2e:smoke
 bun run test:e2e:pr
 bun run test:e2e:headed
 bun run test:e2e:ui
+bun run test:visual
+bun run test:visual:update
 bun run test:journey
 ```
 
-| スクリプト         | 実行内容                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `test:e2e:install` | Chromium と WebKit をシステムの依存関係とともにインストールします                          |
-| `test:e2e`         | すべてのスペックを Chromium と WebKit で実行します                                         |
-| `test:e2e:smoke`   | `e2e/specs/smoke.spec.ts` を Chromium で実行します                                         |
-| `test:e2e:pr`      | プルリクエストの CI の Chromium チェックと同じく、すべてのスペックを Chromium で実行します |
-| `test:e2e:headed`  | すべてのスペックを表示されるブラウザーで実行します                                         |
-| `test:e2e:ui`      | Playwright の UI モード                                                                    |
-| `test:journey`     | プレビューに対する[ジャーニースイート](#journey-suite)                                     |
+| スクリプト           | 実行内容                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| `test:e2e:install`   | Chromium と WebKit をシステムの依存関係とともにインストールします                          |
+| `test:e2e`           | すべてのスペックを Chromium と WebKit で実行します                                         |
+| `test:e2e:smoke`     | `e2e/specs/smoke.spec.ts` を Chromium で実行します                                         |
+| `test:e2e:pr`        | プルリクエストの CI の Chromium チェックと同じく、すべてのスペックを Chromium で実行します |
+| `test:e2e:headed`    | すべてのスペックを表示されるブラウザーで実行します                                         |
+| `test:e2e:ui`        | Playwright の UI モード                                                                    |
+| `test:visual`        | Playwright の Docker イメージの Chromium で[ビジュアルテスト](#visual-tests)を実行します   |
+| `test:visual:update` | ビジュアルテストを実行し、一致しなくなったスクリーンショットを書き直します                 |
+| `test:journey`       | プレビューに対する[ジャーニースイート](#journey-suite)                                     |
 
 ## 設定 [#configuration]
 
@@ -77,6 +81,50 @@ axe はキーボードの操作の流れもレイアウトも確認できない�
 ## スクロールバー [#scrollbars]
 
 `e2e/specs/scrollbars.spec.ts` は、`launchOptions` の `ignoreDefaultArgs` で Playwright の `--hide-scrollbars` スイッチを外して Chromium を起動します。そのため Chromium は、Windows や Linux、スクロールバーを常に表示する設定の Mac と同じく、場所を取るクラシックなスクロールバーを描画します。このスペックは、法的情報のページ、認証ページ、管理画面のページが、ページがスクロールしなくなるまでウィンドウを広げても見出しの位置を保つこと（ドキュメントのページは、画面の高さいっぱいのレイアウトの後にサイトのフッターが続くため、常にスクロールします）、ドキュメントの検索、言語の選択、ダイアログ、メニューを開いても何も動かないこと、`/admin` がウィンドウいっぱいに広がること、ライトテーマでもダークなページの背後のウィンドウがダークであることを確認します。macOS の WebKit は場所を取らないオーバーレイのスクロールバーしか描画せず、起動オプションでは変えられないため、確保した場所の確認は Chromium でのみ実行します。ヘッダーのリンクを `lg` 未満で置き換えるサイトのメニューは 768 px で確認し、開閉しても何も動かないことを確かめます。
+
+## ビジュアルテスト [#visual-tests]
+
+`e2e/specs/visual-*.spec.ts` は、訪問者が見る画面を `e2e/specs/__screenshots__/` にある承認済みのスクリーンショットと比べます。見出しが 1 行増えて折り返す、カードが増える、セクションがずれるといった変更は、ほかのテストがすべて通ってもプルリクエストを失敗させます。これらのスペックは専用の Playwright プロジェクト `visual` で動きます。`playwright.config.ts` は `PLAYWRIGHT_VISUAL_BROWSER` がブラウザーサーバーを指すときだけこのプロジェクトを定義し、`chromium` と `webkit` のプロジェクトはこれらのスペックを実行しません。
+
+```sh
+bun run test:visual
+bun run test:visual:update
+```
+
+| スペック                                         | スクリーンショット                                                                                                             | ロケールと幅                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `visual-landing.spec.ts`, `visual-facts.spec.ts` | ランディングページのヘッダー、ヒーロー、数字のグリッド、ほかの選択肢を含む料金、事例、マニフェスト、締めのセクション、フッター | すべてのロケールをすべての幅で                               |
+| `visual-content.spec.ts`                         | ブログ記事の末尾にある著者カードと行動喚起                                                                                     | すべてのロケールをスマートフォン幅で、英語をデスクトップ幅で |
+| `visual-content.spec.ts`                         | ドキュメントのページ                                                                                                           | 英語を両方の幅で、ドイツ語をデスクトップ幅で                 |
+| `visual-auth.spec.ts`                            | サインインした訪問者のヘッダー、`/admin`、`/admin/settings`                                                                    | 英語を両方の幅で、ドイツ語をデスクトップ幅で                 |
+| `visual-billing.spec.ts`                         | `/app/billing`                                                                                                                 | 英語を両方の幅で、ドイツ語をデスクトップ幅で                 |
+
+ロケールは <RepositoryFact name="visualLocales" />、幅は <RepositoryFact name="visualWidths" /> px で、スクリーンショットは全部で <RepositoryFact name="visualScreenshots" /> 枚です。ランディングページで変わるのは主に文章なので、各セクションはすべてのロケールで両方の幅を撮ります。ブログ記事の下のカードは長い単語が折り返すスマートフォンで崩れるので、すべてのロケールでスマートフォン幅を撮ります。管理画面と顧客向け画面のレイアウトは文章ではなくコンポーネントで決まります。英語の両方の幅でレイアウトを確かめ、単語がいちばん長いドイツ語で収まらなくなったラベルを確かめます。
+
+### 毎回同じピクセル [#same-pixels-on-every-run]
+
+- ブラウザーのコンテキストは `reducedMotion: "reduce"` を設定します。そのためヒーローの登場アニメーション、スクロールで現れるセクション、ループ動画は止まったままで、動画はポスター画像を表示します。`toHaveScreenshot` はスタックのマーキーなどほかのアニメーションをすべて止め、テキストカーソルを隠します。
+- テーマはダーク、タイムゾーンは UTC です。
+- 最初のスクリーンショットの前に、`e2e/fixtures/visual.ts` の `openForScreenshots` がページの描画とハイドレーションを待ち、遅延読み込みの画像も含めてすべての画像を読み込んでデコードし、`document.fonts.ready` を待ちます。
+- `expectRegion` はページ全体からセクションをその位置のまま切り出すので、固定ヘッダーがセクションに重なることはありません。
+- レイアウトが変わらなくても変わる値はマスクで隠します。リポジトリのファイル数と GitHub のスター数を数える数字、そしてフッターの著作権表示の年です。
+- データは初期データを投入したテスト用データベースから来ます。スイートの URL ですでにサーバーが応答していると `scripts/visual-tests.ts` は最初のテストの前に止まるので、Playwright 自身がデータベースをリセットし、ビルドしてサーバーを起動します。CI ではジョブが初期データ付きのビルドを自分用に展開します。
+
+### どのマシンでも同じブラウザー [#the-same-browser-on-every-machine]
+
+フォントの描画は macOS と Linux で違い、Linux のイメージ同士でも違うため、ビジュアルテストは実行するマシンのブラウザーを使いません。`scripts/visual-tests.ts` は Playwright のブラウザーサーバーを `linux/amd64` 向けの Docker イメージ `<RepositoryFact name="visualBrowserImage" />` で起動し（Apple シリコンの Docker Desktop はこれをエミュレートします）、そのアドレスを `PLAYWRIGHT_VISUAL_BROWSER` で渡して `playwright test --project=visual` を実行します。テストは `connectOptions` で接続し、その `exposeNetwork: "<loopback>"` によってブラウザーはマシンのループバック上のテストサーバーに届きます。イメージのタグはインストール済みの `@playwright/test` に合わせるので、`bun run deps:update` はブラウザーとテストランナーを一緒に更新します。ノートパソコンと CI は同じピクセルを描くので、ローカルで撮った基準画像は CI でも通ります。`test:visual` には起動中の Docker が必要です。
+
+### しきい値 [#threshold]
+
+スクリーンショットは、ピクセルの <RepositoryFact name="visualMaxDiffPercent" unit="percent" /> を超えて違うと失敗します。ピクセルが違うと数えるのは、その色が Playwright のピクセルごとのしきい値を超えたときだけです。ブラウザーとフォントはどこでも同じなので、変更のないページは 1 ピクセルも違いません。別の CPU がアンチエイリアスを 1、2 段階違えて丸めても、このしきい値の内に収まります。見出しが 1 行増えて折り返したりカードが増えたりしてスクリーンショットの大きさが変わると、しきい値に関係なく失敗します。ヒーローの段落に単語を 1 つ足すだけでも、しきい値が許すより多くのピクセルが変わります。
+
+### 基準画像を更新する [#updating-the-baselines]
+
+レイアウトや文章の変更が意図したものなら、`bun run test:visual:update` を実行し、`e2e/specs/__screenshots__/` で変わった PNG をブランチの差分で 1 枚ずつ開いて確かめ、変更と一緒にコミットします。`--update-snapshots=changed` は一致しなくなったスクリーンショットだけを書き直します。CI で `visual` ジョブが失敗すると、`test-results/` を `visual-differences` アーティファクトとしてアップロードし、失敗したスクリーンショットごとに期待画像、実際の画像、差分画像を残します。
+
+### CI では [#in-ci]
+
+`e2e-reusable.yml` の `visual` ジョブは Chromium でだけ、シャードと並んで動きます。シャードと同じようにテストビルドを待って展開し、`bun run test:visual` を実行します。このジョブが通らなければ `Build and E2E (chromium)` チェックは失敗します。基準画像が Chromium のものなのは、WebKit が文字とサブピクセルを違う方法で描くためです。WebKit にはもう 1 組の基準画像と同じレイアウトのもう 1 回のレビューが必要になりますが、WebKit の動作は WebKit のチェックが引き続き確かめます。
 
 ## ジャーニースイート [#journey-suite]
 

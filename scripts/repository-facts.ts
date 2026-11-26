@@ -9,6 +9,7 @@ import { TEST_ACCOUNTS, TEST_PASSWORD } from "../e2e/data/accounts.ts"
 import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "../e2e/data/flows.ts"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../e2e/data/licenses.ts"
 import { FOOTER_PHONE_WIDTHS, TEXT_LAYOUT_VIEWPORTS } from "../e2e/data/viewports.ts"
+import { VISUAL_LOCALES, VISUAL_MAX_DIFF_PIXEL_RATIO, VISUAL_VIEWPORTS } from "../e2e/data/visual.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
 import { MILLISECONDS_PER_SECOND, SECONDS_PER_DAY } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
@@ -20,6 +21,7 @@ import { LINK_COMMENT_WORDS } from "./code-style-lint-plugin.ts"
 import { COMMIT_EMOJIS } from "./commit-msg.ts"
 import { LOCAL_ADMIN } from "./local-admin.ts"
 import { ISSUE_TITLE } from "./report-updates.ts"
+import { visualBrowserImage } from "./visual-tests.ts"
 import { readBucketNames } from "./wrangler-config.ts"
 
 const MODULE_ID = "virtual:repository-facts"
@@ -41,6 +43,8 @@ const JOURNEY_SPEC = "journey.spec.ts"
 const GLOBAL_STYLESHEET = "src/presentation/styles/globals.css"
 const STATIC_HEADERS = "public/_headers"
 const PIXELS_PER_REM = 16
+const PERCENT = 100
+const VISUAL_SCREENSHOTS = "e2e/specs/__screenshots__/**/*.png"
 const MODULES_PATH = "src/modules"
 const SERVER_FUNCTION = "createServerFn"
 
@@ -109,8 +113,10 @@ const countFiles = (pattern: string): number => globSync(pattern).length
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(path, "utf8"))
 
+const versionOf = (packageName: string): string => packageSchema.parse(readJson(`node_modules/${packageName}/package.json`)).version
+
 const majorVersionOf = (packageName: string): number => {
-  const [major] = packageSchema.parse(readJson(`node_modules/${packageName}/package.json`)).version.split(".")
+  const [major] = versionOf(packageName).split(".")
 
   return Number(major)
 }
@@ -356,6 +362,9 @@ export const collectRepositoryFacts = (config: unknown, browserTests: readonly B
     uiComponents: countFiles("src/presentation/components/shadcn/*.tsx"),
     updatesIssueTitle: ISSUE_TITLE,
     updatesSchedule: readSchedule(UPDATES_WORKFLOW),
+    visualBrowserImage: visualBrowserImage(versionOf("@playwright/test")),
+    visualMaxDiffPercent: VISUAL_MAX_DIFF_PIXEL_RATIO * PERCENT,
+    visualScreenshots: countFiles(VISUAL_SCREENSHOTS),
     vitestShards: readShards(CI_WORKFLOW),
   }
 }
@@ -377,6 +386,8 @@ export type CoverageScope = ReturnType<typeof collectCoverageScope>
 export const collectTestViewports = () => ({
   footerPhoneWidths: FOOTER_PHONE_WIDTHS.map(String),
   textLayoutWidths: TEXT_LAYOUT_VIEWPORTS.map(({ width }) => String(width)),
+  visualLocales: [...VISUAL_LOCALES],
+  visualWidths: Object.values(VISUAL_VIEWPORTS).map(({ width }) => String(width)),
 })
 
 export type TestViewports = ReturnType<typeof collectTestViewports>

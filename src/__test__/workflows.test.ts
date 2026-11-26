@@ -59,8 +59,9 @@ const BUILD_STEP = "Upload the test build"
 const BUILD_ARTIFACT = `BUILD_ARTIFACT: test-worker-${BROWSER}`
 const WAIT_FOR_BUILD = 'run: bun scripts/download-artifact.ts "$BUILD_JOB" "$BUILD_STEP" "$BUILD_ARTIFACT" test-worker.zip'
 const UNZIP_BUILD = "unzip -q test-worker.zip"
+const VISUAL_COMMAND = "run: bun run test:visual"
 const ACTIONS_READ = "\n      actions: read\n"
-const JOBS_WITH_ACTIONS_READ = 5
+const JOBS_WITH_ACTIONS_READ = 6
 const TEST_SHARD_COMMAND = `bun run test:coverage\n          --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}\n          --reporter=default --reporter=blob`
 const TEST_BLOB_ARTIFACT = `name: vitest-blob-${expression("matrix.shard")}`
 const DEPENDENCY_SCAN = "run: bun run deps:audit"
@@ -261,8 +262,9 @@ describe(E2E_WORKFLOW, () => {
     expect(shard).toContain("rm test-worker.zip test-worker.tar.zst test-worker.tags")
   })
 
-  it("gives only the shards actions: read, which the wait needs to read the run's jobs, and every caller grants it", () => {
+  it("gives only the shards and the visual tests actions: read, which the wait needs to read the run's jobs, and every caller grants it", () => {
     expect(jobOf(E2E, "shard")).toContain(ACTIONS_READ)
+    expect(jobOf(E2E, "visual")).toContain(ACTIONS_READ)
     expect(jobOf(E2E, "build")).not.toContain(ACTIONS_READ)
     expect(jobOf(E2E, "report")).not.toContain(ACTIONS_READ)
     expect(jobOf(CI, "e2e")).toContain(ACTIONS_READ)
@@ -284,13 +286,26 @@ describe(E2E_WORKFLOW, () => {
     expect(jobOf(E2E, "shard")).toContain("fail-fast: false")
   })
 
-  it("reports one check per browser that needs the build and every shard and fails unless both passed", () => {
+  it("reports one check per browser that needs the build, every shard and the visual tests and fails unless each passed or was skipped for WebKit", () => {
     const report = jobOf(E2E, "report")
 
     expect(report).toContain(AGGREGATE_CHECK)
-    expect(report).toContain("needs: [build, shard]")
+    expect(report).toContain("needs: [build, shard, visual]")
     expect(report).toContain(UNLESS_CANCELLED)
-    expect(report).toContain('if [[ "$BUILD_RESULT" != "success" || "$SHARD_RESULT" != "success" ]]; then')
+    expect(report).toContain(
+      'if [[ "$BUILD_RESULT" != "success" || "$SHARD_RESULT" != "success" || ("$VISUAL_RESULT" != "success" && "$VISUAL_RESULT" != "skipped") ]]; then',
+    )
+  })
+
+  it("runs the visual tests in Chromium only, on the shards' build, and uploads the differences when they fail", () => {
+    const visual = jobOf(E2E, "visual")
+
+    expect(visual).toContain("if: inputs.browser == 'chromium'")
+    expect(visual).toContain(BUILD_ARTIFACT)
+    expect(visual).toContain(WAIT_FOR_BUILD)
+    expect(visual).not.toContain("build:test")
+    expect(visual.indexOf(UNZIP_BUILD)).toBeLessThan(visual.indexOf(VISUAL_COMMAND))
+    expect(visual).toContain("name: visual-differences")
   })
 
   it("merges the shards' blob reports into one HTML report when a shard fails", () => {

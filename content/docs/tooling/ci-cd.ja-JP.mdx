@@ -37,6 +37,10 @@ description: "チェック、ブラウザーテスト、デプロイ、リリー
 
 `features` ジョブは `scripts/features.ts` の各シナリオについて `bun run check:features <scenario>` を並列に 1 回ずつ実行します。シナリオの機能を削除し、残るファイルがそれを指している箇所を刈り込み、刈り込んだファイルを整形してから、残りの型と翻訳をチェックします（[テスト](/docs/conventions/testing#tests-follow-the-features)）。刈り込めない参照、型エラー、翻訳エラーのどれかが残るシナリオはジョブを失敗させ、必須チェック `Format, lint, types, i18n, tests` も失敗させます。
 
+続いて `check` ジョブは `bun run deps:audit`、つまり[依存関係のスキャン](/docs/conventions/dependencies#security-advisories)を実行します。`scripts/audit-dependencies.ts` が本番依存関係に `bun audit` を実行し、有効な例外のない <RepositoryFact name="auditBlockingSeverities" /> のアドバイザリーがあれば失敗します。そのためプルリクエストがそのような依存関係を持ち込むことはできず、すでに `main` にある依存関係に新しいアドバイザリーが出た場合は、修正されるか例外が登録されるまで次のプルリクエストが止まります。スキャンは npm レジストリに問い合わせるため、レジストリの障害でもジョブは失敗します。その場合は再実行してください。
+
+`Software bill of materials` という名前の `sbom` ジョブは、毎回の実行で `bun run deps:sbom` を実行し、`sbom.cdx.json` を `sbom` アーティファクトとしてアップロードします。これは本番依存関係の CycloneDX SBOM で、各パッケージのバージョン、パッケージ URL、依存関係グラフを含みます。cdxgen が `bun.lock` から書き出し、devDependencies だけが必要とするパッケージを除外します。SBOM に `package.json` の依存関係が欠けていれば、`scripts/verify-sbom.ts` がジョブを失敗させます。`main` のコミットの SBOM は、そのコミットをテストしたマージグループの実行のアーティファクトです。cdxgen は devDependency ではなく、`deps:sbom` スクリプトに書かれた厳密なバージョンで `bunx` から実行します。オプションのスキャナーバイナリがインストールのたびに数百メガバイトを追加するためです。`scripts/dependencies.ts` の `readDependencies` がスクリプトからこのバージョンを読み取るので、新しい cdxgen は[更新の Issue](#updates) に固定パッケージとして表示されます。このジョブは必須チェックではありません。
+
 `e2e` ジョブは `browser: chromium`、`e2e-webkit` ジョブは `browser: webkit` で `e2e-reusable.yml` を呼び出します。どちらの呼び出しも 1 回だけビルドし、<RepositoryFact name="e2eShards" /> 台のランナーでスイートをそのブラウザーで並列に実行します。
 
 | ジョブ                                         | 実行内容                                                                                                                                                                                                            |
@@ -89,6 +93,8 @@ gh workflow run journey.yml --ref <branch> -f journey=all
 ## 更新 [#updates]
 
 `updates.yml` は、UTC のスケジュール <RepositoryFact name="updatesSchedule" /> と手動実行で、依存関係とエージェントスキルの更新を探します。最初のステップ `bun scripts/report-updates.ts find` は、npm レジストリにすべての直接依存関係の最新リリースを問い合わせ、ランナーのチェックアウトで `bun run skills:update` を実行して、上流で変わったスキルを確認します。このチェックアウトからは何もコミットしません。2 つ目のステップ `bun scripts/report-updates.ts issue` は 1 つの Issue <RepositoryFact name="updatesIssueTitle" /> を管理します。更新があれば Issue を作成し、以降の実行で書き直し、すべてが最新になったらクローズします。Issue には、古くなった各パッケージを `bun run deps:update` で動くものか固定のものかを示して並べ、各スキルを移動前後のコミットとともに並べます。最初のステップは、トークンが不要な `git ls-remote` で、固定した各アクションのリポジトリのリリースタグも読み取ります。Issue には、固定したリリースが最新リリースより古いアクションも並べます。
+
+Issue の後、ジョブは `check` ジョブと同じスキャンである `bun run deps:audit` を実行するため、プルリクエストのない週でも新しい high または critical のアドバイザリーがあれば週次の実行が失敗します。
 
 このワークフローに許されているのはリポジトリの読み取りと Issue の書き込みだけで、トークンを受け取るのは 2 つ目のステップだけです。プルリクエストは作成しません。ワークフロー自身のトークンで作成したプルリクエストに対して GitHub はワークフローを起動しないため、そのチェックが実行されないからです。代わりにブランチで `bun run deps:update` を実行してください。
 

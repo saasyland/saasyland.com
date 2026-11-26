@@ -37,6 +37,7 @@ export const LIVE_SITE_CHECK_TIMEOUT_MS = 15_000
 export const LIVE_SITE_CHECKS: readonly LiveSiteCheck[] = [
   { contentType: CONTENT_TYPE.HTML, path: ROUTES.HOME },
   { contentType: CONTENT_TYPE.PLAIN_TEXT, path: ROBOTS_TXT },
+  { contentType: CONTENT_TYPE.PLAIN_TEXT, path: ROUTES.WELL_KNOWN.SECURITY_TXT },
   { contentType: CONTENT_TYPE.XML, path: SITEMAP_PATH },
   { contentType: CONTENT_TYPE.XML, path: PAGES_SITEMAP_PATH },
   { contentType: SOCIAL_IMAGE.TYPE, path: SOCIAL_IMAGE.SITE_PATH },

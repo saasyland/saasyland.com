@@ -99,6 +99,7 @@ export const ROUTES = {
     INDEX: DOCS,
     PROJECT: {
       ROADMAP: `${DOCS}/project/roadmap`,
+      SECURITY_POLICY: `${DOCS}/project/security-policy`,
     },
     TOOLING: {
       TEST_COVERAGE: `${DOCS}/tooling/test-coverage`,
@@ -117,6 +118,9 @@ export const ROUTES = {
     COURSES: "/sitemap-courses.xml",
   },
   TERMS: "/terms",
+  WELL_KNOWN: {
+    SECURITY_TXT: "/.well-known/security.txt",
+  },
   WITHDRAWAL: "/withdrawal",
 } as const
 

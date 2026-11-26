@@ -68,7 +68,9 @@ Les projets qu'écrit `saasyland init` portent leurs propres copies des patchs d
 
 Un patch modifie les fichiers d'un paquet, pas les versions que Bun installe pour lui. Lorsqu'un paquet fige l'une de ses propres dépendances à une version antérieure à celle qu'utilise l'application et que les types des deux copies ne concordent pas, une entrée `overrides` dans `package.json` la relève à la place. Aucune n'est nécessaire aujourd'hui. `@polar-sh/adapter-utils` 1.1.1, qu'utilise `@polar-sh/better-auth`, fige `@polar-sh/sdk` en 1.3.1 : Bun installe donc cette copie à côté de la 1.3.2 de l'application. L'adaptateur n'importe le SDK que pour typer le `webhooks({ onPayload })` du plugin, et `handlePolarEvent`, qui reçoit la charge utile de la 1.3.2, accepte celle de la 1.3.1, car la 1.3.2 ne fait qu'élargir des types, comme `trial_ended` parmi les statuts d'abonnement. Lorsqu'une version ultérieure du SDK modifiera une charge utile d'une façon que la copie de l'adaptateur n'accepte pas, `bun run check` échouera sur `handlePolarEvent` ; une entrée `overrides` pour `@polar-sh/sdk` relèvera alors la copie de l'adaptateur jusqu'à ce qu'une version de `@polar-sh/adapter-utils` dépende de ce SDK (`npm view @polar-sh/adapter-utils dependencies`).
 
-## Avis de sécurité
+## Avis de sécurité [#security-advisories]
+
+`bun run deps:audit` lance `bun audit` sur les dépendances de production dans le job `check` de chaque pull request et de chaque groupe de fusion, puis chaque semaine dans `updates.yml` ([CI/CD](/docs/tooling/ci-cd#checks)). Il échoue sur un avis de gravité <RepositoryFact name="auditBlockingSeverities" /> qu'aucune exception en cours ne couvre et affiche les avis moins graves sans échouer.
 
 Les alertes Dependabot couvrent `remotion/package-lock.json`, mais GitHub ne lit pas `bun.lock` : vérifiez donc l'application avec `bun audit` et le projet vidéo avec `npm audit` dans `remotion/`. Corrigez un avis avec la dernière version du paquet qui introduit le paquet vulnérable. Quand la plage de versions de ce paquet admet déjà la version corrigée, il suffit de rafraîchir le lockfile : `bun update`, ou `npm update` dans `remotion/`.
 
@@ -82,6 +84,16 @@ Tant qu'aucune version du parent n'admet le correctif, une entrée `overrides` r
 - `esbuild` 0.18.20 (GHSA-67mh-4wv8-2f99, modérée), via `drizzle-kit` et `@esbuild-kit/esm-loader`. `drizzle-kit` 0.31.11 déclare ce loader mais ne l'importe jamais, et l'avis concerne le serveur de développement d'esbuild, que rien ne démarre ici. [drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) suit son retrait ; les release candidates de `drizzle-kit` 1.0 n'en dépendent plus.
 
 GitHub a retiré l'avis sur `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4), qu'introduisaient `shadcn` et `@shadcn/registry`, après [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910) : `bun audit` ne le signale plus.
+
+### Exceptions [#audit-exceptions]
+
+Un avis qui n'a pas encore de correctif, le plus souvent dans un paquet transitif, reçoit une exception dans `AUDIT_EXCEPTIONS` (`src/data/dependency-audit.ts`), l'unique liste des exceptions, ajoutée dans une pull request dédiée et relue comme toute autre modification. Chaque entrée nomme l'avis GitHub (`advisory`) et le paquet (`package`), explique pourquoi l'avis est accepté en attendant un correctif (`reason`) et porte la date de la relecture (`reviewedOn`), la date de fin de l'exception (`expiresOn`) et un lien vers l'issue ou la pull request en amont qui suit le correctif (`tracking`). L'analyse échoue sur une exception :
+
+- qui a expiré : relisez-la avec de nouvelles dates, ou supprimez-la ;
+- qui dure plus de <RepositoryFact name="auditExceptionMaxDays" unit="day" /> après sa relecture, ou dont la date de relecture est dans le futur ;
+- qui ne correspond plus à aucun avis élevé ou critique signalé, pour qu'aucune ne survive à sa raison.
+
+Chaque avis qu'une exception autorise est affiché comme avertissement à chaque exécution, si bien qu'aucune exception n'est silencieuse, et `dependency-audit.test.ts` vérifie les champs de chaque entrée. La pull request qui intègre le correctif supprime l'entrée.
 
 ## Les entrées Vite+ de package.json
 

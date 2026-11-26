@@ -18,12 +18,15 @@ import {
   latestVersion,
   outdatedDependencies,
   readDependencies,
+  readScriptTools,
 } from "~/scripts/dependencies"
 
 const RESEND = "resend"
 const SDK = "@polar-sh/sdk"
 const VITE = "vite"
 const VITE_CORE = "@voidzero-dev/vite-plus-core"
+const CDXGEN = "@cdxgen/cdxgen"
+const CDXGEN_VERSION = "13.8.0"
 
 const dependency = (overrides: Partial<Dependency>): Dependency => ({
   name: RESEND,
@@ -54,6 +57,15 @@ describe("readDependencies", () => {
     expect(readDependencies(root)).toStrictEqual([])
   })
 
+  it("lists a tool a script runs with bunx at an exact version as a pinned dependency", () => {
+    const root = createContentDirectory({
+      [BUN_LOCK]: '{ "packages": {} }',
+      [PACKAGE_JSON]: JSON.stringify({ scripts: { sbom: `bunx --bun ${CDXGEN}@${CDXGEN_VERSION} --type js .` } }),
+    })
+
+    expect(readDependencies(root)).toStrictEqual([{ name: CDXGEN, package: CDXGEN, spec: CDXGEN_VERSION, version: CDXGEN_VERSION }])
+  })
+
   it("asks for an install when bun.lock has not resolved a dependency", () => {
     const root = createSkillsRepository({ dependencies: { [RESEND]: "^6.39.0" } })
 
@@ -64,6 +76,21 @@ describe("readDependencies", () => {
     const root = createContentDirectory({ [BUN_LOCK]: "{ packages: [", [PACKAGE_JSON]: "{}" })
 
     expect(() => readDependencies(root)).toThrow(`${BUN_LOCK} is not valid JSONC`)
+  })
+})
+
+describe("readScriptTools", () => {
+  it("reads every bunx call with an exact version, scoped or not, and skips one that runs an installed binary", () => {
+    expect(
+      readScriptTools({
+        fmt: "bunx vp fmt",
+        sbom: `bunx ${CDXGEN}@${CDXGEN_VERSION} . && bunx --bun skills@1.9.0-beta.1 list`,
+        test: "vp test",
+      }),
+    ).toStrictEqual([
+      { name: CDXGEN, package: CDXGEN, spec: CDXGEN_VERSION, version: CDXGEN_VERSION },
+      { name: "skills", package: "skills", spec: "1.9.0-beta.1", version: "1.9.0-beta.1" },
+    ])
   })
 })
 

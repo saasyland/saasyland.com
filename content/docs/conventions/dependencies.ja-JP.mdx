@@ -68,7 +68,9 @@ bun run test:e2e:pr
 
 パッチが変えるのはパッケージのファイルであり、Bun がそのパッケージにインストールするバージョンではありません。パッケージが自分の依存関係の 1 つを、アプリケーションが使うリリースより古いバージョンに固定していて、2 つのコピーの型が合わない場合は、代わりに `package.json` の `overrides` のエントリーでそのバージョンを引き上げます。現在は必要ありません。`@polar-sh/better-auth` が使う `@polar-sh/adapter-utils` 1.1.1 は `@polar-sh/sdk` を 1.3.1 に固定しているので、Bun はアプリケーションの 1.3.2 の横にそのコピーをインストールします。アダプターが SDK をインポートするのはプラグインの `webhooks({ onPayload })` を型付けするためだけで、1.3.2 のペイロードを受け取る `handlePolarEvent` は 1.3.1 のペイロードも受け入れます。1.3.2 はサブスクリプションのステータスへの `trial_ended` の追加のように、型を広げただけだからです。今後の SDK リリースがアダプターのコピーでは受け入れられない形でペイロードを変えたときは、`bun run check` が `handlePolarEvent` で失敗します。その場合は、`@polar-sh/adapter-utils` のリリースがその SDK に依存するようになるまで、`@polar-sh/sdk` の `overrides` エントリーでアダプターのコピーを引き上げます（`npm view @polar-sh/adapter-utils dependencies`）。
 
-## セキュリティアドバイザリー
+## セキュリティアドバイザリー [#security-advisories]
+
+`bun run deps:audit` は、すべてのプルリクエストとマージグループの `check` ジョブで、さらに毎週 `updates.yml` で、本番依存関係に `bun audit` を実行します（[CI/CD](/docs/tooling/ci-cd#checks)）。有効な例外のない <RepositoryFact name="auditBlockingSeverities" /> のアドバイザリーがあれば失敗し、それより低いものは失敗させずに表示します。
 
 Dependabot のアラートは `remotion/package-lock.json` を対象にしますが、GitHub は `bun.lock` を読みません。そのため、アプリケーションは `bun audit` で、動画プロジェクトは `remotion/` 内の `npm audit` で確認します。アドバイザリーは、脆弱なパッケージを取り込んでいるパッケージの最新リリースで解消します。そのパッケージのバージョン範囲がすでに修正済みのリリースを許容している場合は、ロックファイルを更新するだけで十分です（`bun update`、または `remotion/` での `npm update`）。
 
@@ -82,6 +84,16 @@ Dependabot のアラートは `remotion/package-lock.json` を対象にします
 - `esbuild` 0.18.20（GHSA-67mh-4wv8-2f99、重大度は中）: `drizzle-kit` と `@esbuild-kit/esm-loader` 経由です。`drizzle-kit` 0.31.11 はこのローダーを依存関係として宣言していますが一度も import しておらず、アドバイザリーの対象は esbuild の開発サーバーで、このリポジトリでそれを起動するものはありません。[drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) で削除が追跡されており、`drizzle-kit` 1.0 のリリース候補はすでにこれに依存していません。
 
 `shadcn` と `@shadcn/registry` が取り込んでいた `deepmerge` 4.3.1 のアドバイザリー（GHSA-gcqx-w48m-w2h4）は、[github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910) を受けて GitHub が取り下げたため、`bun audit` はもう報告しません。
+
+### 例外 [#audit-exceptions]
+
+まだ修正がないアドバイザリー（多くは推移的なパッケージのもの）には、例外の唯一のリストである `AUDIT_EXCEPTIONS`（`src/data/dependency-audit.ts`）に例外を追加します。追加は専用のプルリクエストで行い、ほかの変更と同じようにレビューします。各エントリには GitHub のアドバイザリー（`advisory`）とパッケージ（`package`）、修正が出るまでそのアドバイザリーを受け入れる理由（`reason`）、レビューした日（`reviewedOn`）、例外が終わる日（`expiresOn`）、修正を追跡するアップストリームの Issue またはプルリクエストへのリンク（`tracking`）を記載します。次の例外があるとスキャンは失敗します。
+
+- 期限が切れた例外。新しい日付で再レビューするか、削除してください。
+- レビューから <RepositoryFact name="auditExceptionMaxDays" unit="day" /> を超えて続く例外、またはレビュー日が未来の例外。
+- 報告された high または critical のアドバイザリーにもう一致しない例外。理由がなくなった例外を残さないためです。
+
+例外で許可されたアドバイザリーは毎回の実行で警告として表示されるので、黙って通る例外はありません。`dependency-audit.test.ts` は各エントリのフィールドを検査します。修正を取り込むプルリクエストでエントリを削除します。
 
 ## package.json の Vite+ のエントリー
 

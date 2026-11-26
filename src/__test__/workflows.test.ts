@@ -63,6 +63,7 @@ const ACTIONS_READ = "\n      actions: read\n"
 const JOBS_WITH_ACTIONS_READ = 5
 const TEST_SHARD_COMMAND = `bun run test:coverage\n          --shard=${expression("matrix.shard")}/${expression("strategy.job-total")}\n          --reporter=default --reporter=blob`
 const TEST_BLOB_ARTIFACT = `name: vitest-blob-${expression("matrix.shard")}`
+const DEPENDENCY_SCAN = "run: bun run deps:audit"
 const MERGE_COMMAND = "run: bun run test:coverage --merge-reports"
 const UNLESS_CANCELLED = `if: ${expression("!cancelled()")}`
 const UNLESS_UPLOAD = `if: ${expression("!inputs.upload")}`
@@ -326,6 +327,21 @@ describe(CI_WORKFLOW, () => {
     expect(jobOf(CI, "check")).not.toContain("needs:")
   })
 
+  it("fails the required check on a high or critical advisory in a production dependency, after the other checks", () => {
+    const check = jobOf(CI, "check")
+
+    expect(check.indexOf(DEPENDENCY_SCAN)).toBeGreaterThan(check.indexOf("run: bun run check"))
+  })
+
+  it("writes the CycloneDX SBOM of the production dependencies in every run and uploads it", () => {
+    const sbom = jobOf(CI, "sbom")
+
+    expect(sbom).toContain("run: bun run deps:sbom")
+    expect(sbom).toContain("name: sbom\n          path: sbom.cdx.json\n")
+    expect(sbom).toContain("if-no-files-found: error")
+    expect(sbom).not.toContain("if:")
+  })
+
   it("splits the tests with coverage across four shards that each upload a blob report", () => {
     const test = jobOf(CI, "test")
 
@@ -498,6 +514,12 @@ describe(UPDATES_WORKFLOW, () => {
     expect(job.split("github.token")).toHaveLength(2)
     expect(job.indexOf("GH_TOKEN")).toBeGreaterThan(issue)
     expect(job).toContain("persist-credentials: false")
+  })
+
+  it("scans the production dependencies every week once the issue is written, so a new advisory fails a run even when no pull request is open", () => {
+    const job = jobOf(UPDATES, "report")
+
+    expect(job.indexOf(DEPENDENCY_SCAN)).toBeGreaterThan(job.indexOf("GH_TOKEN"))
   })
 })
 

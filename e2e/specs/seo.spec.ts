@@ -15,6 +15,7 @@ import { TIER_PRICES } from "../../src/data/license"
 import { CONSULTING_HOURLY_RATE } from "../../src/data/marketing"
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { readPageHead } from "../../src/lib/page-head"
+import { SECURITY_TXT_CONTENT } from "../../src/lib/security-txt"
 import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, PAGES_SITEMAP_PATH, SITEMAP_PATH, SOCIAL_IMAGE } from "../../src/lib/seo"
 import { isIndexable, listedPages } from "../../src/lib/sitemap"
 import { APP_URL } from "../../src/presentation/branding"
@@ -27,6 +28,7 @@ const PNG_WIDTH_OFFSET = 16
 const PNG_HEIGHT_OFFSET = 20
 const REQUESTS_AT_ONCE = 16
 const XML_CONTENT_TYPE = /^(?:application|text)\/xml/u
+const PLAIN_TEXT_UTF8 = /^text\/plain;\s*charset=utf-8$/iu
 
 const SHARED_PAGES = [
   ROUTES.HOME,
@@ -114,6 +116,14 @@ test("every sitemap URL answers 200 on the built site without a redirect", async
     const statuses = await Promise.all(batch.map(async (url) => [url, (await request.get(new URL(url).pathname, { maxRedirects: 0 })).status()]))
     expect(statuses.filter(([, status]) => status !== HTTP_STATUS.OK)).toStrictEqual([])
   }
+})
+
+test("serves security.txt as UTF-8 plain text at its well-known path, without a redirect", async ({ request }) => {
+  const response = await request.get(ROUTES.WELL_KNOWN.SECURITY_TXT, { maxRedirects: 0 })
+
+  expect(response.status()).toBe(HTTP_STATUS.OK)
+  expect(response.headers()["content-type"]).toMatch(PLAIN_TEXT_UTF8)
+  expect(await response.text()).toBe(SECURITY_TXT_CONTENT)
 })
 
 test("the prerendered home page describes the organisation in structured data", async ({ request }) => {

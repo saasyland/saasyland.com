@@ -23,6 +23,11 @@ export const recordRenderedLocations = (key: string): void => {
   })
 }
 
+const MACOS = "darwin"
+const WEBKIT = "webkit"
+
+export const tabToLinksKey = (browserName: string): string => (browserName === WEBKIT && process.platform === MACOS ? "Alt+Tab" : "Tab")
+
 export const turnOnDataSaver = (): void => {
   Object.defineProperty(Navigator.prototype, "connection", { configurable: true, get: () => ({ saveData: true }) })
 }

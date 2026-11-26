@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs"
+import { setTimeout as delay } from "node:timers/promises"
 
 import { uiTranslations } from "@fumadocs/base-ui/i18n"
 import type { Locator, Page } from "@playwright/test"
@@ -10,7 +11,7 @@ import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { APP_NAME } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
 import { expect, test } from "../fixtures/test"
-import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
+import { APP_NAVIGATION_WAIT_UNTIL, BasePage, tabToLinksKey } from "../pages/base-page"
 
 const LOCALES = ["pl-PL", "de-DE"] as const satisfies readonly SupportedLocale[]
 const VIEWPORTS = [
@@ -40,6 +41,13 @@ const TAGGED_POST = "ai-coding-agents-repository-readiness"
 const DOCS_MENU = "nd-sidebar-mobile"
 const SONNER_HOTKEY = "alt+T"
 const STICKY_BARS = 2
+const CONTENT_HOLD_MS = 1500
+const REMOVED_CONTENT = "__removedContent"
+const SERVER_CONTENT = "__serverContent"
+const HYDRATING_DOCS_PAGES = [
+  { chunk: /\/assets\/authentication\.en-US-[\w-]+\.js$/u, path: DOCS_PAGE },
+  { chunk: /\/assets\/index\.en-US-[\w-]+\.js$/u, path: ROUTES.DOCS.INDEX },
+] as const
 const SKIP_LINK_PAGES = [
   { contentId: DOCS_CONTENT_ID, path: DOCS_PAGE },
   { contentId: SITE_CONTENT_ID, path: BLOG_POST },
@@ -184,6 +192,7 @@ for (const locale of LOCALES) {
     }
 
     test(`give ${locale} docs, blog and landing pages one skip link, first in the tab order, that moves focus to the content`, async ({
+      browserName,
       page,
     }) => {
       const { skipToContent } = siteNavigationSchema.parse(readMessages(locale, "components.custom.navigation"))
@@ -202,7 +211,7 @@ for (const locale of LOCALES) {
         await expect(skipLink, path).toHaveAttribute("href", `#${contentId}`)
         await expect(page.getByRole("link").and(page.locator(`a[href="#${contentId}"]`)), path).toHaveCount(1)
 
-        await page.keyboard.press("Tab")
+        await page.keyboard.press(tabToLinksKey(browserName))
         await expect(skipLink, path).toBeFocused()
         const box = await skipLink.boundingBox()
         expect(box?.width, path).toBeGreaterThan(PIXEL_TOLERANCE)
@@ -210,7 +219,7 @@ for (const locale of LOCALES) {
 
         await page.keyboard.press("Enter")
         await expect(page, path).toHaveURL(new RegExp(`#${contentId}$`, "u"))
-        await page.keyboard.press("Tab")
+        await page.keyboard.press(tabToLinksKey(browserName))
         expect(await page.evaluate((id) => document.activeElement?.closest(`#${id}`) !== null, contentId), path).toBe(true)
       }
     })
@@ -225,6 +234,47 @@ for (const locale of LOCALES) {
     })
   })
 }
+
+test.describe("a docs page while it hydrates", () => {
+  for (const viewport of VIEWPORTS) {
+    for (const { chunk, path } of HYDRATING_DOCS_PAGES) {
+      test(`keeps the server's main element and article on ${path} at ${String(viewport.width)} px while its content arrives late`, async ({
+        page,
+      }) => {
+        await page.setViewportSize(viewport)
+        await page.route(chunk, async (route) => {
+          await delay(CONTENT_HOLD_MS)
+          await route.continue()
+        })
+        await page.addInitScript(
+          ({ content, removed, server }) => {
+            const removals: string[] = []
+            Reflect.set(window, removed, removals)
+            new MutationObserver((records) => {
+              for (const { removedNodes } of records) {
+                for (const node of removedNodes) {
+                  if (node instanceof Element && (node.matches(content) || node.querySelector(content) !== null)) {
+                    removals.push(node.outerHTML.slice(0, 120))
+                  }
+                }
+              }
+            }).observe(document, { childList: true, subtree: true })
+            document.addEventListener("DOMContentLoaded", () => {
+              Reflect.set(window, server, document.querySelector("main"))
+            })
+          },
+          { content: `main, ${DOCS_ARTICLE}`, removed: REMOVED_CONTENT, server: SERVER_CONTENT },
+        )
+
+        await visit(page, path)
+        await page.waitForLoadState("networkidle")
+
+        expect(await page.evaluate((removed) => Reflect.get(window, removed), REMOVED_CONTENT)).toEqual([])
+        expect(await page.evaluate((server) => Reflect.get(window, server) === document.querySelector("main"), SERVER_CONTENT)).toBe(true)
+      })
+    }
+  }
+})
 
 test.describe("docs on a wide screen", () => {
   for (const viewport of WIDE_VIEWPORTS) {

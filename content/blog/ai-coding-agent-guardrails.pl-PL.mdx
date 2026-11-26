@@ -144,8 +144,8 @@ Regułę można umieścić w ośmiu miejscach. Różnią się tym, kiedy działa
 | Kompilator i edytor            | Gdy agent pisze                    | Nikt, jeśli działa                                             | Błędnych kształtów, nieobsłużonych przypadków                                       | TypeScript z `strict`, `exactOptionalPropertyTypes` i `noUncheckedIndexedAccess`                                                                                                                                                                               |
 | Hooki Gita                     | Przy każdym commicie               | `--no-verify`                                                  | Szybkich kontroli plików przygotowanych do commita, formatu komunikatu commita      | `pre-commit` uruchamia kontrole komentarzy, tłumaczeń i treści oraz formatuje, lintuje i sprawdza typy w plikach przygotowanych do commita; `prepare-commit-msg` odrzuca temat, który nie jest konwencjonalny, a `commit-msg` odrzuca przypisanie autorstwa AI |
 | Wymagane kontrole CI           | Przy każdym pushu do pull requesta | Administratorzy, jeśli reguła gałęzi im na to pozwala          | Wszystkiego, co może rozstrzygnąć program                                           | `bun run check`, `bun run test:coverage`, build testowy, zestaw testów przeglądarkowych i przesłanie Workera, który nie obsługuje ruchu                                                                                                                        |
-| Reguły gałęzi                  | Przy scalaniu i pushu              | Administratorzy organizacji                                    | Metody scalania, historii, force-pushy, wymaganych kontroli                         | Kolejka scalania, tylko squash, liniowa historia, bez force-pushy i usuwania oraz trzy kontrole CI                                                                                                                                                             |
-| Kontrole wdrożenia             | Przed przesłaniem i po nim         | Ten, kto wdraża                                                | Sekretów, bindingów, działania na żywo                                              | Wartości zastępcze sekretów odrzucane przed buildem; kontrole działającej witryny po wdrożeniu                                                                                                                                                                 |
+| Reguły gałęzi                  | Przy scalaniu i pushu              | Administratorzy organizacji                                    | Metody scalania, historii, force-pushy, wymaganych kontroli                         | Kolejka scalania, tylko squash, liniowa historia, bez force-pushy i usuwania oraz wymagane kontrole CI, w tym zestaw testów przeglądarkowych w Chromium i w WebKit                                                                                             |
+| Kontrole wdrożenia             | Przed przesłaniem i po nim         | Ten, kto wdraża                                                | Sekretów, bindingów, działania na żywo                                              | Bindingi sprawdzane przed każdym wdrożeniem; w lokalnych skryptach wdrożenia wartości zastępcze sekretów odrzucane przed buildem i kontrole działającej witryny po wdrożeniu                                                                                   |
 | Drugi klucz w rękach człowieka | Na prośbę                          | Nikt inny                                                      | Zmian nieodwracalnych i przesuwających pieniądze, wydań                             | Zacytowane „tak” właściciela dla ścieżek wymagających przeglądu przez człowieka; wydania CLI czekające na npm, aż zatwierdzi je uwierzytelnianiem dwuskładnikowym                                                                                              |
 
 O tym, gdzie trafia reguła, decydują dwie zasady.
@@ -223,7 +223,7 @@ Z jednej tabeli wyszły cztery lekcje i wszystkie cztery dotyczą każdego linte
 
 **Powtarzaj próbę po każdej aktualizacji lintera.** Kategorie takie jak `nursery` zyskują i tracą reguły między wydaniami. Plik próbny jest testem Twojej konfiguracji i zasługuje na to, żeby działać w CI jak każdy inny test; zestaw startowy na końcu artykułu ma taki test.
 
-Wszystkie luki z tabeli zamknęliśmy następnego dnia, w #274. `code-style/no-comments` zgłasza każdy komentarz, `code-style/no-multiline-ternary` każdy operator trójargumentowy rozciągający się na kilka wierszy, a `code-style/no-undefined-fallback` każde `?? undefined`; `typescript/ban-ts-comment` odrzuca teraz `@ts-expect-error` nawet z opisem, a `typescript/consistent-type-assertions` z `assertionStyle: "never"` odrzuca rozszerzające `as`. Włączone w całym repozytorium reguły znalazły 21 wielowierszowych operatorów trójargumentowych, z czego 17 w skopiowanych do repozytorium komponentach shadcn, oraz dwa rzutowania `as`, a pull request przepisał każde z tych miejsc, zamiast robić dla niego wyjątek.
+Wszystkie luki z tabeli zamknęliśmy następnego dnia, w #274. `code-style/no-comments` zgłasza każdy komentarz (od tamtej pory z jednym wyjątkiem, jednowierszowym linkiem, opisanym niżej), `code-style/no-multiline-ternary` każdy operator trójargumentowy rozciągający się na kilka wierszy, a `code-style/no-undefined-fallback` każde `?? undefined`; `typescript/ban-ts-comment` odrzuca teraz `@ts-expect-error` nawet z opisem, a `typescript/consistent-type-assertions` z `assertionStyle: "never"` odrzuca rozszerzające `as`. Włączone w całym repozytorium reguły znalazły 21 wielowierszowych operatorów trójargumentowych, z czego 17 w skopiowanych do repozytorium komponentach shadcn, oraz dwa rzutowania `as`, a pull request przepisał każde z tych miejsc, zamiast robić dla niego wyjątek.
 
 ## Jak zamienić regułę stylu w kontrolę
 
@@ -311,7 +311,7 @@ Uruchomiliśmy ją z naszą istniejącą konfiguracją na każdym pliku, który 
 
 Drugie odkrycie jest równie ważne: poza tym wierszem lintowany kod nie miał żadnych komentarzy. Przegląd utrzymał regułę. Kosztowało to jednak właściciela uwagę potrzebną do jej pilnowania, za każdym razem, i właśnie o ten kompromis chodzi w tym artykule.
 
-Reguła lintera wciąż ma dwa martwe punkty. Nie widzi plików, które linter pomija, a u nas są to zestaw testów przeglądarkowych, pliki deklaracji i arkusze stylów, i nie może zgłosić komentarza `/* oxlint-disable */`, który ją wymienia, bo linter najpierw wykonuje dyrektywę. Dlatego `bun run check:comments` parsuje każdy plik TypeScript, JavaScript i CSS, który śledzi Git, poza linterem, za pomocą oxc dla kodu i PostCSS dla stylów, i kończy się błędem przy każdym komentarzu, zanim ruszy linter. Pierwsze uruchomienie znalazło jeszcze jeden: wiersz `/// <reference types>` w pliku deklaracji; odwołanie do typów przeniesiono do `types` w `tsconfig.json`.
+Reguła lintera wciąż ma dwa martwe punkty. Nie widzi plików, które linter pomija, a u nas są to zestaw testów przeglądarkowych, pliki deklaracji i arkusze stylów, i nie może zgłosić komentarza `/* oxlint-disable */`, który ją wymienia, bo linter najpierw wykonuje dyrektywę. Dlatego `bun run check:comments` parsuje każdy plik TypeScript, JavaScript, CSS i YAML, który śledzi Git, poza linterem, za pomocą oxc dla kodu i PostCSS dla stylów, i zanim ruszy linter, kończy się błędem przy każdym komentarzu poza jednowierszowym linkiem do miejsca, w którym jest uzasadnienie, a w workflow poza tagiem wersji za akcją przypiętą do commita. Pierwsze uruchomienie znalazło jeszcze jeden: wiersz `/// <reference types>` w pliku deklaracji; odwołanie do typów przeniesiono do `types` w `tsconfig.json`.
 
 ### Gdy reguła rodzi rytuał, popraw regułę
 
@@ -369,7 +369,7 @@ bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` formatuje, lintuje, sprawdza typy i uruchamia kontrole tłumaczeń i treści w każdym języku. `test:coverage` uruchamia testy jednostkowe, integracyjne i komponentów z progiem pokrycia na poziomie <RepositoryFact name="coverageThreshold" unit="percent" /> dla linii, instrukcji, funkcji i gałęzi. `build:test` buduje Workera Cloudflare i sprawdza wynik. `test:e2e:pr` serwuje ten build i przeprowadza przez niego cały zestaw testów przeglądarkowych w Chromium; CI uruchamia go w pull requeście i ponownie w kolejce scalania, a lokalnie agent uruchamia zamiast niego linię `bunx playwright test`, dla testów, których dotyczy jego zmiana, na własnym wolnym porcie. Pull request jest gotowy dopiero wtedy, gdy jest zielony w CI, a ostatnia linia wstawiła go do kolejki.
+`check` formatuje, lintuje, sprawdza typy i uruchamia kontrole tłumaczeń i treści w każdym języku. `test:coverage` uruchamia testy jednostkowe, integracyjne i komponentów z progiem pokrycia na poziomie <RepositoryFact name="coverageThreshold" unit="percent" /> dla linii, instrukcji, funkcji i gałęzi. `build:test` buduje Workera Cloudflare i sprawdza wynik. `test:e2e:pr` serwuje ten build i przeprowadza przez niego cały zestaw testów przeglądarkowych w Chromium; CI uruchamia ten zestaw w Chromium i w WebKit w pull requeście i ponownie w kolejce scalania, a lokalnie agent uruchamia zamiast niego linię `bunx playwright test`, dla testów, których dotyczy jego zmiana, na własnym wolnym porcie. Pull request jest gotowy dopiero wtedy, gdy jest zielony w CI, a ostatnia linia wstawiła go do kolejki.
 
 Do 21 listopada lista lokalna kończyła się całym zestawem, a pull request był scalany przez skrypt, który czekał na wspólne wdrożenie preview. [Następny wpis z tej serii](/blog/running-ai-coding-agents-in-parallel#update-november-2026) wyjaśnia, dlaczego zmieniło się jedno i drugie. Tyle trwał każdy krok w przebiegu CI z 20 listopada 2026, uruchomionym, gdy nasza funkcja udostępniania wpisów na blogu trafiła do `main`, oraz w przebiegu kolejki scalania z 21 listopada dla pull requesta, który tę kolejkę wprowadził:
 
@@ -647,7 +647,7 @@ it.each([
 })
 ```
 
-**CI, które uruchamia te same polecenia**, plus wyszukiwanie komentarzy wyłączających reguły, które nie zależy od tego, czy jakikolwiek linter respektuje własne ustawienia. Ustaw to zadanie jako wymaganą kontrolę statusu:
+**CI, które uruchamia te same polecenia**, plus wyszukiwanie komentarzy wyłączających reguły, które nie zależy od tego, czy jakikolwiek linter respektuje własne ustawienia. Ustaw to zadanie jako wymaganą kontrolę statusu. Każda akcja jest przypięta do commita wydania, z tagiem za nim, bo tag można przenieść na inny kod, a commita nie; saasyland.com przypina tak każdą akcję, a test kończy się błędem przy tagu ([CI/CD](/docs/tooling/ci-cd)):
 
 ```yaml
 name: CI
@@ -661,10 +661,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - run: npm ci

@@ -91,7 +91,7 @@ export const Navigation = (): JSX.Element => {
                 >
                   {({ isActive }) => (
                     <>
-                      <SiteEntryLabel className="justify-items-center" entry={entry} />
+                      <SiteEntryLabel entry={entry} />
                       {isActive && <span aria-hidden className="absolute inset-x-0 -bottom-0.5 mx-auto size-0.75 rounded-full bg-ring" />}
                     </>
                   )}

@@ -417,15 +417,13 @@ describe("signed-in visitors", () => {
     document.documentElement.removeAttribute(SESSION_ATTRIBUTE)
   })
 
-  it("holds both labels in one slot of the link, Your account hidden until the page is marked signed in", () => {
+  it("shows only the label the page's mark selects, so the link is as wide as the label it shows", () => {
     renderNavigation()
     const link = accountLink(screen.getByRole("navigation", { name: navigationMessages.ariaLabel }), ROUTES.SIGN_IN)
-    const [slot] = link?.children ?? []
 
-    expect(slot).toHaveClass("inline-grid")
-    expect([...(slot?.children ?? [])].map((label) => [label.textContent, label.className])).toStrictEqual([
-      [signInLabel, "[grid-area:1/1] signed-in:invisible"],
-      [accountLabel, "invisible [grid-area:1/1] signed-in:visible"],
+    expect([...(link?.children ?? [])].map((label) => [label.textContent, label.className])).toStrictEqual([
+      [signInLabel, "signed-in:hidden"],
+      [accountLabel, "hidden signed-in:inline"],
     ])
   })
 

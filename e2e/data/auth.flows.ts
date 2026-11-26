@@ -220,16 +220,16 @@ export const AUTH_FLOWS = [
     feature: FLOW_FEATURE.ACCOUNT,
     id: "header-account-steady",
     outcome:
-      "The header's links stay in place from the first paint on, whether the visitor is signed in or not, in every language, and a signed-out visitor's pages ask for no session",
+      "The header's links stay in place from the first paint on, whether the visitor is signed in or not, in every language, the account link is spaced like the others, and a signed-out visitor's pages ask for no session",
     status: FLOW_STATUS.COVERED,
     tests: [
       {
         spec: "header-session.spec.ts",
-        title: "the header's account link › keeps every header link in place at /, signed out, signed in at first paint and once the session is known",
+        title: "the header's account link › keeps every header link in place at / while the page loads, signed out and signed in, and spaces the account link like the others",
       },
       {
         spec: "header-session.spec.ts",
-        title: "the header's account link › keeps every header link in place at /pl-PL, signed out, signed in at first paint and once the session is known",
+        title: "the header's account link › keeps every header link in place at /pl-PL while the page loads, signed out and signed in, and spaces the account link like the others",
       },
       {
         spec: "header-session.spec.ts",
@@ -245,7 +245,7 @@ export const AUTH_FLOWS = [
     tests: [
       {
         spec: "header-session.spec.ts",
-        title: "the header's account link › turns back to Sign in, in place, when the session behind the cookie has ended, and asks no more after",
+        title: "the header's account link › turns Your account back to Sign in once the check finds that the session behind the cookie has ended, laid out as for any signed-out visitor, and asks no more after",
       },
       {
         spec: "header-session.spec.ts",

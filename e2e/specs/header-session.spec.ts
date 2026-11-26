@@ -59,6 +59,30 @@ const expectSameBoxes = (actual: readonly { width: number; x: number }[], expect
   expect(rounded(actual)).toStrictEqual(rounded(expected))
 }
 
+const labelInsets = async (page: Page, name?: string): Promise<string[]> =>
+  headerOf(page, name)
+    .getByRole("link")
+    .evaluateAll(
+      (links, digits) =>
+        links.map((link) => {
+          const walker = document.createTreeWalker(link, NodeFilter.SHOW_TEXT)
+          const label = document.createRange()
+          for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+            if (text.parentElement?.checkVisibility()) {
+              label.selectNodeContents(text)
+              break
+            }
+          }
+          return (link.getBoundingClientRect().width - label.getBoundingClientRect().width).toFixed(digits)
+        }),
+      PIXEL_DIGITS,
+    )
+
+const expectTextLinksSpacedAlike = async (page: Page, name?: string): Promise<void> => {
+  const textLinks = (await labelInsets(page, name)).slice(1, -1)
+  expect(textLinks).toStrictEqual(textLinks.map(() => textLinks[0]))
+}
+
 const serverFunctionRequests = (page: Page): string[] => {
   const requests: string[] = []
   page.on("request", (request) => {
@@ -106,7 +130,7 @@ test.describe("the header's account link", () => {
   })
 
   for (const locale of LOCALES) {
-    test(`keeps every header link in place at ${locale.home}, signed out, signed in at first paint and once the session is known`, async ({
+    test(`keeps every header link in place at ${locale.home} while the page loads, signed out and signed in, and spaces the account link like the others`, async ({
       appPage,
       baseURL,
       page,
@@ -115,19 +139,22 @@ test.describe("the header's account link", () => {
       await pageWithoutJavaScript.setViewportSize(DESKTOP_VIEWPORT)
       await pageWithoutJavaScript.goto(locale.home)
       const signedOut = await linkBoxes(pageWithoutJavaScript, locale.navigation)
+      await expectTextLinksSpacedAlike(pageWithoutJavaScript, locale.navigation)
       await signInThroughTheApi(pageWithoutJavaScript, customer.email, baseURL)
       await pageWithoutJavaScript.goto(locale.home)
       await expect(headerOf(pageWithoutJavaScript, locale.navigation).getByRole("link", { exact: true, name: locale.labels.account })).toBeVisible()
       const firstPaint = await linkBoxes(pageWithoutJavaScript, locale.navigation)
+      await expectTextLinksSpacedAlike(pageWithoutJavaScript, locale.navigation)
 
+      await openQuietly(page, appPage, locale.home)
+      expectSameBoxes(await linkBoxes(page, locale.navigation), signedOut)
       await signInThroughTheApi(page, customer.email, baseURL)
       await page.goto(locale.home, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
       await appPage.waitForAppReady()
       const account = headerOf(page, locale.navigation).getByRole("link", { exact: true, name: locale.labels.account })
       await expect(account).toHaveAttribute("href", new RegExp(`${ROUTES.APP}$`, "u"))
 
-      expectSameBoxes(firstPaint, signedOut)
-      expectSameBoxes(await linkBoxes(page, locale.navigation), signedOut)
+      expectSameBoxes(await linkBoxes(page, locale.navigation), firstPaint)
     })
   }
 
@@ -151,7 +178,7 @@ test.describe("the header's account link", () => {
     expect(requests).toStrictEqual([])
   })
 
-  test("turns back to Sign in, in place, when the session behind the cookie has ended, and asks no more after", async ({
+  test("turns Your account back to Sign in once the check finds that the session behind the cookie has ended, laid out as for any signed-out visitor, and asks no more after", async ({
     appPage,
     baseURL,
     page,
@@ -168,6 +195,7 @@ test.describe("the header's account link", () => {
     await expect(page.locator("html")).not.toHaveAttribute(SESSION_ATTRIBUTE)
     await expect(headerOf(page).getByRole("link", { exact: true, name: authNavigation.header.signIn })).toHaveAttribute("href", ROUTES.SIGN_IN)
     expectSameBoxes(await linkBoxes(page), signedOut)
+    await expectTextLinksSpacedAlike(page)
     expect(requests).toHaveLength(1)
     expect((await page.context().cookies()).map(({ name }) => name)).not.toContain(SESSION_COOKIE)
 

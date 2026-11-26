@@ -451,9 +451,9 @@ describe("customer cases", () => {
       const card = caseCard(product.name)
       const item = english.cases.items[product.id]
 
-      expect(within(card).getByText(english.cases.status[product.status], { exact: false })).toHaveTextContent(
-        `${english.cases.status[product.status]}·${item.kind}`,
-      )
+      const meta = `${english.cases.status[product.status]}·${item.kind}`
+
+      expect(within(card).getByText((_, element) => element?.tagName === "P" && element.textContent === meta)).toBeVisible()
       expect(within(card).getByText(withFacts(item.body))).toBeVisible()
       expect(within(card).getByText(item.modules)).toBeVisible()
     }
@@ -462,7 +462,7 @@ describe("customer cases", () => {
   it("links each product whose waitlist is open to its site in a new tab, and leaves products that are not live unlinked", () => {
     renderSection(<CasesSection />)
     const linked = PRODUCT_CASES.flatMap((product) => (product.status === PRODUCT_CASE_STATUS.WAITLIST ? [product] : []))
-    const unlinked = PRODUCT_CASES.filter((product) => product.status === PRODUCT_CASE_STATUS.LAUNCH)
+    const unlinked = PRODUCT_CASES.filter((product) => product.status === PRODUCT_CASE_STATUS.LATER)
 
     expect(linked.map(({ name, url }) => [name, url])).toStrictEqual([
       [REACTPROJECTS_FACTS.reactprojects, REACTPROJECTS_URL],

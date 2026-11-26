@@ -30,14 +30,14 @@ export const ANGULARPROJECTS_FACTS = {
 export const COURSE_PLATFORM_VALUES = { ...REACTPROJECTS_FACTS, ...ANGULARPROJECTS_FACTS, teamSeatsAccess: TEAM_SEATS_ACCESS }
 
 export const PRODUCT_CASE_STATUS = {
-  LAUNCH: "launch",
+  LATER: "later",
   WAITLIST: "waitlist",
 } as const
 
 export const PRODUCT_CASES = [
   { id: "reactprojects", name: REACTPROJECTS_FACTS.reactprojects, status: PRODUCT_CASE_STATUS.WAITLIST, url: REACTPROJECTS_URL },
   { id: "angularprojects", name: ANGULARPROJECTS_FACTS.angularprojects, status: PRODUCT_CASE_STATUS.WAITLIST, url: ANGULARPROJECTS_URL },
-  { id: "marte", name: "marte-bizuteria.pl", status: PRODUCT_CASE_STATUS.LAUNCH },
+  { id: "marte", name: "marte-bizuteria.pl", status: PRODUCT_CASE_STATUS.LATER },
 ] as const
 
 const TEMPLATES_GENERATE_BILLING = CLI_TEMPLATE_SUPPORT.choices.billing.some((option) => option !== NONE)

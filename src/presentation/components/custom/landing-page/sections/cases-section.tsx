@@ -40,7 +40,7 @@ export const CasesSection = (): JSX.Element => {
                   <span
                     aria-hidden
                     className={cn("size-1.25 shrink-0 rounded-full", {
-                      "bg-muted-foreground/40": product.status === PRODUCT_CASE_STATUS.LAUNCH,
+                      "bg-muted-foreground/40": product.status === PRODUCT_CASE_STATUS.LATER,
                       "bg-ring": product.status === PRODUCT_CASE_STATUS.WAITLIST,
                     })}
                   />
@@ -67,7 +67,7 @@ export const CasesSection = (): JSX.Element => {
                       />
                     </a>
                   )}
-                  {product.status === PRODUCT_CASE_STATUS.LAUNCH && product.name}
+                  {product.status === PRODUCT_CASE_STATUS.LATER && product.name}
                 </h3>
 
                 <p className="mt-3 max-w-[54ch] text-body-sm text-pretty text-muted-foreground">

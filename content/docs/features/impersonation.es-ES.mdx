@@ -24,6 +24,8 @@ El elemento solo aparece para un usuario que no es administrador ni está bloque
 
 `ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) está encima de la cabecera del layout de `/app`. Lee `getCurrentSessionQuery` y solo se muestra cuando la sesión tiene `impersonatedBy`: una región con la etiqueta de `components.custom.impersonation-banner.json` que nombra al usuario suplantado y su correo, y un botón **Dejar de suplantar**. El botón llama a `stopImpersonatingUser`, que elimina la sesión de suplantación y restaura la sesión del administrador a partir de la cookie `admin_session`; después, el banner elimina de la caché los datos del usuario y abre el perfil de ese usuario en `/admin/users`.
 
+Ambas mutaciones esperan primero a `settleQueries` (`src/lib/settle-queries.ts`), que se resuelve cuando ninguna consulta está cargando, y solo entonces llaman al servidor. Una lectura todavía en curso lleva la cookie de la sesión que se abandona. Si llegara al servidor después de que `stopImpersonatingUser` hubiera eliminado la sesión de suplantación, Better Auth le respondería haciendo caducar la cookie de sesión, y una respuesta que llegara después de la del propio cierre borraría la cookie restaurada del administrador y cerraría su sesión. La comprobación de la verificación del correo, que se repite mientras el cliente suplantado no ha confirmado su dirección, es una de esas lecturas.
+
 ## Sesiones
 
 - `getActiveSessions` excluye las sesiones de suplantación de la lista de sesiones de los ajustes, y el propio endpoint `list-sessions` de Better Auth hace lo mismo.

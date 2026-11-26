@@ -86,7 +86,10 @@ describe("the flow inventory", () => {
     expect(rows).toContainEqual([
       "admin-impersonate",
       expect.stringMatching(/^The admin impersonates a customer/u),
-      "admin-users.spec.ts › admin impersonates a customer and stops impersonating",
+      [
+        "admin-users.spec.ts › admin impersonates a customer and stops impersonating",
+        "admin-users.spec.ts › stopping an impersonation waits for the session read in flight, and the admin stays signed in",
+      ].join("\n"),
     ])
     expect(captionOf("admin-impersonate")).toBe(translator("en-US")(`flow-features.${FLOW_FEATURE.ADMIN_USERS}`))
   })

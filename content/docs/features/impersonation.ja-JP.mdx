@@ -24,6 +24,8 @@ export const impersonateUser = createServerFn({ method: "POST" })
 
 `ImpersonationBanner`（`src/presentation/components/custom/app/impersonation-banner.tsx`）は `/app` レイアウトのヘッダーの上に表示されます。`getCurrentSessionQuery` を読み取り、セッションに `impersonatedBy` がある場合にだけ描画されます。内容は `components.custom.impersonation-banner.json` でラベルを付けたリージョンで、なりすましているユーザーとそのメールアドレスを示し、**なりすましを終了** ボタンを備えます。ボタンは `stopImpersonatingUser` を呼び出し、なりすましセッションを削除して `admin_session` Cookie から管理者のセッションを復元します。その後、バナーはユーザーのデータをキャッシュから削除し、`/admin/users` でそのユーザーのプロフィールを開きます。
 
+どちらのミューテーションも、まず `settleQueries`（`src/lib/settle-queries.ts`）を待ちます。これは取得中のクエリがなくなった時点で解決し、そのあとで初めてサーバーを呼び出します。まだ処理中の読み取りは、離れようとしているセッションの Cookie を送っています。それが `stopImpersonatingUser` によるなりすましセッションの削除後にサーバーへ届くと、Better Auth はセッション Cookie を失効させる応答を返し、その応答が停止の応答より後に届くと、復元された管理者の Cookie が消えて管理者はサインアウトされます。なりすまし中の顧客がメールアドレスを確認していない間に繰り返されるメール確認のチェックが、こうした読み取りにあたります。
+
 ## セッション
 
 - `getActiveSessions` は設定のセッション一覧からなりすましセッションを除外し、Better Auth 自身の `list-sessions` エンドポイントも同様に除外します。

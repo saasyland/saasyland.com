@@ -24,6 +24,8 @@ Der Eintrag erscheint nur bei einem Benutzer, der weder Admin noch gesperrt ist.
 
 `ImpersonationBanner` (`src/presentation/components/custom/app/impersonation-banner.tsx`) sitzt über dem Header des Layouts von `/app`. Es liest `getCurrentSessionQuery` und wird nur gerendert, wenn die Sitzung `impersonatedBy` hat: eine Region, beschriftet aus `components.custom.impersonation-banner.json`, die den Benutzer, als der der Admin angemeldet ist, und seine E-Mail-Adresse nennt, sowie eine Schaltfläche **Identitätswechsel beenden**. Die Schaltfläche ruft `stopImpersonatingUser` auf, das die Sitzung des Identitätswechsels löscht und die Sitzung des Admins aus dem Cookie `admin_session` wiederherstellt; anschließend entfernt das Banner die Daten des Benutzers aus dem Cache und öffnet dessen Profil unter `/admin/users`.
 
+Beide Mutationen warten zuerst auf `settleQueries` (`src/lib/settle-queries.ts`), das sich erst erfüllt, wenn keine Query mehr lädt, und rufen erst dann den Server auf. Ein Lesezugriff, der noch unterwegs ist, trägt das Cookie der Sitzung, die verlassen wird. Erreichte er den Server erst, nachdem `stopImpersonatingUser` die Sitzung des Identitätswechsels gelöscht hat, würde Better Auth darauf das Sitzungs-Cookie ablaufen lassen, und eine Antwort, die nach der Antwort des Stopps ankommt, würde das wiederhergestellte Cookie des Admins entfernen und den Admin abmelden. Die Prüfung der E-Mail-Bestätigung, die sich wiederholt, solange der übernommene Kunde seine Adresse nicht bestätigt hat, ist ein solcher Lesezugriff.
+
 ## Sitzungen
 
 - `getActiveSessions` lässt die Sitzungen von Identitätswechseln in der Sitzungsliste der Einstellungen weg, und der eigene Endpunkt `list-sessions` von Better Auth tut dasselbe.

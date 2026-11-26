@@ -7,7 +7,15 @@ import { CLI_VARIABLE, CREDENTIALS_STORE, EXIT_CODE } from "@saasyland/stack/cli
 import { adminAc } from "better-auth/plugins/admin/access"
 import type { TranslationValues } from "use-intl"
 import { useFormatter, useTranslations } from "use-intl/react"
-import { cliApiTables, commitEmojis, coverageScope, flowTables, moduleTables, seededAccounts } from "virtual:repository-facts"
+import {
+  cliApiTables,
+  commitEmojis,
+  coverageScope,
+  flowTables,
+  moduleTables,
+  seededAccounts,
+  testViewports,
+} from "virtual:repository-facts"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { APP_STATEMENTS } from "~/src/integrations/better-auth/auth.access"
@@ -61,7 +69,12 @@ import {
   LESSON_ATTACHMENT_UPLOADS_PER_MINUTE,
 } from "~/src/modules/lesson-attachment/lesson-attachment.constants"
 import { LESSON_PROGRESS_SAVE_INTERVAL_MS } from "~/src/modules/lesson-progress/lesson-progress.constants"
-import { LESSON_DESCRIPTION_MAX_LENGTH, LESSON_FORMATS, LESSON_KEY_MOMENTS_MAX_ITEMS } from "~/src/modules/lesson/lesson.constants"
+import {
+  LESSON_DESCRIPTION_MAX_LENGTH,
+  LESSON_FORMATS,
+  LESSON_KEY_MOMENTS_MAX_ITEMS,
+  LESSON_PLAYBACK_STALE_MS,
+} from "~/src/modules/lesson/lesson.constants"
 import {
   BUNDLE_ARCHIVE_EXTENSION,
   BUNDLE_BINDING,
@@ -128,11 +141,17 @@ import {
   PACKAGE_MANAGERS,
   SCAFFOLD_TARGET,
 } from "~/src/data/cli"
-import { DATA_GRID_ACTIONS_SIZE } from "~/src/data/data-grid"
+import { DATA_GRID_ACTIONS_SIZE, DATA_GRID_DATE_PRESETS } from "~/src/data/data-grid"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { CORE_PRICE_IN_HOURS, TIER_SUPPORT_VALUES } from "~/src/data/license"
-import { TEST_SERVER_PORTS } from "~/src/data/local-server"
-import { ANGULARPROJECTS_ACCESS, ILLUSTRATIVE_HOURLY_RATE, REACTPROJECTS_ACCESS, TEAM_SEATS_ACCESS } from "~/src/data/marketing"
+import { LOCAL_SERVER_ORIGIN, TEST_SERVER_PORTS } from "~/src/data/local-server"
+import {
+  ANGULARPROJECTS_ACCESS,
+  BILLING_GENERATION,
+  ILLUSTRATIVE_HOURLY_RATE,
+  REACTPROJECTS_ACCESS,
+  TEAM_SEATS_ACCESS,
+} from "~/src/data/marketing"
 import {
   FEATURE_STATUS,
   FEATURE_STATUSES,
@@ -211,6 +230,7 @@ const tierFeatureRows = (tier: LicenseTier) =>
 const FACTS = {
   ...REPOSITORY_FACTS,
   ...TIER_SUPPORT_VALUES,
+  ...testViewports,
   activationPollSeconds: ACTIVATION_POLL_MS / MILLISECONDS_PER_SECOND,
   activationTimeoutSeconds: ACTIVATION_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   adminPreviewPageSize: ADMIN_DASHBOARD_PREVIEW_PAGINATION.pageSize,
@@ -230,6 +250,7 @@ const FACTS = {
   audioSampleRate: AUDIO_SAMPLE_RATE,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
+  billingGeneration: BILLING_GENERATION,
   checkoutConfirmationPollSeconds: CHECKOUT_CONFIRMATION_POLL_MS / MILLISECONDS_PER_SECOND,
   checkoutConfirmationTimeoutSeconds: CHECKOUT_CONFIRMATION_TIMEOUT_MS / MILLISECONDS_PER_SECOND,
   checkoutOverlayGraceSeconds: CHECKOUT_OVERLAY_GRACE_MS / MILLISECONDS_PER_SECOND,
@@ -287,6 +308,7 @@ const FACTS = {
   coverageInclude: coverageScope.include,
   dashboardRanges: TIME_RANGES,
   dataGridActionsSize: DATA_GRID_ACTIONS_SIZE,
+  dataGridDatePresets: DATA_GRID_DATE_PRESETS.map(({ name }) => name),
   dataGridDensities: DATA_GRID_DENSITIES,
   dataGridExportPageSize: MAX_PAGE_SIZE,
   dataGridFilterKinds: Object.values(DATA_GRID_FILTER),
@@ -307,6 +329,7 @@ const FACTS = {
   lessonDescriptionMaxLength: LESSON_DESCRIPTION_MAX_LENGTH,
   lessonFormats: LESSON_FORMATS,
   lessonKeyMomentsMaxItems: LESSON_KEY_MOMENTS_MAX_ITEMS,
+  lessonPlaybackStaleHours: LESSON_PLAYBACK_STALE_MS / MILLISECONDS_PER_HOUR,
   lessonProgressSaveSeconds: LESSON_PROGRESS_SAVE_INTERVAL_MS / MILLISECONDS_PER_SECOND,
   licenseActivationsStaleMinutes: LICENSE_ACTIVATIONS_STALE_MS / MILLISECONDS_PER_MINUTE,
   licenseActivationsTimeoutSeconds: LICENSE_ACTIVATIONS_TIMEOUT_SECONDS,
@@ -316,6 +339,7 @@ const FACTS = {
   liveSiteCheckPaths: [...new Set(LIVE_SITE_CHECKS.map(({ path }) => path))],
   liveSiteCheckRetries: LIVE_SITE_CHECK_RETRY_DELAYS_MS.length,
   liveSiteCheckRetrySeconds: LIVE_SITE_CHECK_RETRY_DELAY_MS / MILLISECONDS_PER_SECOND,
+  localServerOrigin: LOCAL_SERVER_ORIGIN,
   localizedListItemMaxLength: LOCALIZED_LIST_ITEM_MAX_LENGTH,
   localizedListMaxItems: LOCALIZED_LIST_MAX_ITEMS,
   localizedTextMaxLength: LOCALIZED_TEXT_MAX_LENGTH,

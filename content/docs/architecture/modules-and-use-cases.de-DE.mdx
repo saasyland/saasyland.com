@@ -9,59 +9,57 @@ Ein Modul unter `src/modules/<table>` gibt es nur für eine echte Datenbanktabel
 
 - `<table>.schema.ts`: die Drizzle-Tabelle, die `src/integrations/drizzle-orm/drizzle.schemas.ts` re-exportiert
 - `<table>.zod.ts`: Eingabeschemas, die sowohl Formulare als auch Server Functions nutzen
-- `<table>.constants.ts`: benannte Domänenwerte wie `CATEGORY_KIND`, Spaltengrenzen, Query- und Mutation-Keys
-- `<table>.types.ts`: ein nach dem Modul benanntes Interface mit den Zeilentypen und dem Eingabetyp jeder Operation, etwa `Category["createCategory"]`
+- `<table>.constants.ts`: benannte Domänenwerte wie `COURSE_STATUS`, Spaltengrenzen, Query- und Mutation-Keys
+- `<table>.types.ts`: ein nach dem Modul benanntes Interface mit den Zeilentypen und dem Eingabetyp jeder Operation, etwa `Course["createCourse"]`
 - `<table>.utils.ts`: sofern die Tabelle sie braucht
 - `use-cases/<operation>.ts`: eine Operation pro Datei
 
-Aktuelle Module: account, category, chapter, course, lesson, lesson-attachment, lesson-progress, license, newsletter-subscriber, order, product, rate-limit, session, subscription, two-factor, user, verification, video und withdrawal. `license` besitzt zwei Tabellen, `license` und `revoked_license_order`. Gemeinsame Konstanten und Hilfsfunktionen liegen in [`_core`](/docs/architecture/core). Eine Server Function, die nicht mit einer Tabelle arbeitet, gehört nach `src/lib` oder in die eine Route, die sie nutzt.
+Die Module sind <RepositoryFact name="modules" />. `license` besitzt zwei Tabellen, `license` und `revoked_license_order`. Gemeinsame Konstanten und Hilfsfunktionen liegen in [`_core`](/docs/architecture/core). Eine Server Function, die nicht mit einer Tabelle arbeitet, gehört nach `src/lib` oder in die eine Route, die sie nutzt.
 
 ## Use Cases
 
 Die meisten Use Cases sind Server Functions, die aus dem Browser aufgerufen werden. Jede Datei exportiert die `createServerFn` und die zugehörigen Query- oder Mutation-Optionen:
 
-```ts
+```ts title="src/modules/course/use-cases/create-course.ts"
 import { mutationOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { v7 } from "uuid"
 
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
+import { rethrowAsConflict } from "~/src/integrations/drizzle-orm/drizzle.errors"
 
-import { CATEGORY_ICON, CATEGORY_MUTATION_KEYS, CATEGORY_VISIBILITY } from "~/src/modules/category/category.constants"
-import { category } from "~/src/modules/category/category.schema"
-import type { Category } from "~/src/modules/category/category.types"
-import { categoryZodSchemas } from "~/src/modules/category/category.zod"
+import { nextPosition } from "~/src/modules/_core/utils/ordering"
+import { COURSE_MUTATION_KEYS } from "~/src/modules/course/course.constants"
+import { course } from "~/src/modules/course/course.schema"
+import type { Course } from "~/src/modules/course/course.types"
+import { courseZodSchemas } from "~/src/modules/course/course.zod"
 
-export const createCategory = createServerFn({ method: "POST" })
-  .middleware([authorized({ category: ["create"] })])
-  .validator((input: Category["createCategory"]) => categoryZodSchemas.createCategory.parse(input))
-  .handler(({ data }) =>
-    db
-      .insert(category)
-      .values({
-        description: data.description ?? "",
-        icon: data.icon ?? CATEGORY_ICON.FOLDER_OPEN,
-        id: v7(),
-        kind: data.kind,
-        name: data.name,
-        visibility: data.visibility ?? CATEGORY_VISIBILITY.PUBLIC,
-      })
-      .returning()
-      .get(),
-  )
+export const createCourse = createServerFn({ method: "POST" })
+  .middleware([authorized({ course: ["create"] })])
+  .validator((input: Course["createCourse"]) => courseZodSchemas.createCourse.parse(input))
+  .handler(async ({ data }) => {
+    const positions = await db.select({ position: course.position }).from(course)
 
-export const createCategoryMutation = mutationOptions({
-  mutationFn: (data: Category["createCategory"]) => createCategory({ data }),
-  mutationKey: CATEGORY_MUTATION_KEYS.CREATE,
+    return db
+      .insert(course)
+      .values({ ...data, id: v7(), position: nextPosition(positions) })
+      .returning({ id: course.id })
+      .get()
+      .catch(rethrowAsConflict)
+  })
+
+export const createCourseMutation = mutationOptions({
+  mutationFn: (data: Course["createCourse"]) => createCourse({ data }),
+  mutationKey: COURSE_MUTATION_KEYS.CREATE,
 })
 ```
 
-- **Middleware** stammt aus `src/integrations/better-auth/auth.middleware.ts`. `authorized()` verlangt eine Session, `authorized({ category: ["create"] })` prüft zusätzlich eine Berechtigung, und `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` begrenzt öffentliche Operationen.
+- **Middleware** stammt aus `src/integrations/better-auth/auth.middleware.ts`. `authorized()` verlangt eine Session, `authorized({ course: ["create"] })` prüft zusätzlich eine Berechtigung, und `withRateLimit(kind, RATE_LIMITS.SENSITIVE)` begrenzt öffentliche Operationen.
 - **Validierung** parst die Eingabe mit dem Zod-Schema des Moduls, bevor der Handler läuft.
 - **Eigentümerschaft** ergibt sich aus der Session. Operationen auf den eigenen Daten des Aufrufers filtern nach `context.auth.user.id` und vertrauen nie einer Nutzer-ID aus der Eingabe.
-- **Fehler** werden als `new AppError(ERROR_CODES.X)` geworfen. `withRequest` macht aus einem API-Fehler von Better Auth `AUTH_API_ERROR` mit dem Message-Key des Fehlers und aus einem Zod-Fehler `VALIDATION`; jeder andere Fehler wird geloggt und erreicht den Client als `INTERNAL_ERROR`.
-- **Lesezugriffe** exportieren stattdessen `queryOptions`, zum Beispiel `getCategoriesPageQuery(input)`, das für die Datentabelle `{ rows, total }` liefert.
+- **Fehler** werden als `new AppError(ERROR_CODES.X)` geworfen. `rethrowAsConflict` macht aus einem Unique-Constraint-Fehler, etwa einem schon vergebenen Slug eines Kurses, `CONFLICT`. `withRequest` macht aus einem API-Fehler von Better Auth `AUTH_API_ERROR` mit dem Message-Key des Fehlers und aus einem Zod-Fehler `VALIDATION`; jeder andere Fehler wird geloggt und erreicht den Client als `INTERNAL_ERROR`.
+- **Lesezugriffe** exportieren stattdessen `queryOptions`, zum Beispiel `getCoursesPageQuery(input)`, das für die Datentabelle `{ rows, total }` liefert.
 
 Einige Use Cases sind einfache asynchrone Funktionen, die nur auf dem Server laufen und keinen RPC-Endpunkt haben, etwa `send-verify-email.ts` oder `grant-license.ts`. Better-Auth-Hooks und Polar-Webhook-Handler rufen sie auf.
 

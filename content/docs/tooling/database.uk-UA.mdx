@@ -18,7 +18,7 @@ description: "Окремі бази даних D1 для локальної ро
 
 `bun run dev` ніколи не читає й не записує віддалену базу даних. Кожна прив'язка середовища `development` у `wrangler.jsonc` має `remote: false`, плагін Cloudflare для Vite працює з `remoteBindings: false` (`vite.config.ts`), а `src/__test__/wrangler.test.ts` завершується помилкою, коли прив'язка розробки стає віддаленою або ділить базу даних, простір імен чи бакет із `preview` або `production`. Інші прив'язки локальні з тієї самої причини:
 
-- `CACHE` (KV) містить лише кеші, які Worker заповнює знову, — кількість зірок на GitHub і регіональні знижки під час оплати, тож локальний простір імен починається порожнім і одразу працює.
+- `CACHE` (KV) містить лише кеш, який Worker заповнює знову, — кількість зірок на GitHub, тож локальний простір імен починається порожнім і одразу працює.
 - `MEDIA` і `BUNDLES` (R2) — це локальні бакети `saasyland-local` і `saasyland-bundles-local`. Рядки, що вказують на їхні файли, тобто відео, матеріали уроків і бандли шаблонів, зберігаються в D1, тож локальна база даних із віддаленими бакетами показувала б файли preview для рядків, яких не існує, і залишала б осиротілі файли в бакетах preview.
 - Better Auth зберігає своїх користувачів, сесії, токени підтвердження й ліміти частоти запитів у D1, тож реєстрація, вхід і адмінпанель працюють локально. Листи й далі надсилаються через Resend із ключем з `.env.development`, а виклики Polar ідуть у sandbox, указаний у `POLAR_SERVER`.
 
@@ -41,24 +41,24 @@ SQLite не застосовує довжину в типі стовпця на 
 
 ## Команди
 
-| Команда                                                             | База даних                         | Що робить                                                                                                         |
-| ------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `bun run db:generate`                                               | немає                              | Нова міграція на основі різниці схем (drizzle-kit)                                                                |
-| `bun run db:migrate:local`                                          | Локальна `development`             | Застосовує міграції                                                                                               |
-| `bun run db:migrations:local`                                       | Локальна `development`             | Показує ще не застосовані міграції; нічого не змінює                                                              |
-| `bun run db:reset:local`                                            | Локальна `development`             | Видаляє `.wrangler/state/v3/d1`, а потім застосовує кожну міграцію: порожня база даних                            |
-| `bun run db:seed:local`                                             | Локальна `development`             | Локальний адміністратор, програма курсів, ліцензії та замовлення; див. [Локальні початкові дані](#the-local-seed) |
-| `bun run db:studio:local`                                           | Локальна `development`             | Drizzle Studio на локальному файлі SQLite                                                                         |
-| `bun run admin:grant:local`                                         | Локальна `development`             | Робить підтверджений обліковий запис адміністратором; див. [Перший адміністратор](#the-first-admin)               |
-| `bun run db:migrate:test`                                           | Локальна `test` у `.wrangler/test` | Застосовує міграції                                                                                               |
-| `bun run db:seed:test`                                              | Локальна `test`                    | Тестові облікові записи, ліцензія, відео, курс із розділами й уроками й бандл шаблонів CLI                        |
-| `bun run db:reset:test`                                             | Локальна `test`                    | Видаляє `.wrangler/test`, а потім запускає `db:migrate:test` і `db:seed:test`                                     |
-| `bun run db:migrate:preview`, `bun run db:migrate:production`       | Віддалена                          | Застосовує міграції                                                                                               |
-| `bun run db:migrations:preview`, `bun run db:migrations:production` | Віддалена                          | Показує ще не застосовані міграції; нічого не змінює                                                              |
-| `bun run db:studio:preview`, `bun run db:studio:production`         | Віддалена                          | Drizzle Studio через HTTP API D1                                                                                  |
-| `bun run db:introspect:preview`, `bun run db:introspect:production` | Віддалена                          | Інтроспекція drizzle-kit через HTTP API D1                                                                        |
-| `bun run admin:grant:preview`, `bun run admin:grant:production`     | Віддалена                          | Робить підтверджений обліковий запис адміністратором; див. [Перший адміністратор](#the-first-admin)               |
-| `bun run courses:sync:preview`                                      | Віддалена `preview`                | Копіює опубліковані курси production; див. [Копіювання курсів на preview](#copying-the-courses-to-preview)        |
+| Команда                                                             | База даних                         | Що робить                                                                                                                   |
+| ------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `bun run db:generate`                                               | немає                              | Нова міграція на основі різниці схем (drizzle-kit)                                                                          |
+| `bun run db:migrate:local`                                          | Локальна `development`             | Застосовує міграції                                                                                                         |
+| `bun run db:migrations:local`                                       | Локальна `development`             | Показує ще не застосовані міграції; нічого не змінює                                                                        |
+| `bun run db:reset:local`                                            | Локальна `development`             | Видаляє `.wrangler/state/v3/d1`, а потім застосовує кожну міграцію: порожня база даних                                      |
+| `bun run db:seed:local`                                             | Локальна `development`             | Локальний адміністратор, програма курсів, ліцензії та замовлення; див. [Локальні початкові дані](#the-local-seed)           |
+| `bun run db:studio:local`                                           | Локальна `development`             | Drizzle Studio на локальному файлі SQLite                                                                                   |
+| `bun run admin:grant:local`                                         | Локальна `development`             | Робить підтверджений обліковий запис адміністратором; див. [Перший адміністратор](#the-first-admin)                         |
+| `bun run db:migrate:test`                                           | Локальна `test` у `.wrangler/test` | Застосовує міграції                                                                                                         |
+| `bun run db:seed:test`                                              | Локальна `test`                    | Тестові облікові записи, ліцензії, замовлення, підписники розсилки, відео, курс із розділами й уроками й бандл шаблонів CLI |
+| `bun run db:reset:test`                                             | Локальна `test`                    | Видаляє `.wrangler/test`, а потім запускає `db:migrate:test` і `db:seed:test`                                               |
+| `bun run db:migrate:preview`, `bun run db:migrate:production`       | Віддалена                          | Застосовує міграції                                                                                                         |
+| `bun run db:migrations:preview`, `bun run db:migrations:production` | Віддалена                          | Показує ще не застосовані міграції; нічого не змінює                                                                        |
+| `bun run db:studio:preview`, `bun run db:studio:production`         | Віддалена                          | Drizzle Studio через HTTP API D1                                                                                            |
+| `bun run db:introspect:preview`, `bun run db:introspect:production` | Віддалена                          | Інтроспекція drizzle-kit через HTTP API D1                                                                                  |
+| `bun run admin:grant:preview`, `bun run admin:grant:production`     | Віддалена                          | Робить підтверджений обліковий запис адміністратором; див. [Перший адміністратор](#the-first-admin)                         |
+| `bun run courses:sync:preview`                                      | Віддалена `preview`                | Копіює опубліковані курси production; див. [Копіювання курсів на preview](#copying-the-courses-to-preview)                  |
 
 `deploy:preview`, `deploy:production` і розгортання в CI запускають `db:migrate:preview` або `db:migrate:production` перед `wrangler deploy`. Жодне розгортання не заповнює віддалену базу даних початковими даними.
 
@@ -83,7 +83,7 @@ bun run dev
 - Обкладинки з `content/courses/covers/` з назвою за slug для курсів, які їх ще не мають: кожен розмір іде до локального бакета `MEDIA`, а курс отримує її ключ, тож локальний каталог виглядає як продакшен.
 - Ліцензії, замовлення без ліцензії та бандл шаблонів CLI з тестових початкових даних (`e2e/data/license.seed.ts`), тож панель керування адмінпанелі й сторінки ліцензій мають дані реалістичної форми. Їхні облікові записи клієнтів використовують пароль <RepositoryFact name="testPassword" />.
 
-Кожна з цих частин — один елемент `LOCAL_SEEDS` у `scripts/seed-local.ts`, записаний у файлі свого розділу: адміністратор у `scripts/seed-local-admin.ts`, програма курсів і обкладинки в `scripts/seed-local-courses.ts`, а ліцензії в `e2e/data/license.seed.ts`. Проєкт без розділу не має його елемента й записує решту.
+Кожна з цих частин — один елемент `LOCAL_SEEDS` у `scripts/seed-local.ts`, записаний у файлі своєї можливості: адміністратор у `scripts/seed-local-admin.ts`, програма курсів і обкладинки в `scripts/seed-local-courses.ts`, а ліцензії в `e2e/data/license.seed.ts`. Сайт, зібраний без можливості, не має її елемента й записує решту.
 
 Увійдіть на http://localhost:3000/auth/sign-in як адміністратор і відкрийте `/admin/courses`, щоб побачити курси.
 
@@ -126,7 +126,7 @@ bun run orders:backfill:production
 
 ## Перший адміністратор [#the-first-admin]
 
-Застосунок не має жодного ендпоінта, початкових даних чи змінної, що надає роль `admin`. На preview і в продакшні першого адміністратора створюють скриптом, і це єдиний спосіб:
+Жоден ендпоінт, змінна чи скрипт початкових даних, що працює на preview або в продакшні, не надає роль `admin`. На preview і в продакшні першого адміністратора створюють скриптом, і це єдиний спосіб:
 
 ```sh
 bunx wrangler login

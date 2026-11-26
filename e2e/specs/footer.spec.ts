@@ -5,10 +5,10 @@ import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { CONTACT_EMAIL } from "../../src/presentation/branding"
 import * as ROUTES from "../../src/routes"
+import { FOOTER_PHONE_WIDTHS } from "../data/viewports"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage } from "../pages/base-page"
 
-const PHONE_WIDTHS = [320, 390, 430] as const
 const PHONE_HEIGHT = 844
 const MINIMUM_TARGET = 24
 
@@ -61,7 +61,7 @@ const layoutOf = async (page: Page): Promise<Layout> =>
 
 for (const locale of I18N.SUPPORTED_LOCALES) {
   test(`${locale}: no two footer links touch, and none leaves the footer, on a phone`, async ({ page }) => {
-    for (const width of PHONE_WIDTHS) {
+    for (const width of FOOTER_PHONE_WIDTHS) {
       await page.setViewportSize({ height: PHONE_HEIGHT, width })
       await visit(page, localizePathname({ locale, pathname: ROUTES.LICENCE }))
       const { closest, overflow } = await layoutOf(page)
@@ -92,7 +92,7 @@ for (const { name, section } of SECTION_LINKS) {
 }
 
 test("gives the contact address a tap target of at least 24 by 24 pixels", async ({ page }) => {
-  await page.setViewportSize({ height: PHONE_HEIGHT, width: PHONE_WIDTHS[1] })
+  await page.setViewportSize({ height: PHONE_HEIGHT, width: FOOTER_PHONE_WIDTHS[1] })
   await visit(page, ROUTES.LICENCE)
   const email = await footer(page).getByRole("link", { exact: true, name: CONTACT_EMAIL }).boundingBox()
 

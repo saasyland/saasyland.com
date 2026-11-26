@@ -218,13 +218,14 @@ saasyland.com lässt seinen Worker vor jedem Pfad laufen, außer vor den Dateien
 
 `src/server.ts` verarbeitet einen Request dann in dieser Reihenfolge:
 
-1. Der Request-Handler eines Bereichs übernimmt die Pfade, die er beansprucht: Der Kursbereich übernimmt `/media/`, der Lizenzbereich `/bundles/`.
+1. Der Request-Handler eines Features übernimmt die Pfade, die er beansprucht, etwa `/media/` für das Kurs-Feature und `/bundles/` für das Lizenz-Feature.
 2. Ein nicht kanonischer Sprachpfad wird weitergeleitet.
 3. Ein `GET`- oder `HEAD`-Request wird in `ASSETS` nachgeschlagen, das jede vorgerenderte Seite enthält; nur was dort fehlt, erreicht TanStack Start.
 4. Jede HTML-Antwort, vorgerendert oder gerendert, erhält eine eigene Nonce für ihre Content Security Policy und wird als `private, no-cache` gesendet; jede Antwort erhält die Sicherheits-Header.
-5. Der Dokument-Handler des Lizenzbereichs schreibt die Seite für regionale Preise um, wenn sich das Land des Besuchers dafür qualifiziert.
+5. Der Dokument-Handler des Lizenz-Features schreibt die Seite für regionale Preise um, wenn sich das Land des Besuchers dafür qualifiziert.
+6. Der Dokument-Handler des Auth-Features, `markSession`, setzt `data-session` auf die Seite, wenn der Request das Session-Cookie mitbringt, sodass der Header den Link zum Konto von der ersten Darstellung an zeigt.
 
-Die Schritte 4 und 5 sind der Grund: Eine statische Seite kann keine frische Nonce tragen, und sie kann das Land des Besuchers nicht kennen. [Content Security Policy mit Nonces auf Cloudflare Workers](/blog/content-security-policy-nonces-cloudflare-workers) erklärt die Hälfte mit der Nonce im Detail. Die Dateien, die den Worker umgehen, erhalten dieselben Sicherheits-Header aus `public/_headers`, und `src/__test__/server.test.ts` schlägt fehl, wenn diese Datei und die Konstanten im Code voneinander abweichen. Der Preis ist ein abgerechneter Request für jeden Seitenaufruf und jedes Bild, und der Abschnitt zu den Kosten fasst ihn in Zahlen.
+Die Schritte 4 bis 6 sind der Grund: Eine statische Seite kann keine frische Nonce tragen, und sie kann weder das Land des Besuchers kennen noch wissen, ob er angemeldet ist. [Content Security Policy mit Nonces auf Cloudflare Workers](/blog/content-security-policy-nonces-cloudflare-workers) erklärt den Teil mit der Nonce im Detail. Die Dateien, die den Worker umgehen, erhalten dieselben Sicherheits-Header aus `public/_headers`, und `src/__test__/server.test.ts` schlägt fehl, wenn diese Datei und die Konstanten im Code voneinander abweichen. Der Preis ist ein abgerechneter Request für jeden Seitenaufruf und jedes Bild, und der Abschnitt zu den Kosten fasst ihn in Zahlen.
 
 ## Halte den kalten Pfad kurz
 

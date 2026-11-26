@@ -3,6 +3,8 @@ title: "Payments"
 description: "The Better Auth Polar plugin, the checkout for any Polar product, the billing page, the customer portal, the webhooks it hands to their handlers, the D1 copies of Polar's orders and subscriptions, and the revenue they put on the admin dashboard."
 ---
 
+This page describes saasyland.com's own billing. Billing in a generated project is `BILLING_GENERATION` in `src/data/marketing.ts`, <RepositoryFact name="billingGeneration" /> today.
+
 Payments run through Polar with the `@polar-sh/better-auth` plugin, which `plugins` in `src/integrations/better-auth/auth.server.ts` lists with a plugin of its own after it:
 
 ```ts title="src/integrations/better-auth/auth.server.ts"
@@ -62,7 +64,7 @@ export interface PolarEventHandler {
 - When one rejects, `handlePolarEvent` still waits for the others to finish, so no handler stops halfway through its writes, and then rejects with an `AggregateError` of every failure. The plugin answers 500 and Polar delivers the event again later, so each handler must be safe to run twice for the same event. Polar disables an endpoint that keeps failing, and `polar:verify` reports a disabled endpoint.
 - An event that no element lists is acknowledged and goes nowhere.
 - `POLAR_EVENTS` joins the events of every element, sorted and each once. The webhook endpoint in Polar must send exactly these, and `polar:verify` compares them.
-- The first two elements copy orders and subscriptions into D1 for the events in `ORDER_WEBHOOK_EVENTS` (`order.constants.ts`) and `SUBSCRIPTION_WEBHOOK_EVENTS` (`subscription.constants.ts`) (see [Writing the copies](#writing-the-copies)), and the third grants and revokes licences for those in `LICENSE_WEBHOOK_EVENTS` (see [Licences](/docs/features/licences#webhooks-and-licences)). A project without the licence or without the order copies loses the element that names their files.
+- The first two elements copy orders and subscriptions into D1 for the events in `ORDER_WEBHOOK_EVENTS` (`order.constants.ts`) and `SUBSCRIPTION_WEBHOOK_EVENTS` (`subscription.constants.ts`) (see [Writing the copies](#writing-the-copies)), and the third grants and revokes licences for those in `LICENSE_WEBHOOK_EVENTS` (see [Licences](/docs/features/licences#webhooks-and-licences)). A site built without the `license` feature, or without the `billing` feature that holds the order copies, loses the element that names their files (see [Tests follow the features](/docs/conventions/testing#tests-follow-the-features)).
 
 `polar:verify` runs in Bun, outside the Worker, and reads `POLAR_EVENTS`, so `polar.webhooks.ts` imports only constants. A handler loads its code when an event arrives:
 
@@ -74,7 +76,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## Orders and subscriptions in D1
 
-The polar area keeps copies of Polar's orders and subscriptions in two D1 tables, `order` (`src/modules/order/`) and `subscription` (`src/modules/subscription/`), so that lists, searches and access checks can read them with SQL and keep working while Polar is slow. Polar stays the source: each row is Polar's record under Polar's ID, written only from Polar's webhooks and never edited by hand. [Modules](/docs/conventions/modules#tables-that-mirror-a-provider) gives the rules every such mirror table follows.
+The `billing` feature keeps copies of Polar's orders and subscriptions in two D1 tables, `order` (`src/modules/order/`) and `subscription` (`src/modules/subscription/`), so that lists, searches and access checks can read them with SQL and keep working while Polar is slow. Polar stays the source: each row is Polar's record under Polar's ID, written only from Polar's webhooks and never edited by hand. [Modules](/docs/conventions/modules#tables-that-mirror-a-provider) gives the rules every such mirror table follows.
 
 | Table          | Columns                                                                                                                                                                                                                                                                                                       |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -125,7 +127,7 @@ The three server functions run `authorized()` and read only the session's own ac
 
 ## Revenue on the dashboard
 
-The `order` permission statement (`read`, `update`, `refund`) is in `APP_STATEMENTS` (`src/integrations/better-auth/auth.access.ts`), and the payments area adds the **Revenue** panel to the dashboard as an entry of `DASHBOARD_PANELS` (`custom/admin/dashboard/panels-pending.tsx`). Its query, `getRevenue` in `src/modules/order/use-cases/get-revenue.ts`, checks `order: ["read"]` and totals the paid order copies of a period per currency, refunds subtracted; [Admin dashboard](/docs/features/admin-dashboard#revenue) describes what it counts. The licence area's `get-unlicensed-orders` checks `order: ["read"]` too. [Orders and customers](/docs/features/orders) describes the admin screens that read the copies. No use case updates or refunds orders yet: refunds and payouts are done in Polar.
+The `order` permission statement (`read`, `update`, `refund`) is in `APP_STATEMENTS` (`src/integrations/better-auth/auth.access.ts`), and the `payments` feature adds the **Revenue** panel to the dashboard as an entry of `DASHBOARD_PANELS` (`custom/admin/dashboard/panels-pending.tsx`). Its query, `getRevenue` in `src/modules/order/use-cases/get-revenue.ts`, checks `order: ["read"]` and totals the paid order copies of a period per currency, refunds subtracted; [Admin dashboard](/docs/features/admin-dashboard#revenue) describes what it counts. The `license` feature's `get-unlicensed-orders` checks `order: ["read"]` too. [Orders and customers](/docs/features/orders) describes the admin screens that read the copies. No use case updates or refunds orders yet: refunds and payouts are done in Polar.
 
 ## Related pages
 

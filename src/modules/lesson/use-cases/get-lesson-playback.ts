@@ -11,7 +11,7 @@ import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import { COURSE_STATUS } from "~/src/modules/course/course.constants"
 import { course } from "~/src/modules/course/course.schema"
 import { hasLessonAccess } from "~/src/modules/lesson/lesson.access"
-import { LESSON_QUERY_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
+import { LESSON_PLAYBACK_STALE_MS, LESSON_QUERY_KEYS, LESSON_STATUS } from "~/src/modules/lesson/lesson.constants"
 import { playableVideo } from "~/src/modules/lesson/lesson.playable"
 import { lesson } from "~/src/modules/lesson/lesson.schema"
 import type { Lesson } from "~/src/modules/lesson/lesson.types"
@@ -19,8 +19,6 @@ import { recordPaidLessonOpened, resolveViewer } from "~/src/modules/lesson/less
 import { lessonZodSchemas } from "~/src/modules/lesson/lesson.zod"
 import { createPlayback } from "~/src/modules/video/video.playback"
 import { video } from "~/src/modules/video/video.schema"
-
-const PLAYBACK_STALE_MS = 3_600_000
 
 export const getLessonPlayback = createServerFn({ method: "GET" })
   .middleware([withRequest])
@@ -59,5 +57,5 @@ export const lessonPlaybackQuery = (input: Lesson["getLessonPlayback"]) =>
   queryOptions({
     queryFn: () => getLessonPlayback({ data: input }),
     queryKey: [...LESSON_QUERY_KEYS.PLAYBACK, input.courseSlug, input.lessonSlug],
-    staleTime: PLAYBACK_STALE_MS,
+    staleTime: LESSON_PLAYBACK_STALE_MS,
   })

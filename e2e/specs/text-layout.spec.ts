@@ -7,19 +7,13 @@ import * as ROUTES from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_MACHINES_LICENSE } from "../data/licenses"
+import { TEXT_LAYOUT_VIEWPORTS } from "../data/viewports"
 import { expect, test } from "../fixtures/auth"
 import { textLayoutProblems } from "../fixtures/text-layout"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
 
 const [admin] = TEST_ACCOUNTS
-
-const VIEWPORTS = [
-  { height: 900, width: 1440 },
-  { height: 900, width: 1280 },
-  { height: 1024, width: 768 },
-  { height: 844, width: 390 },
-] as const
 
 const [lessonWithVideo, , , lessonWithoutVideo] = TEST_LESSONS
 
@@ -72,10 +66,10 @@ const fontsLoaded = async (page: Page): Promise<void> => {
 }
 
 test("the admin course form and tables keep every line of text whole, clear of the others and inside the window", async ({ appPage, authPage, page }) => {
-  test.setTimeout(Math.max(test.info().timeout, ADMIN_PAGES.length * VIEWPORTS.length * PAGE_LAYOUT_TIMEOUT_MS))
+  test.setTimeout(Math.max(test.info().timeout, ADMIN_PAGES.length * TEXT_LAYOUT_VIEWPORTS.length * PAGE_LAYOUT_TIMEOUT_MS))
   await signInAsAdmin(page, authPage)
 
-  for (const viewport of VIEWPORTS) {
+  for (const viewport of TEXT_LAYOUT_VIEWPORTS) {
     await page.setViewportSize(viewport)
     for (const path of ADMIN_PAGES) {
       await page.goto(path, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
@@ -100,7 +94,7 @@ test("every admin grid fits each header label in its column on one line, in Engl
 }) => {
   test.setTimeout(Math.max(test.info().timeout, GRID_PAGES.length * GRID_LOCALES.length * PAGE_LAYOUT_TIMEOUT_MS))
   await signInAsAdmin(page, authPage)
-  await page.setViewportSize(VIEWPORTS[0])
+  await page.setViewportSize(TEXT_LAYOUT_VIEWPORTS[0])
 
   for (const locale of GRID_LOCALES) {
     const prefix = locale === I18N.DEFAULT_LOCALE ? "" : `/${locale}`
@@ -118,7 +112,7 @@ test("every admin grid fits each header label in its column on one line, in Engl
 test("the admin course form keeps one language control, and its list reaches every language, at every width", async ({ appPage, authPage, page }) => {
   await signInAsAdmin(page, authPage)
 
-  for (const viewport of VIEWPORTS) {
+  for (const viewport of TEXT_LAYOUT_VIEWPORTS) {
     await page.setViewportSize(viewport)
     await page.goto(`${ROUTES.ADMIN_COURSES}/${TEST_COURSE.id}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await appPage.waitForAppReady()
@@ -138,7 +132,7 @@ test("the admin course form keeps one language control, and its list reaches eve
 test("the landing page's command builder keeps every option and label whole, clear of the others and inside the window", async ({ page }) => {
   const builder = page.locator(`#${MARKETING_SECTION_IDS.CLI}`)
 
-  for (const viewport of VIEWPORTS) {
+  for (const viewport of TEXT_LAYOUT_VIEWPORTS) {
     await page.setViewportSize(viewport)
     await page.goto("/", { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
     await builder.scrollIntoViewIfNeeded()

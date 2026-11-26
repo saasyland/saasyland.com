@@ -23,6 +23,8 @@ import { dateRangeField, numberRangeField } from "~/src/modules/_core/utils/zod-
 
 import { useDebouncedCallback } from "~/src/hooks/use-debounced-callback"
 
+import { DATA_GRID_DATE_PRESETS } from "~/src/data/data-grid"
+
 import { cn } from "~/src/lib/cn"
 
 import { Badge } from "~/src/presentation/components/shadcn/badge"
@@ -47,12 +49,6 @@ const FIRST_OPTION = "first"
 const SUMMARY_LABELS_MAX = 2
 
 const LAST_MOMENT_OF_DAY_MS = 1
-
-const DATE_PRESETS = [
-  { name: "last7Days", span: { days: 7 } },
-  { name: "last30Days", span: { days: 30 } },
-  { name: "last12Months", span: { months: 12 } },
-] as const
 
 const textValue = zod.string()
 
@@ -287,7 +283,7 @@ const DateRangeFilter = <TData extends DataGridRow>({
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <div className="flex flex-wrap gap-1.5 sm:w-36 sm:flex-col sm:border-r sm:border-border sm:pr-3">
-        {DATE_PRESETS.map(({ name, span }) => (
+        {DATA_GRID_DATE_PRESETS.map(({ name, span }) => (
           <Button
             className="sm:justify-start"
             key={name}

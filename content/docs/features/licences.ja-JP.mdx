@@ -5,7 +5,7 @@ description: "ライセンスのプランを販売する、サイトの上に重
 
 <LegalNotice />
 
-ライセンスのエリアは、Polar のエリアのプラグインと Webhook（[決済](/docs/features/payments)）を土台に、プラン `core`、`complete`、`agency` を Polar の商品として販売します。`src/modules/license/license.utils.ts` の `POLAR_PRODUCT_IDS` はプランを `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付け、`licenseTierForProduct` は同じ対応付けから商品のプランを読み取ります。[Polar の設定](/docs/getting-started/polar-setup)では、各プランが Polar で必要とする商品、ライセンスキー、同意のチェックボックスを説明しています。
+`license` 機能は、`polar` 機能のプラグインと Webhook（[決済](/docs/features/payments)）を土台に、プラン `core`、`complete`、`agency` を Polar の商品として販売します。`src/modules/license/license.utils.ts` の `POLAR_PRODUCT_IDS` はプランを `POLAR_PRODUCT_ID_CORE`、`POLAR_PRODUCT_ID_COMPLETE`、`POLAR_PRODUCT_ID_AGENCY` に対応付け、`licenseTierForProduct` は同じ対応付けから商品のプランを読み取ります。[Polar の設定](/docs/getting-started/polar-setup)では、各プランが Polar で必要とする商品、ライセンスキー、同意のチェックボックスを説明しています。
 
 ## 購入
 
@@ -19,11 +19,11 @@ description: "ライセンスのプランを販売する、サイトの上に重
 
 ### 購入の開始 [#starting-the-checkout]
 
-`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, returnPath, tier }` を受け取ります。`returnPath` は購入者がボタンを押したページで、サイト内にとどまるよう `callbackPathSchema` で検証します。レート制限はサイトのすべてのチェックアウトと共有し（[決済](/docs/features/payments#checkout)）、次の処理を行います。
+`startCheckout`（`src/modules/license/use-cases/start-checkout.ts`）は `{ locale, redirect, returnPath, tier }` を受け取ります。`returnPath` は購入者がボタンを押したページ、任意の `redirect` は購入後にアクティベーションのパネルが戻る先のページで、どちらもサイト内にとどまるよう `callbackPathSchema` で検証します。レート制限はサイトのすべてのチェックアウトと共有し（[決済](/docs/features/payments#checkout)）、次の処理を行います。
 
 1. アカウントにすでに同じプランか上位プランの `active` なライセンスがある場合は、チェックアウトの代わりに `{ alreadyActive: true }` を返します。ボタンは `pages.license` の `buy.alreadyActive` を表示してライセンスを再取得するため、購入後も開いたままだったページはライセンスの表示に切り替わります。
 2. `buyerTierPrice`（`license.ppp.ts`）でプランの価格を決めます。`TIER_PRICES` の金額に、`regional_pricing` Cookie が `off` でない限り `PPP_TIERS` にある `cf-ipcountry` の国の倍率を掛け、`regionalPrice`（`license.pricing.ts`）でドル未満を切り捨てます。`regionalPrice` は、プランのカードが価格の表示に使うのと同じ関数です。有効なライセンスのプランがより下位のアカウントでは、代わりに[アップグレード](#upgrades)の価格になります。
-3. サイトのすべてのチェックアウトが通る `createCheckout`（`src/modules/order/order.checkout.ts`）で、プランの商品のチェックアウトを開始します（[決済](/docs/features/payments#checkout)）。`createCheckout` は、ビルドモードが扱わないホストを拒否し、チェックアウトをアカウントに紐付けてそのメールアドレス、名前、IP アドレスを渡し、購入者の言語で Polar のページを開いて `returnPath` への戻るボタンを表示させ、リクエストのオリジンを `embed_origin` に指定し、購入者の言語とアフィリエイトの紹介情報を `metadata` に書き込みます。ライセンスはこれに独自の条件を加えます。無効にした割引コード、`TIER_PRICES` と異なる場合にこのチェックアウトに限って有効なプランの商品の固定価格として `prices` に入れた手順 2 の価格、アップグレードでは `metadata` の `upgrade_from_order` と `upgrade_from_tier`（`LICENSE_CHECKOUT_METADATA`）に入れたアップグレード元の注文とプラン、そして購入者の言語での成功 URL `/app?checkoutId={CHECKOUT_ID}&tier=<tier>` です。Polar はメタデータと購入者が与えた同意を注文にコピーします。
+3. サイトのすべてのチェックアウトが通る `createCheckout`（`src/modules/order/order.checkout.ts`）で、プランの商品のチェックアウトを開始します（[決済](/docs/features/payments#checkout)）。`createCheckout` は、ビルドモードが扱わないホストを拒否し、チェックアウトをアカウントに紐付けてそのメールアドレス、名前、IP アドレスを渡し、購入者の言語で Polar のページを開いて `returnPath` への戻るボタンを表示させ、リクエストのオリジンを `embed_origin` に指定し、購入者の言語とアフィリエイトの紹介情報を `metadata` に書き込みます。ライセンスはこれに独自の条件を加えます。無効にした割引コード、`TIER_PRICES` と異なる場合にこのチェックアウトに限って有効なプランの商品の固定価格として `prices` に入れた手順 2 の価格、アップグレードでは `metadata` の `upgrade_from_order` と `upgrade_from_tier`（`LICENSE_CHECKOUT_METADATA`）に入れたアップグレード元の注文とプラン、そして購入者の言語での成功 URL `/app?checkoutId={CHECKOUT_ID}&tier=<tier>`（入力に `redirect` があれば `tier` の前に入ります）です。Polar はメタデータと購入者が与えた同意を注文にコピーします。
 4. チェックアウトの ID と URL を返し、`CheckoutButton` がそれをページの上に開きます。
 
 返金済み（`refunded`）または取り消し済み（`revoked`）のライセンスがあっても、新しい購入はできます。
@@ -56,9 +56,9 @@ description: "ライセンスのプランを販売する、サイトの上に重
 
 ### サインアップ前に選んだプラン
 
-ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`licenseSearchSchema`（`src/modules/license/license.zod.ts`。`searchParam` で構築）は、`/app/license` で、またライセンスのエリアが概要ページに追加するパラメーターとして `/app` で、`tier` を `LICENSE_TIER` と照合します。`/app` と `/app/license` はどちらも購入案内の上に `ChosenTier` を表示します。プラン、その地域価格、**決済に進む** ボタンが含まれ、このボタンも同じ購入を開始し、その下に `CheckoutNotice` を表示します。プランが選ばれている場合、購入案内はプランのカードを **パッケージを比較** の折りたたみ表示（`license-offer.tsx` の `ComparedTiers`）にまとめるため、目に入るのは選んだプランのボタンになります。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete`（Core の所有者にはそこで[アップグレード](#upgrades)が表示されます）に、ゲストをサインアップにリンクし、サインアップ後は同じページに戻ります。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
+ランディングページの各プランのボタンは `/auth/sign-up?redirect=/app?tier=<tier>` にリンクします。戻り先のパスはサインアップ、メール認証、サインインを経ても保持され（`useAuthRedirect`）、すでにサインインしている訪問者はそのまま戻り先に移動します。`licenseSearchSchema`（`src/modules/license/license.zod.ts`。`searchParam` で構築）は、`/app/license` で、また`license` 機能が概要ページに追加するパラメーターとして `/app` で、`tier` を `LICENSE_TIER` と照合します。`/app` と `/app/license` はどちらも購入案内の上に `ChosenTier` を表示します。プラン、その地域価格、**決済に進む** ボタンが含まれ、このボタンも同じ購入を開始し、その下に `CheckoutNotice` を表示します。プランが選ばれている場合、購入案内はプランのカードを **パッケージを比較** の折りたたみ表示（`license-offer.tsx` の `ComparedTiers`）にまとめるため、目に入るのは選んだプランのボタンになります。ロックされた有料レッスンは、サインイン済みの視聴者を `/app/license?tier=complete`（Core の所有者にはそこで[アップグレード](#upgrades)が表示されます）に、ゲストをサインアップにリンクし、サインアップ後は同じページに戻ります。アカウントが必要なレッスンはサインインにリンクします（[コース](/docs/features/courses)）。
 
-サインアップページの時点でプランが示されます。ライセンスのエリアは `SignUpOrderSummary`（`custom/app/sign-up-order-summary.tsx`）を `SignUpIntro`（`custom/auth/sign-up-intro.tsx`）の導入文に追加し、`redirectTierSchema`（`src/modules/license/license.zod.ts`）がロケールの接頭辞の有無にかかわらず `/app` または `/app/license` への `redirect` から `LICENSE_TIER` を読み取ると、ページは説明文の代わりにこれを表示します。概要には、プラン名と `TIER_PRICES` の金額、訪問者がいま `PURCHASE_STEP` のどのステップにいるか（アカウント作成の次に Polar での支払い）、そして未使用の購入なら `REFUND_TERMS.WITHDRAWAL_DAYS` 日以内に全額返金されることが、返金ポリシーへのリンク付きで表示されます。サインアップページには地域別価格の選択肢がないため、概要には定価が表示され、訪問者が辞退していなければ決済時に地域別の割引が適用されます。`SignUpPending` は同じリダイレクトに対して `SignUpOrderSummaryPending` を描画し、それ以外の `redirect` では説明文がそのまま表示されます。
+サインアップページの時点でプランが示されます。`license` 機能は `SignUpOrderSummary`（`custom/app/sign-up-order-summary.tsx`）を `SignUpIntro`（`custom/auth/sign-up-intro.tsx`）の導入文に追加し、`redirectTierSchema`（`src/modules/license/license.zod.ts`）がロケールの接頭辞の有無にかかわらず `/app` または `/app/license` への `redirect` から `LICENSE_TIER` を読み取ると、ページは説明文の代わりにこれを表示します。概要には、プラン名と `TIER_PRICES` の金額、訪問者がいま `PURCHASE_STEP` のどのステップにいるか（アカウント作成の次に Polar での支払い）、そして未使用の購入なら `REFUND_TERMS.WITHDRAWAL_DAYS` 日以内に全額返金されることが、返金ポリシーへのリンク付きで表示されます。サインアップページには地域別価格の選択肢がないため、概要には定価が表示され、訪問者が辞退していなければ決済時に地域別の割引が適用されます。`SignUpPending` は同じリダイレクトに対して `SignUpOrderSummaryPending` を描画し、それ以外の `redirect` では説明文がそのまま表示されます。
 
 ### 支払い後 [#after-payment]
 
@@ -149,7 +149,7 @@ Polar のチェックアウトページは、成功 URL に `customer_session_to
 
 ### 管理画面の一覧
 
-ライセンスのエリアは、`UnlicensedOrders`（`src/presentation/components/custom/admin/license/unlicensed-orders.tsx`）を `DASHBOARD_PANELS`（`custom/admin/dashboard/panels-pending.tsx`）の項目として[管理ダッシュボード](/docs/features/admin-dashboard)のパネルに追加し、ダッシュボードのローダーがそのクエリをプリフェッチします。`unlicensedOrdersQuery`（`src/modules/license/use-cases/get-unlicensed-orders.ts`）は `order: ["read"]` をチェックし、[Polar の注文のコピー](/docs/features/payments#orders-and-subscriptions-in-d1)のうち、次の条件をすべて満たすものを新しい順に一覧表示します。
+`license` 機能は、`UnlicensedOrders`（`src/presentation/components/custom/admin/license/unlicensed-orders.tsx`）を `DASHBOARD_PANELS`（`custom/admin/dashboard/panels-pending.tsx`）の項目として[管理ダッシュボード](/docs/features/admin-dashboard)のパネルに追加し、ダッシュボードのローダーがそのクエリをプリフェッチします。`unlicensedOrdersQuery`（`src/modules/license/use-cases/get-unlicensed-orders.ts`）は `order: ["read"]` をチェックし、[Polar の注文のコピー](/docs/features/payments#orders-and-subscriptions-in-d1)のうち、次の条件をすべて満たすものを新しい順に一覧表示します。
 
 - ステータスが `paid` であること
 - `product_id` が `POLAR_PRODUCT_IDS` に含まれること

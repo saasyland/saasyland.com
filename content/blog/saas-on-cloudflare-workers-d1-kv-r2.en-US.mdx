@@ -209,13 +209,14 @@ saasyland.com runs its Worker in front of every path except the files that are t
 
 `src/server.ts` then handles a request in this order:
 
-1. An area’s request handler takes the paths it claims: the courses area takes `/media/`, the licence area takes `/bundles/`.
+1. A feature’s request handler takes the paths it claims, such as `/media/` for the courses feature and `/bundles/` for the licence feature.
 2. A non-canonical locale path is redirected.
 3. A `GET` or `HEAD` request is looked up in `ASSETS`, which holds every prerendered page; only a miss reaches TanStack Start.
 4. Every HTML response, prerendered or rendered, gets a nonce of its own for its Content Security Policy and is sent as `private, no-cache`; every response gets the security headers.
-5. The licence area’s document handler rewrites the page for regional pricing when the visitor’s country qualifies.
+5. The licence feature’s document handler rewrites the page for regional pricing when the visitor’s country qualifies.
+6. The auth feature’s document handler, `markSession`, sets `data-session` on the page when the request carries the session cookie, so the header shows the account link from the first paint.
 
-Steps 4 and 5 are the reason: a static page cannot carry a fresh nonce, and it cannot know the visitor’s country. [Content Security Policy with nonces on Cloudflare Workers](/blog/content-security-policy-nonces-cloudflare-workers) explains the nonce half in detail. The files that skip the Worker get the same security headers from `public/_headers`, and `src/__test__/server.test.ts` fails when that file and the constants in the code differ. The price is a billed request for every page view and every image, which the cost section puts into numbers.
+Steps 4 to 6 are the reason: a static page cannot carry a fresh nonce, know the visitor’s country or know whether the visitor is signed in. [Content Security Policy with nonces on Cloudflare Workers](/blog/content-security-policy-nonces-cloudflare-workers) explains the nonce part in detail. The files that skip the Worker get the same security headers from `public/_headers`, and `src/__test__/server.test.ts` fails when that file and the constants in the code differ. The price is a billed request for every page view and every image, which the cost section puts into numbers.
 
 ## Keep the cold path short
 

@@ -3,6 +3,8 @@ title: "決済"
 description: "Better Auth の Polar プラグイン、あらゆる Polar 商品のチェックアウト、お支払いページ、カスタマーポータル、各ハンドラーに渡す Webhook、D1 に保持する Polar の注文とサブスクリプションのコピー、そしてそのコピーから管理ダッシュボードに表示する売上。"
 ---
 
+このページは saasyland.com 自身の課金を説明します。生成したプロジェクトの課金は `src/data/marketing.ts` の `BILLING_GENERATION` で決まり、現在は <RepositoryFact name="billingGeneration" /> です。
+
 決済は `@polar-sh/better-auth` プラグインを通じて Polar で処理されます。このプラグインは、`src/integrations/better-auth/auth.server.ts` の `plugins` に、直後に続く専用のプラグインと一緒に並んでいます。
 
 ```ts title="src/integrations/better-auth/auth.server.ts"
@@ -43,7 +45,7 @@ description: "Better Auth の Polar プラグイン、あらゆる Polar 商品�
 
 `CheckoutButton`（`src/presentation/components/custom/billing/checkout-button.tsx`）は、どのページからでも 1 つの商品を販売します。商品の Polar ID を受け取り、自身のあるページを `returnPath`、`/app/billing` を `successPath` として `startCheckout` を呼び出し、`openCheckoutOverlay` でページの上に Polar のチェックアウトを開きます。購入者が支払いを終えると `/app/billing?checkoutId=…` を開き、そこでページが注文の到着を待ちます（[お支払いページ](#billing-page)）。チェックアウトをページの上に開けない場合は Polar のチェックアウトページに移動し、支払い後はそこから同じアドレスに戻ります。このサイトには、そのような商品を提供するページはまだありません。
 
-`CheckoutButton` は、同じファイルの `PolarCheckoutButton` を土台にしています。独自のチェックアウトを持つエリアは、ライセンスがプランに対して行うように（[ライセンス](/docs/features/licences#checkout)）、これを直接描画します。`checkout` にはエリア独自のコールバックを含むミューテーションオプション、`variables` にはページの言語と `returnPath` にエリアの入力を加える関数、`onPaid` には支払い後に開く先を渡します。チェックアウトの開始中は同じミューテーションのほかのボタンを無効にし、`components.custom.checkout-button` の `pending` を表示します。オーバーレイには同じ名前空間の `overlay` で名前を付け、エリアのコールバックが終わったあとで失敗を `toast.error` で知らせ、開始したチェックアウトである応答（`order.zod.ts` の `startedCheckoutSchema`）だけを開きます。そのため、エリアは代わりに独自の拒否で応答できます。
+`CheckoutButton` は、同じファイルの `PolarCheckoutButton` を土台にしています。独自のチェックアウトを持つ機能は、ライセンスがプランに対して行うように（[ライセンス](/docs/features/licences#checkout)）、これを直接描画します。`checkout` には機能独自のコールバックを含むミューテーションオプション、`variables` にはページの言語と `returnPath` に機能の入力を加える関数、`onPaid` には支払い後に開く先を渡します。チェックアウトの開始中は同じミューテーションのほかのボタンを無効にし、`components.custom.checkout-button` の `pending` を表示します。オーバーレイには同じ名前空間の `overlay` で名前を付け、機能のコールバックが終わったあとで失敗を `toast.error` で知らせ、開始したチェックアウトである応答（`order.zod.ts` の `startedCheckoutSchema`）だけを開きます。そのため、機能は代わりに独自の拒否で応答できます。
 
 どちらのサーバー関数も `authorized()` の前に `withRateLimit(CHECKOUT_RATE_LIMIT_KIND, CHECKOUT_RATE_LIMIT)` を実行し、どちらが開始したかにかかわらず、クライアントごとに 1 分あたり <RepositoryFact name="checkoutsPerMinute" /> 件までのチェックアウトを許可します。チェックアウトはそれぞれ組織のトークンを使った Polar API へのリクエストであり、そのトークンのレート制限はすべての購入者で共有されるためです。
 
@@ -62,7 +64,7 @@ export interface PolarEventHandler {
 - いずれかが失敗しても、`handlePolarEvent` は他のハンドラーの完了を待ち、どのハンドラーも書き込みの途中で止まらないようにしてから、すべての失敗をまとめた `AggregateError` で reject します。プラグインは 500 を返し、Polar は後でイベントを再送します。そのため、各ハンドラーは同じイベントで 2 回実行されても安全でなければなりません。Polar は失敗し続けるエンドポイントを無効にし、`polar:verify` は無効になったエンドポイントを報告します。
 - どの要素にも列挙されていないイベントは受領され、どこにも渡されません。
 - `POLAR_EVENTS` は、すべての要素のイベントを重複なく並べ替えてまとめたものです。Polar の Webhook エンドポイントはこれらのイベントだけを過不足なく送信する必要があり、`polar:verify` が両者を比較します。
-- 最初の 2 つの要素は、`ORDER_WEBHOOK_EVENTS`（`order.constants.ts`）と `SUBSCRIPTION_WEBHOOK_EVENTS`（`subscription.constants.ts`）のイベントで注文とサブスクリプションを D1 にコピーし（[コピーの書き込み](#writing-the-copies)を参照）、3 つ目は `LICENSE_WEBHOOK_EVENTS` のイベントでライセンスを付与し、取り消します（[ライセンス](/docs/features/licences#webhooks-and-licences)を参照）。ライセンスや注文のコピーがないプロジェクトでは、それらのファイルを指す要素が外れます。
+- 最初の 2 つの要素は、`ORDER_WEBHOOK_EVENTS`（`order.constants.ts`）と `SUBSCRIPTION_WEBHOOK_EVENTS`（`subscription.constants.ts`）のイベントで注文とサブスクリプションを D1 にコピーし（[コピーの書き込み](#writing-the-copies)を参照）、3 つ目は `LICENSE_WEBHOOK_EVENTS` のイベントでライセンスを付与し、取り消します（[ライセンス](/docs/features/licences#webhooks-and-licences)を参照）。`license` 機能、または注文のコピーを持つ `billing` 機能を外してビルドしたサイトでは、それらのファイルを指す要素が外れます（[テストは機能に従う](/docs/conventions/testing#tests-follow-the-features)を参照）。
 
 `polar:verify` は Worker の外の Bun で実行され、`POLAR_EVENTS` を読み取ります。そのため、`polar.webhooks.ts` は定数だけをインポートします。ハンドラーは、イベントが届いたときに自分のコードを読み込みます。
 
@@ -74,7 +76,7 @@ const { licenseWebhookHandlers } = await import("~/src/modules/license/license.w
 
 ## D1 の注文とサブスクリプション [#orders-and-subscriptions-in-d1]
 
-Polar のエリアは、Polar の注文とサブスクリプションのコピーを D1 の 2 つのテーブル、`order`（`src/modules/order/`）と `subscription`（`src/modules/subscription/`）に保持します。これにより、一覧、検索、アクセスチェックが SQL で読み取れ、Polar の応答が遅いときも動き続けます。情報源はあくまで Polar です。各行は Polar の ID で保存された Polar のレコードであり、Polar の Webhook からのみ書き込まれ、手作業で編集することはありません。こうしたミラーテーブルが従うルールは[モジュール](/docs/conventions/modules#tables-that-mirror-a-provider)にあります。
+`billing` 機能は、Polar の注文とサブスクリプションのコピーを D1 の 2 つのテーブル、`order`（`src/modules/order/`）と `subscription`（`src/modules/subscription/`）に保持します。これにより、一覧、検索、アクセスチェックが SQL で読み取れ、Polar の応答が遅いときも動き続けます。情報源はあくまで Polar です。各行は Polar の ID で保存された Polar のレコードであり、Polar の Webhook からのみ書き込まれ、手作業で編集することはありません。こうしたミラーテーブルが従うルールは[モジュール](/docs/conventions/modules#tables-that-mirror-a-provider)にあります。
 
 | テーブル       | 列                                                                                                                                                                                                                                                                                                             |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -125,7 +127,7 @@ Polar のエリアは、Polar の注文とサブスクリプションのコピ�
 
 ## ダッシュボードの売上 [#revenue-on-the-dashboard]
 
-`order` の権限ステートメント（`read`、`update`、`refund`）は `APP_STATEMENTS`（`src/integrations/better-auth/auth.access.ts`）にあり、決済のエリアは `DASHBOARD_PANELS`（`custom/admin/dashboard/panels-pending.tsx`）の項目としてダッシュボードに **売上** パネルを追加します。そのクエリである `src/modules/order/use-cases/get-revenue.ts` の `getRevenue` は `order: ["read"]` をチェックし、期間内の支払い済みの注文のコピーを、返金を差し引いて通貨ごとに集計します。何を数えるかは[管理ダッシュボード](/docs/features/admin-dashboard#revenue)で説明しています。ライセンスのエリアの `get-unlicensed-orders` も `order: ["read"]` をチェックします。コピーを読む管理画面は[注文と顧客](/docs/features/orders)で説明しています。注文を更新したり返金したりするユースケースはまだなく、返金と出金は Polar で行います。
+`order` の権限ステートメント（`read`、`update`、`refund`）は `APP_STATEMENTS`（`src/integrations/better-auth/auth.access.ts`）にあり、`payments` 機能は `DASHBOARD_PANELS`（`custom/admin/dashboard/panels-pending.tsx`）の項目としてダッシュボードに **売上** パネルを追加します。そのクエリである `src/modules/order/use-cases/get-revenue.ts` の `getRevenue` は `order: ["read"]` をチェックし、期間内の支払い済みの注文のコピーを、返金を差し引いて通貨ごとに集計します。何を数えるかは[管理ダッシュボード](/docs/features/admin-dashboard#revenue)で説明しています。`license` 機能の `get-unlicensed-orders` も `order: ["read"]` をチェックします。コピーを読む管理画面は[注文と顧客](/docs/features/orders)で説明しています。注文を更新したり返金したりするユースケースはまだなく、返金と出金は Polar で行います。
 
 ## 関連ページ
 

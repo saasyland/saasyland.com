@@ -147,8 +147,8 @@ Uma regra pode ficar em oito lugares. Eles diferem em quando rodam, em quem cons
 | Compilador e editor             | Enquanto o agente escreve           | Ninguém, se ele rodar                                    | Formatos errados, casos não tratados                                      | TypeScript com `strict`, `exactOptionalPropertyTypes` e `noUncheckedIndexedAccess`                                                                                                                                                                |
 | Hooks do Git                    | A cada commit                       | `--no-verify`                                            | Verificações rápidas nos arquivos em stage, formato da mensagem de commit | `pre-commit` roda as verificações de comentários, tradução e conteúdo e aplica formatação, lint e tipos aos arquivos em stage; `prepare-commit-msg` recusa um assunto que não segue o Conventional Commits, e `commit-msg` recusa atribuição a IA |
 | Verificações obrigatórias da CI | A cada push em um pull request      | Admins, se a regra de branch deixar                      | Tudo o que um programa consegue decidir                                   | `bun run check`, `bun run test:coverage`, o build de teste, a suíte de navegador e um upload do Worker que não serve tráfego                                                                                                                      |
-| Regras de branch                | No merge e no push                  | Admins da organização                                    | Método de merge, histórico, force-pushes, verificações obrigatórias       | A fila de merge, só squash, histórico linear, sem force-pushes nem exclusão, e as três verificações da CI                                                                                                                                         |
-| Verificações de deploy          | Antes e depois de um upload         | Quem faz o deploy                                        | Secrets, bindings, comportamento no ar                                    | Secrets com placeholder recusados antes do build; verificações do site no ar depois do deploy                                                                                                                                                     |
+| Regras de branch                | No merge e no push                  | Admins da organização                                    | Método de merge, histórico, force-pushes, verificações obrigatórias       | A fila de merge, só squash, histórico linear, sem force-pushes nem exclusão, e as verificações obrigatórias da CI, entre elas a suíte de navegador no Chromium e no WebKit                                                                        |
+| Verificações de deploy          | Antes e depois de um upload         | Quem faz o deploy                                        | Secrets, bindings, comportamento no ar                                    | Bindings verificados antes de cada deploy; nos scripts de deploy locais, secrets com placeholder recusados antes do build e verificações do site no ar depois do deploy                                                                           |
 | A segunda chave de uma pessoa   | Quando solicitada                   | Ninguém mais                                             | Mudanças irreversíveis e que movimentam dinheiro, releases                | O sim citado do dono para os caminhos de revisão humana; versões da CLI em staging no npm até ele aprová-las com autenticação de dois fatores                                                                                                     |
 
 Dois princípios decidem onde uma regra fica.
@@ -226,7 +226,7 @@ Quatro lições saíram de uma única tabela, e as quatro valem para qualquer li
 
 **Rode a sondagem de novo depois de cada atualização do linter.** Categorias como `nursery` ganham e perdem regras entre versões. O arquivo de sondagem é um teste da sua configuração e merece rodar na CI como qualquer outro teste; o kit inicial no final tem um.
 
-Fechamos todas as lacunas da tabela no dia seguinte, no #274. `code-style/no-comments` relata todo comentário, `code-style/no-multiline-ternary` todo ternário que ocupa mais de uma linha e `code-style/no-undefined-fallback` todo `?? undefined`; `typescript/ban-ts-comment` agora rejeita `@ts-expect-error` mesmo com uma descrição, e `typescript/consistent-type-assertions` com `assertionStyle: "never"` rejeita o `as` que amplia o tipo. Ativadas em todo o repositório, as regras encontraram 21 ternários de várias linhas, 17 deles em componentes do shadcn copiados para o repositório, e dois casts com `as`, e o pull request reescreveu cada um deles em vez de abrir uma exceção.
+Fechamos todas as lacunas da tabela no dia seguinte, no #274. `code-style/no-comments` relata todo comentário (desde então com uma exceção, um link de uma linha, descrita mais abaixo), `code-style/no-multiline-ternary` todo ternário que ocupa mais de uma linha e `code-style/no-undefined-fallback` todo `?? undefined`; `typescript/ban-ts-comment` agora rejeita `@ts-expect-error` mesmo com uma descrição, e `typescript/consistent-type-assertions` com `assertionStyle: "never"` rejeita o `as` que amplia o tipo. Ativadas em todo o repositório, as regras encontraram 21 ternários de várias linhas, 17 deles em componentes do shadcn copiados para o repositório, e dois casts com `as`, e o pull request reescreveu cada um deles em vez de abrir uma exceção.
 
 ## Como transformar uma regra de estilo em uma verificação
 
@@ -314,7 +314,7 @@ Nós a rodamos com a nossa configuração existente sobre todos os arquivos que 
 
 O outro achado importa tanto quanto: fora essa linha, o código analisado pelo linter não tinha nenhum comentário. A revisão tinha sustentado a regra. Também tinha custado ao dono a atenção para sustentá-la, todas as vezes, e essa é a troca de que este artigo trata.
 
-Uma regra de lint ainda tem dois pontos cegos. Ela não enxerga os arquivos que o linter pula, que para nós são a suíte de navegador, os arquivos de declaração e as folhas de estilo, e não consegue relatar um `/* oxlint-disable */` que a cite, porque o linter obedece à diretiva primeiro. Por isso `bun run check:comments` analisa todo arquivo TypeScript, JavaScript e CSS que o Git rastreia, fora do linter, com o oxc para o código e o PostCSS para os estilos, e falha em qualquer comentário antes que o linter rode. A primeira execução encontrou mais um: uma linha `/// <reference types>` em um arquivo de declaração, que passou para `types` em `tsconfig.json`.
+Uma regra de lint ainda tem dois pontos cegos. Ela não enxerga os arquivos que o linter pula, que para nós são a suíte de navegador, os arquivos de declaração e as folhas de estilo, e não consegue relatar um `/* oxlint-disable */` que a cite, porque o linter obedece à diretiva primeiro. Por isso `bun run check:comments` analisa todo arquivo TypeScript, JavaScript, CSS e YAML que o Git rastreia, fora do linter, com o oxc para o código e o PostCSS para os estilos, e falha, antes que o linter rode, em qualquer comentário que não seja um link de uma linha para onde está o motivo ou, em um workflow, a tag de versão depois de uma action fixada em um commit. A primeira execução encontrou mais um: uma linha `/// <reference types>` em um arquivo de declaração, que passou para `types` em `tsconfig.json`.
 
 ### Quando uma regra produz cerimônia, corrija a regra
 
@@ -372,7 +372,7 @@ bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` formata, aplica o lint, faz a checagem de tipos e roda as verificações de tradução e de conteúdo em todos os locales. `test:coverage` roda os testes unitários, de integração e de componentes, com o gate de cobertura em <RepositoryFact name="coverageThreshold" unit="percent" /> para linhas, instruções, funções e branches. `build:test` faz o build do Cloudflare Worker e verifica a saída. `test:e2e:pr` serve esse build e conduz a suíte de navegador inteira no Chromium; a CI a roda no pull request e de novo na fila de merge, e localmente um agente roda no lugar dela a linha `bunx playwright test`, para as specs que a sua mudança toca, em uma porta livre só sua. O pull request só está pronto quando está verde na CI e a última linha o colocou na fila.
+`check` formata, aplica o lint, faz a checagem de tipos e roda as verificações de tradução e de conteúdo em todos os locales. `test:coverage` roda os testes unitários, de integração e de componentes, com o gate de cobertura em <RepositoryFact name="coverageThreshold" unit="percent" /> para linhas, instruções, funções e branches. `build:test` faz o build do Cloudflare Worker e verifica a saída. `test:e2e:pr` serve esse build e conduz a suíte de navegador inteira no Chromium; a CI roda a suíte no Chromium e no WebKit no pull request e de novo na fila de merge, e localmente um agente roda no lugar dela a linha `bunx playwright test`, para as specs que a sua mudança toca, em uma porta livre só sua. O pull request só está pronto quando está verde na CI e a última linha o colocou na fila.
 
 Até 21 de novembro, a lista local terminava com a suíte inteira, e um pull request fazia merge por um script que esperava um deploy do preview compartilhado. [O próximo post desta série](/blog/running-ai-coding-agents-in-parallel#update-november-2026) conta por que as duas coisas mudaram. Veja quanto tempo cada etapa levou na execução de CI de 20 de novembro de 2026 que rodou quando o nosso recurso de compartilhamento do blog chegou à `main`, e na execução da fila de merge para o pull request que trouxe a fila de merge, em 21 de novembro:
 
@@ -650,7 +650,7 @@ it.each([
 })
 ```
 
-**Uma CI que roda os mesmos comandos**, mais uma busca por comentários de supressão que não depende de nenhum linter respeitar as próprias configurações. Torne o job uma verificação de status obrigatória:
+**Uma CI que roda os mesmos comandos**, mais uma busca por comentários de supressão que não depende de nenhum linter respeitar as próprias configurações. Torne o job uma verificação de status obrigatória. Cada action fica fixada no commit de uma release, com a tag depois dele, porque uma tag pode ser movida para outro código e um commit não; o saasyland.com fixa assim todas as actions, e um teste falha diante de uma tag ([CI/CD](/docs/tooling/ci-cd)):
 
 ```yaml
 name: CI
@@ -664,10 +664,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - run: npm ci

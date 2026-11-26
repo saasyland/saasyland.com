@@ -151,8 +151,8 @@ Eine Regel kann an acht Stellen leben. Sie unterscheiden sich darin, wann sie la
 | Compiler und Editor                  | Während der Agent schreibt           | Niemanden, wenn er läuft                                                    | Falsche Strukturen, unbehandelte Fälle                                     | TypeScript mit `strict`, `exactOptionalPropertyTypes` und `noUncheckedIndexedAccess`                                                                                                                                                                                 |
 | Git-Hooks                            | Bei jedem Commit                     | `--no-verify`                                                               | Schnelle Prüfungen gestagter Dateien, Format der Commit-Nachricht          | `pre-commit` führt die Kommentar-, Übersetzungs- und Inhaltsprüfungen aus und formatiert, lintet und typprüft die gestagten Dateien; `prepare-commit-msg` lehnt einen Betreff ab, der nicht den Conventional Commits folgt, und `commit-msg` lehnt KI-Attribution ab |
 | Erforderliche CI-Prüfungen           | Bei jedem Push in einen Pull Request | Admins, wenn die Branch-Regel es zulässt                                    | Alles, was ein Programm entscheiden kann                                   | `bun run check`, `bun run test:coverage`, der Test-Build, die Browser-Suite und ein Upload des Workers, der keinen Traffic bedient                                                                                                                                   |
-| Branch-Regeln                        | Beim Merge und beim Push             | Organisations-Admins                                                        | Merge-Methode, Historie, Force-Pushes, erforderliche Prüfungen             | Die Merge-Queue, nur Squash, lineare Historie, keine Force-Pushes oder Löschungen und die drei CI-Prüfungen                                                                                                                                                          |
-| Deploy-Checks                        | Vor und nach einem Upload            | Jeden, der deployt                                                          | Secrets, Bindings, Live-Verhalten                                          | Platzhalter-Secrets vor dem Build abgelehnt; Live-Checks der Website nach dem Deploy                                                                                                                                                                                 |
+| Branch-Regeln                        | Beim Merge und beim Push             | Organisations-Admins                                                        | Merge-Methode, Historie, Force-Pushes, erforderliche Prüfungen             | Die Merge-Queue, nur Squash, lineare Historie, keine Force-Pushes oder Löschungen und die erforderlichen CI-Prüfungen, darunter die Browser-Suite in Chromium und in WebKit                                                                                          |
+| Deploy-Checks                        | Vor und nach einem Upload            | Jeden, der deployt                                                          | Secrets, Bindings, Live-Verhalten                                          | Bindings vor jedem Deploy geprüft; in den lokalen Deploy-Skripten Platzhalter-Secrets vor dem Build abgelehnt und Live-Checks der Website nach dem Deploy                                                                                                            |
 | Der zweite Schlüssel einer Person    | Auf Anfrage                          | Niemanden sonst                                                             | Irreversible Änderungen, Änderungen, die Geld bewegen, Releases            | Das zitierte Ja des Inhabers für Pfade mit menschlichem Review; CLI-Releases warten auf npm, bis er sie mit Zwei-Faktor-Authentifizierung freigibt                                                                                                                   |
 
 Zwei Grundsätze entscheiden, wohin eine Regel gehört.
@@ -230,7 +230,7 @@ Aus einer einzigen Tabelle ergaben sich vier Lehren, und alle vier gelten für j
 
 **Führe die Probe nach jedem Upgrade des Linters erneut aus.** Kategorien wie `nursery` gewinnen und verlieren zwischen Releases Regeln. Die Probedatei ist ein Test deiner Konfiguration und verdient es, wie jeder andere Test in der CI zu laufen; das Starter-Kit am Ende enthält einen.
 
-Am nächsten Tag haben wir in #274 jede Lücke der Tabelle geschlossen. `code-style/no-comments` meldet jeden Kommentar, `code-style/no-multiline-ternary` jeden ternären Ausdruck über mehrere Zeilen und `code-style/no-undefined-fallback` jedes `?? undefined`; `typescript/ban-ts-comment` weist `@ts-expect-error` jetzt auch mit einer Beschreibung zurück, und `typescript/consistent-type-assertions` mit `assertionStyle: "never"` weist das erweiternde `as` zurück. Im gesamten Repository eingeschaltet, fanden die Regeln 21 mehrzeilige ternäre Ausdrücke, 17 davon in ins Repository übernommenen shadcn-Komponenten, und zwei `as`-Casts, und der Pull Request hat jeden davon umgeschrieben, statt ihn auszunehmen.
+Am nächsten Tag haben wir in #274 jede Lücke der Tabelle geschlossen. `code-style/no-comments` meldet jeden Kommentar (seitdem mit einer Ausnahme, einem einzeiligen Link, siehe unten), `code-style/no-multiline-ternary` jeden ternären Ausdruck über mehrere Zeilen und `code-style/no-undefined-fallback` jedes `?? undefined`; `typescript/ban-ts-comment` weist `@ts-expect-error` jetzt auch mit einer Beschreibung zurück, und `typescript/consistent-type-assertions` mit `assertionStyle: "never"` weist das erweiternde `as` zurück. Im gesamten Repository eingeschaltet, fanden die Regeln 21 mehrzeilige ternäre Ausdrücke, 17 davon in ins Repository übernommenen shadcn-Komponenten, und zwei `as`-Casts, und der Pull Request hat jeden davon umgeschrieben, statt ihn auszunehmen.
 
 ## Wie aus einer Stilregel eine Prüfung wird
 
@@ -318,7 +318,7 @@ Wir haben sie mit unserer bestehenden Konfiguration über jede Datei laufen lass
 
 Der andere Befund zählt genauso viel: Abgesehen von dieser Zeile hatte der gelintete Code überhaupt keine Kommentare. Das Review hatte die Regel gehalten. Es hatte den Inhaber aber auch die Aufmerksamkeit gekostet, sie jedes Mal zu halten, und genau um diesen Tausch geht es in diesem Artikel.
 
-Eine Lint-Regel hat trotzdem zwei blinde Flecken. Sie sieht die Dateien nicht, die der Linter auslässt, bei uns die Browser-Suite, die Deklarationsdateien und die Stylesheets, und sie kann kein `/* oxlint-disable */` melden, das sie nennt, weil der Linter die Direktive zuerst befolgt. Deshalb parst `bun run check:comments` jede TypeScript-, JavaScript- und CSS-Datei, die Git verfolgt, außerhalb des Linters, mit oxc für Code und PostCSS für Styles, und schlägt bei jedem Kommentar fehl, bevor der Linter läuft. Sein erster Lauf fand noch einen: eine Zeile `/// <reference types>` in einer Deklarationsdatei, die nach `types` in `tsconfig.json` gewandert ist.
+Eine Lint-Regel hat trotzdem zwei blinde Flecken. Sie sieht die Dateien nicht, die der Linter auslässt, bei uns die Browser-Suite, die Deklarationsdateien und die Stylesheets, und sie kann kein `/* oxlint-disable */` melden, das sie nennt, weil der Linter die Direktive zuerst befolgt. Deshalb parst `bun run check:comments` jede TypeScript-, JavaScript-, CSS- und YAML-Datei, die Git verfolgt, außerhalb des Linters, mit oxc für Code und PostCSS für Styles, und schlägt bei jedem Kommentar fehl, bevor der Linter läuft, außer bei einem einzeiligen Link dorthin, wo die Begründung steht, und in einem Workflow beim Versions-Tag hinter einer Action, die auf einen Commit gepinnt ist. Sein erster Lauf fand noch einen: eine Zeile `/// <reference types>` in einer Deklarationsdatei, die nach `types` in `tsconfig.json` gewandert ist.
 
 ### Wenn eine Regel Zeremonie erzeugt, korrigiere die Regel
 
@@ -376,7 +376,7 @@ bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` formatiert, lintet, prüft die Typen und führt die Übersetzungs- und Inhaltsprüfungen in jeder Locale aus. `test:coverage` führt die Unit-, Integrations- und Komponententests mit dem Coverage-Gate bei <RepositoryFact name="coverageThreshold" unit="percent" /> für Zeilen, Anweisungen, Funktionen und Verzweigungen aus. `build:test` baut den Cloudflare Worker und prüft die Ausgabe. `test:e2e:pr` liefert diesen Build aus und steuert die ganze Browser-Suite in Chromium; die CI führt sie im Pull Request und noch einmal in der Merge-Queue aus, und lokal führt ein Agent stattdessen die Zeile `bunx playwright test` aus, für die Specs, die seine Änderung berührt, auf einem eigenen freien Port. Der Pull Request ist erst fertig, wenn er in der CI grün ist und die letzte Zeile ihn in die Queue gestellt hat.
+`check` formatiert, lintet, prüft die Typen und führt die Übersetzungs- und Inhaltsprüfungen in jeder Locale aus. `test:coverage` führt die Unit-, Integrations- und Komponententests mit dem Coverage-Gate bei <RepositoryFact name="coverageThreshold" unit="percent" /> für Zeilen, Anweisungen, Funktionen und Verzweigungen aus. `build:test` baut den Cloudflare Worker und prüft die Ausgabe. `test:e2e:pr` liefert diesen Build aus und steuert die ganze Browser-Suite in Chromium; die CI führt die Suite in Chromium und in WebKit im Pull Request und noch einmal in der Merge-Queue aus, und lokal führt ein Agent stattdessen die Zeile `bunx playwright test` aus, für die Specs, die seine Änderung berührt, auf einem eigenen freien Port. Der Pull Request ist erst fertig, wenn er in der CI grün ist und die letzte Zeile ihn in die Queue gestellt hat.
 
 Bis zum 21. November endete die lokale Liste mit der ganzen Suite, und ein Pull Request wurde über ein Skript gemergt, das auf ein geteiltes Preview-Deployment wartete. [Der nächste Artikel dieser Reihe](/blog/running-ai-coding-agents-in-parallel#update-november-2026) erzählt, warum sich beides geändert hat. So lange hat jeder Schritt im CI-Lauf vom 20. November 2026 gebraucht, der lief, als unsere Funktion zum Teilen von Blogartikeln `main` erreichte, und im Lauf der Merge-Queue für den Pull Request, der die Merge-Queue eingeführt hat, am 21. November:
 
@@ -654,7 +654,7 @@ it.each([
 })
 ```
 
-**Eine CI, die dieselben Befehle ausführt**, plus eine Suche nach Unterdrückungskommentaren, die nicht davon abhängt, dass ein Linter seine eigenen Einstellungen beachtet. Mach den Job zu einem erforderlichen Status-Check:
+**Eine CI, die dieselben Befehle ausführt**, plus eine Suche nach Unterdrückungskommentaren, die nicht davon abhängt, dass ein Linter seine eigenen Einstellungen beachtet. Mach den Job zu einem erforderlichen Status-Check. Jede Action ist auf den Commit eines Releases gepinnt, mit dem Tag dahinter, denn ein Tag lässt sich auf anderen Code verschieben, ein Commit nicht; saasyland.com pinnt jede Action so, und ein Test schlägt bei einem Tag fehl ([CI/CD](/docs/tooling/ci-cd)):
 
 ```yaml
 name: CI
@@ -668,10 +668,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - run: npm ci

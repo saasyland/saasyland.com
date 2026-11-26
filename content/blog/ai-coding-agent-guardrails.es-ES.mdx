@@ -149,8 +149,8 @@ Una regla puede vivir en ocho sitios. Se diferencian en cuándo se ejecutan, en 
 | Compilador y editor               | Mientras el agente escribe              | Nadie, si se ejecuta                                                 | Formas incorrectas, casos sin tratar                                             | TypeScript con `strict`, `exactOptionalPropertyTypes` y `noUncheckedIndexedAccess`                                                                                                                                                                                  |
 | Hooks de Git                      | En cada commit                          | `--no-verify`                                                        | Comprobaciones rápidas de los archivos preparados, formato del mensaje de commit | `pre-commit` ejecuta las comprobaciones de comentarios, traducciones y contenido, y aplica el formato, el lint y los tipos a los archivos preparados; `prepare-commit-msg` rechaza un asunto que no sea convencional, y `commit-msg` rechaza la atribución a una IA |
 | Comprobaciones obligatorias de CI | En cada push a una pull request         | Los administradores, si la regla de rama se lo permite               | Todo lo que puede decidir un programa                                            | `bun run check`, `bun run test:coverage`, el build de pruebas, la suite del navegador y una subida del Worker que no sirve tráfico                                                                                                                                  |
-| Reglas de rama                    | Al fusionar y al hacer push             | Los administradores de la organización                               | Método de fusión, historial, force-push, comprobaciones obligatorias             | La cola de fusión, solo squash, historial lineal, sin force-push ni borrado, y las tres comprobaciones de CI                                                                                                                                                        |
-| Comprobaciones de despliegue      | Antes y después de una subida           | Quien despliega                                                      | Secretos, bindings, comportamiento en vivo                                       | Secretos con marcadores de posición rechazados antes del build; comprobaciones del sitio en vivo después del despliegue                                                                                                                                             |
+| Reglas de rama                    | Al fusionar y al hacer push             | Los administradores de la organización                               | Método de fusión, historial, force-push, comprobaciones obligatorias             | La cola de fusión, solo squash, historial lineal, sin force-push ni borrado, y las comprobaciones de CI obligatorias, entre ellas la suite del navegador en Chromium y en WebKit                                                                                    |
+| Comprobaciones de despliegue      | Antes y después de una subida           | Quien despliega                                                      | Secretos, bindings, comportamiento en vivo                                       | Bindings comprobados antes de cada despliegue; en los scripts de despliegue locales, secretos con marcadores de posición rechazados antes del build y comprobaciones del sitio en vivo después del despliegue                                                       |
 | La segunda llave de una persona   | Cuando se pide                          | Nadie más                                                            | Cambios irreversibles y que mueven dinero, versiones                             | El sí citado del propietario para las rutas de revisión humana; versiones de la CLI preparadas en npm hasta que él las aprueba con autenticación de dos factores                                                                                                    |
 
 Dos principios deciden dónde va una regla.
@@ -228,7 +228,7 @@ De una sola tabla salieron cuatro lecciones, y las cuatro se aplican a cualquier
 
 **Vuelve a ejecutar el sondeo después de cada actualización del linter.** Categorías como `nursery` ganan y pierden reglas entre versiones. El archivo de sondeo es una prueba de tu configuración, y merece ejecutarse en la CI como cualquier otra prueba; el kit de inicio del final incluye una.
 
-Cerramos todos los huecos de la tabla al día siguiente, en la #274. `code-style/no-comments` informa de cada comentario, `code-style/no-multiline-ternary` de cada ternario que ocupa varias líneas y `code-style/no-undefined-fallback` de cada `?? undefined`; `typescript/ban-ts-comment` rechaza ahora `@ts-expect-error` incluso con una descripción, y `typescript/consistent-type-assertions` con `assertionStyle: "never"` rechaza el `as` que amplía. Activadas en todo el repositorio, las reglas encontraron 21 ternarios de varias líneas, 17 de ellos en componentes de shadcn copiados en el repositorio, y dos casts con `as`, y la pull request reescribió cada uno en lugar de eximirlo.
+Cerramos todos los huecos de la tabla al día siguiente, en la #274. `code-style/no-comments` informa de cada comentario (desde entonces con una excepción, un enlace de una línea, que se describe más abajo), `code-style/no-multiline-ternary` de cada ternario que ocupa varias líneas y `code-style/no-undefined-fallback` de cada `?? undefined`; `typescript/ban-ts-comment` rechaza ahora `@ts-expect-error` incluso con una descripción, y `typescript/consistent-type-assertions` con `assertionStyle: "never"` rechaza el `as` que amplía. Activadas en todo el repositorio, las reglas encontraron 21 ternarios de varias líneas, 17 de ellos en componentes de shadcn copiados en el repositorio, y dos casts con `as`, y la pull request reescribió cada uno en lugar de eximirlo.
 
 ## Cómo convertir una regla de estilo en una comprobación
 
@@ -316,7 +316,7 @@ La ejecutamos con nuestra configuración existente sobre todos los archivos que 
 
 El otro hallazgo importa igual: aparte de esa línea, el código que analiza el linter no tenía ningún comentario. La revisión había sostenido la regla. También le había costado al propietario la atención necesaria para sostenerla, cada vez, y ese es el intercambio del que trata este artículo.
 
-Una regla de lint sigue teniendo dos puntos ciegos. No ve los archivos que el linter omite, que en nuestro caso son la suite del navegador, los archivos de declaración y las hojas de estilo, y no puede informar de un `/* oxlint-disable */` que la nombra, porque el linter obedece antes la directiva. Por eso `bun run check:comments` parsea cada archivo TypeScript, JavaScript y CSS que Git rastrea, fuera del linter, con oxc para el código y PostCSS para los estilos, y falla ante cualquier comentario antes de que se ejecute el linter. Su primera ejecución encontró uno más: una línea `/// <reference types>` en un archivo de declaración, que pasó a `types` en `tsconfig.json`.
+Una regla de lint sigue teniendo dos puntos ciegos. No ve los archivos que el linter omite, que en nuestro caso son la suite del navegador, los archivos de declaración y las hojas de estilo, y no puede informar de un `/* oxlint-disable */` que la nombra, porque el linter obedece antes la directiva. Por eso `bun run check:comments` parsea cada archivo TypeScript, JavaScript, CSS y YAML que Git rastrea, fuera del linter, con oxc para el código y PostCSS para los estilos, y falla antes de que se ejecute el linter ante cualquier comentario que no sea un enlace de una línea al sitio donde está el motivo o, en un workflow, la etiqueta de versión tras una acción fijada a un commit. Su primera ejecución encontró uno más: una línea `/// <reference types>` en un archivo de declaración, que pasó a `types` en `tsconfig.json`.
 
 ### Cuando una regla produce ceremonia, corrige la regla
 
@@ -374,7 +374,7 @@ bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` formatea, pasa el linter, comprueba los tipos y ejecuta las comprobaciones de traducciones y de contenido en todos los idiomas. `test:coverage` ejecuta las pruebas unitarias, de integración y de componentes con el umbral de cobertura al <RepositoryFact name="coverageThreshold" unit="percent" /> en líneas, sentencias, funciones y ramas. `build:test` compila el Cloudflare Worker y comprueba la salida. `test:e2e:pr` sirve ese build y maneja toda la suite del navegador en Chromium; la CI la ejecuta en la pull request y otra vez en la cola de fusión, y en local un agente ejecuta en su lugar la línea `bunx playwright test`, para las specs que toca su cambio, en un puerto libre propio. La pull request solo está terminada cuando está en verde en la CI y la última línea la ha puesto en la cola.
+`check` formatea, pasa el linter, comprueba los tipos y ejecuta las comprobaciones de traducciones y de contenido en todos los idiomas. `test:coverage` ejecuta las pruebas unitarias, de integración y de componentes con el umbral de cobertura al <RepositoryFact name="coverageThreshold" unit="percent" /> en líneas, sentencias, funciones y ramas. `build:test` compila el Cloudflare Worker y comprueba la salida. `test:e2e:pr` sirve ese build y maneja toda la suite del navegador en Chromium; la CI ejecuta la suite en Chromium y en WebKit en la pull request y otra vez en la cola de fusión, y en local un agente ejecuta en su lugar la línea `bunx playwright test`, para las specs que toca su cambio, en un puerto libre propio. La pull request solo está terminada cuando está en verde en la CI y la última línea la ha puesto en la cola.
 
 Hasta el 21 de noviembre, la lista local terminaba con la suite completa, y una pull request se fusionaba mediante un script que esperaba un despliegue de preview compartido. [El siguiente artículo de esta serie](/blog/running-ai-coding-agents-in-parallel#update-november-2026) cuenta por qué cambiaron las dos cosas. Esto es lo que tardó cada paso en la ejecución de CI del 20 de noviembre de 2026 que se lanzó cuando la función para compartir artículos del blog llegó a `main`, y en la ejecución de la cola de fusión para la pull request que introdujo la cola de fusión, el 21 de noviembre:
 
@@ -652,7 +652,7 @@ it.each([
 })
 ```
 
-**Una CI que ejecuta los mismos comandos**, más una búsqueda de comentarios de supresión que no depende de que ningún linter respete su propia configuración. Haz que el trabajo sea una comprobación de estado obligatoria:
+**Una CI que ejecuta los mismos comandos**, más una búsqueda de comentarios de supresión que no depende de que ningún linter respete su propia configuración. Haz que el trabajo sea una comprobación de estado obligatoria. Cada acción está fijada al commit de una release, con su etiqueta detrás, porque una etiqueta se puede mover a otro código y un commit no; saasyland.com fija así todas sus acciones, y un test falla ante una etiqueta ([CI/CD](/docs/tooling/ci-cd)):
 
 ```yaml
 name: CI
@@ -666,10 +666,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - run: npm ci

@@ -150,8 +150,8 @@ Una regola può vivere in otto posti. Differiscono per quando vengono eseguiti, 
 | Compilatore ed editor            | Mentre l’agente scrive                 | Nessuno, se viene eseguito                                   | Forme sbagliate, casi non gestiti                                                      | TypeScript con `strict`, `exactOptionalPropertyTypes` e `noUncheckedIndexedAccess`                                                                                                                                                                                            |
 | Hook Git                         | A ogni commit                          | `--no-verify`                                                | Controlli veloci sui file in staging, formato del messaggio di commit                  | `pre-commit` esegue i controlli dei commenti, delle traduzioni e dei contenuti, poi formatta, passa al lint e controlla i tipi dei file in staging; `prepare-commit-msg` rifiuta un oggetto che non segue Conventional Commits, e `commit-msg` rifiuta l’attribuzione a un’AI |
 | Controlli CI obbligatori         | A ogni push su una pull request        | Gli admin, se la regola del branch lo consente               | Tutto ciò che un programma può decidere                                                | `bun run check`, `bun run test:coverage`, la build di test, la suite nel browser e un upload del Worker che non serve traffico                                                                                                                                                |
-| Regole dei branch                | Al merge e al push                     | Gli admin dell’organizzazione                                | Metodo di merge, cronologia, force-push, controlli obbligatori                         | La coda di merge, solo squash, cronologia lineare, niente force-push né eliminazione, e i tre controlli CI                                                                                                                                                                    |
-| Controlli del deploy             | Prima e dopo un upload                 | Chi esegue il deploy                                         | Segreti, binding, comportamento live                                                   | Segreti segnaposto rifiutati prima della build; controlli del sito live dopo il deploy                                                                                                                                                                                        |
+| Regole dei branch                | Al merge e al push                     | Gli admin dell’organizzazione                                | Metodo di merge, cronologia, force-push, controlli obbligatori                         | La coda di merge, solo squash, cronologia lineare, niente force-push né eliminazione, e i controlli CI obbligatori, tra cui la suite nel browser in Chromium e in WebKit                                                                                                      |
+| Controlli del deploy             | Prima e dopo un upload                 | Chi esegue il deploy                                         | Segreti, binding, comportamento live                                                   | Binding controllati prima di ogni deploy; negli script di deploy locali, segreti segnaposto rifiutati prima della build e controlli del sito live dopo il deploy                                                                                                              |
 | La seconda chiave di una persona | Quando viene chiesta                   | Nessun altro                                                 | Modifiche irreversibili e che muovono denaro, rilasci                                  | Il sì citato del proprietario per i percorsi della revisione umana; rilasci della CLI preparati su npm in attesa che lui li approvi con l’autenticazione a due fattori                                                                                                        |
 
 Due principi decidono dove va una regola.
@@ -229,7 +229,7 @@ Da una sola tabella sono uscite quattro lezioni, e tutte e quattro valgono per q
 
 **Riesegui la sonda dopo ogni aggiornamento del linter.** Categorie come `nursery` guadagnano e perdono regole da una release all’altra. Il file sonda è un test della tua configurazione, e merita di girare nella CI come qualsiasi altro test; lo starter kit alla fine ne contiene uno.
 
-Abbiamo chiuso tutte le lacune della tabella il giorno dopo, nella #274. `code-style/no-comments` segnala ogni commento, `code-style/no-multiline-ternary` ogni ternario su più righe e `code-style/no-undefined-fallback` ogni `?? undefined`; `typescript/ban-ts-comment` ora rifiuta `@ts-expect-error` anche con una descrizione, e `typescript/consistent-type-assertions` con `assertionStyle: "never"` rifiuta l’`as` che allarga. Attivate su tutto il repository, le regole hanno trovato 21 ternari su più righe, 17 dei quali in componenti shadcn copiati nel repository, e due cast con `as`, e la pull request li ha riscritti uno per uno invece di esentarli.
+Abbiamo chiuso tutte le lacune della tabella il giorno dopo, nella #274. `code-style/no-comments` segnala ogni commento (da allora con un’eccezione, un link su una riga, descritta più sotto), `code-style/no-multiline-ternary` ogni ternario su più righe e `code-style/no-undefined-fallback` ogni `?? undefined`; `typescript/ban-ts-comment` ora rifiuta `@ts-expect-error` anche con una descrizione, e `typescript/consistent-type-assertions` con `assertionStyle: "never"` rifiuta l’`as` che allarga. Attivate su tutto il repository, le regole hanno trovato 21 ternari su più righe, 17 dei quali in componenti shadcn copiati nel repository, e due cast con `as`, e la pull request li ha riscritti uno per uno invece di esentarli.
 
 ## Come trasformare una regola di stile in un controllo
 
@@ -317,7 +317,7 @@ L’abbiamo eseguita con la nostra configurazione esistente su ogni file coperto
 
 L’altro risultato conta altrettanto: a parte quella riga, il codice analizzato dal linter non conteneva alcun commento. La revisione aveva tenuto la regola. Era però costata al proprietario l’attenzione necessaria a tenerla, ogni volta, ed è questo lo scambio di cui parla questo articolo.
 
-Una regola di lint ha comunque due punti ciechi. Non vede i file che il linter salta, che per noi sono la suite nel browser, i file di dichiarazione e i fogli di stile, e non può segnalare un `/* oxlint-disable */` che la nomina, perché il linter obbedisce prima alla direttiva. Per questo `bun run check:comments` esegue il parsing di ogni file TypeScript, JavaScript e CSS che Git traccia, fuori dal linter, con oxc per il codice e PostCSS per gli stili, e fallisce su qualsiasi commento prima che il linter venga eseguito. La sua prima esecuzione ne ha trovato un altro: una riga `/// <reference types>` in un file di dichiarazione, spostata in `types` in `tsconfig.json`.
+Una regola di lint ha comunque due punti ciechi. Non vede i file che il linter salta, che per noi sono la suite nel browser, i file di dichiarazione e i fogli di stile, e non può segnalare un `/* oxlint-disable */` che la nomina, perché il linter obbedisce prima alla direttiva. Per questo `bun run check:comments` esegue il parsing di ogni file TypeScript, JavaScript, CSS e YAML che Git traccia, fuori dal linter, con oxc per il codice e PostCSS per gli stili, e fallisce prima che il linter venga eseguito su qualsiasi commento che non sia un link su una riga al punto in cui sta il motivo o, in un workflow, il tag di versione dopo un’action fissata a un commit. La sua prima esecuzione ne ha trovato un altro: una riga `/// <reference types>` in un file di dichiarazione, spostata in `types` in `tsconfig.json`.
 
 ### Quando una regola produce burocrazia, correggi la regola
 
@@ -375,7 +375,7 @@ bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` formatta, esegue il lint, controlla i tipi ed esegue i controlli delle traduzioni e dei contenuti in tutti i locale. `test:coverage` esegue i test unitari, di integrazione e dei componenti con la soglia di copertura a <RepositoryFact name="coverageThreshold" unit="percent" /> per righe, istruzioni, funzioni e branch. `build:test` compila il Cloudflare Worker e controlla l’output. `test:e2e:pr` serve quella build e pilota l’intera suite nel browser in Chromium; la CI la esegue sulla pull request e di nuovo nella coda di merge, e in locale un agente esegue invece la riga `bunx playwright test`, per le spec che la sua modifica tocca, su una porta libera tutta sua. La pull request è completata solo quando è verde nella CI e l’ultima riga l’ha messa in coda.
+`check` formatta, esegue il lint, controlla i tipi ed esegue i controlli delle traduzioni e dei contenuti in tutti i locale. `test:coverage` esegue i test unitari, di integrazione e dei componenti con la soglia di copertura a <RepositoryFact name="coverageThreshold" unit="percent" /> per righe, istruzioni, funzioni e branch. `build:test` compila il Cloudflare Worker e controlla l’output. `test:e2e:pr` serve quella build e pilota l’intera suite nel browser in Chromium; la CI esegue la suite in Chromium e in WebKit sulla pull request e di nuovo nella coda di merge, e in locale un agente esegue invece la riga `bunx playwright test`, per le spec che la sua modifica tocca, su una porta libera tutta sua. La pull request è completata solo quando è verde nella CI e l’ultima riga l’ha messa in coda.
 
 Fino al 21 novembre l’elenco locale terminava con l’intera suite, e una pull request arrivava al merge tramite uno script che aspettava un deploy di preview condiviso. [Il prossimo articolo di questa serie](/blog/running-ai-coding-agents-in-parallel#update-november-2026) spiega perché sono cambiati entrambi. Ecco quanto ha richiesto ciascun passo nell’esecuzione della CI del 20 novembre 2026, partita quando la funzionalità di condivisione del nostro blog è arrivata su `main`, e nell’esecuzione della coda di merge per la pull request che ha introdotto la coda di merge, il 21 novembre:
 
@@ -653,7 +653,7 @@ it.each([
 })
 ```
 
-**Una CI che esegue gli stessi comandi**, più una ricerca dei commenti di soppressione che non dipende dal fatto che un linter rispetti le proprie impostazioni. Rendi il job un controllo di stato obbligatorio:
+**Una CI che esegue gli stessi comandi**, più una ricerca dei commenti di soppressione che non dipende dal fatto che un linter rispetti le proprie impostazioni. Rendi il job un controllo di stato obbligatorio. Ogni action è fissata al commit di una release, con il suo tag dopo, perché un tag si può spostare su altro codice e un commit no; saasyland.com fissa così ogni action, e un test fallisce su un tag ([CI/CD](/docs/tooling/ci-cd)):
 
 ```yaml
 name: CI
@@ -667,10 +667,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - run: npm ci

@@ -141,8 +141,8 @@ A rule can live in eight places. They differ in when they run, who can get past 
 | Compiler and editor         | As the agent writes             | Nobody, if it runs                                            | Wrong shapes, unhandled cases                              | TypeScript with `strict`, `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`                                                                                                                                       |
 | Git hooks                   | At each commit                  | `--no-verify`                                                 | Fast checks on staged files, commit message format         | `pre-commit` runs the comment, translation and content checks and formats, lints and type-checks the staged files; `prepare-commit-msg` refuses a subject that is not conventional, and `commit-msg` refuses AI attribution |
 | Required CI checks          | On every push to a pull request | Admins, if the branch rule lets them                          | Everything a program can decide                            | `bun run check`, `bun run test:coverage`, the test build, the browser suite and an upload of the Worker that serves no traffic                                                                                              |
-| Branch rules                | At merge and at push            | Organization admins                                           | Merge method, history, force pushes, required checks       | The merge queue, squash only, linear history, no force pushes or deletion, and the three CI checks                                                                                                                          |
-| Deploy checks               | Before and after an upload      | Whoever deploys                                               | Secrets, bindings, live behaviour                          | Placeholder secrets refused before the build; live site checks after the deploy                                                                                                                                             |
+| Branch rules                | At merge and at push            | Organization admins                                           | Merge method, history, force pushes, required checks       | The merge queue, squash only, linear history, no force pushes or deletion, and the required CI checks, the browser suite in Chromium and in WebKit among them                                                               |
+| Deploy checks               | Before and after an upload      | Whoever deploys                                               | Secrets, bindings, live behaviour                          | Bindings checked before every deploy; in the local deploy scripts, placeholder secrets refused before the build and live site checks after the deploy                                                                       |
 | A person’s second key       | When asked                      | Nobody else                                                   | Irreversible and money-moving changes, releases            | The owner’s quoted yes for human-review paths; CLI releases staged on npm until he approves them with two-factor authentication                                                                                             |
 
 Two principles decide where a rule goes.
@@ -220,7 +220,7 @@ Four lessons came out of one table, and all four apply to any linter.
 
 **Re-run the probe after every linter upgrade.** Categories such as `nursery` gain and lose rules between releases. The probe file is a test of your configuration, and it deserves to run in CI like any other test; the starter kit at the end has one.
 
-We closed every gap in the table the next day, in #274. `code-style/no-comments` reports every comment, `code-style/no-multiline-ternary` every ternary that spans lines and `code-style/no-undefined-fallback` every `?? undefined`; `typescript/ban-ts-comment` now rejects `@ts-expect-error` even with a description, and `typescript/consistent-type-assertions` with `assertionStyle: "never"` rejects the widening `as`. Switched on across the repository, the rules found 21 multi-line ternaries, 17 of them in vendored shadcn components, and two `as` casts, and the pull request rewrote each one rather than exempting it.
+We closed every gap in the table the next day, in #274. `code-style/no-comments` reports every comment (since then with one exception, a one-line link, described below), `code-style/no-multiline-ternary` every ternary that spans lines and `code-style/no-undefined-fallback` every `?? undefined`; `typescript/ban-ts-comment` now rejects `@ts-expect-error` even with a description, and `typescript/consistent-type-assertions` with `assertionStyle: "never"` rejects the widening `as`. Switched on across the repository, the rules found 21 multi-line ternaries, 17 of them in vendored shadcn components, and two `as` casts, and the pull request rewrote each one rather than exempting it.
 
 ## How to turn a style rule into a check
 
@@ -308,7 +308,7 @@ We ran it with our existing configuration over every file the linter covers. It 
 
 The other finding matters as much: apart from that line, the linted code had no comments at all. Review had held the rule. It had also cost the owner the attention to hold it, every time, and that is the trade this article is about.
 
-A lint rule still has two blind spots. It cannot see the files the linter skips, which for us are the browser suite, the declaration files and the stylesheets, and it cannot report a `/* oxlint-disable */` that names it, because the linter obeys the directive first. So `bun run check:comments` parses every TypeScript, JavaScript and CSS file that Git tracks, outside the linter, with oxc for code and PostCSS for styles, and fails on any comment before the linter runs. Its first run found one more: a `/// <reference types>` line in a declaration file, whose type reference moved to `types` in `tsconfig.json`.
+A lint rule still has two blind spots. It cannot see the files the linter skips, which for us are the browser suite, the declaration files and the stylesheets, and it cannot report a `/* oxlint-disable */` that names it, because the linter obeys the directive first. So `bun run check:comments` parses every TypeScript, JavaScript, CSS and YAML file that Git tracks, outside the linter, with oxc for code and PostCSS for styles, and fails on any comment but a one-line link to where the reason lives, or, in a workflow, the version tag after an action pinned to a commit, before the linter runs. Its first run found one more: a `/// <reference types>` line in a declaration file, whose type reference moved to `types` in `tsconfig.json`.
 
 ### When a rule produces ceremony, fix the rule
 
@@ -366,7 +366,7 @@ bunx playwright test e2e/specs/<spec>.spec.ts --project=chromium
 bun scripts/enqueue-pr.ts <number>
 ```
 
-`check` formats, lints, type-checks and runs the translation and content checks in every locale. `test:coverage` runs the unit, integration and component tests with the coverage gate at <RepositoryFact name="coverageThreshold" unit="percent" /> for lines, statements, functions and branches. `build:test` builds the Cloudflare Worker and checks the output. `test:e2e:pr` serves that build and drives the whole browser suite in Chromium; CI runs it on the pull request and again in the merge queue, and locally an agent runs the `bunx playwright test` line instead, for the specs its change touches, on a free port of its own. The pull request is done only when it is green in CI and the last line has put it in the queue.
+`check` formats, lints, type-checks and runs the translation and content checks in every locale. `test:coverage` runs the unit, integration and component tests with the coverage gate at <RepositoryFact name="coverageThreshold" unit="percent" /> for lines, statements, functions and branches. `build:test` builds the Cloudflare Worker and checks the output. `test:e2e:pr` serves that build and drives the whole browser suite in Chromium; CI runs the suite in Chromium and in WebKit on the pull request and again in the merge queue, and locally an agent runs the `bunx playwright test` line instead, for the specs its change touches, on a free port of its own. The pull request is done only when it is green in CI and the last line has put it in the queue.
 
 Until 21 November the local list ended with the whole suite, and a pull request merged through a script that waited for a shared preview deployment. [The next post in this series](/blog/running-ai-coding-agents-in-parallel#update-november-2026) tells why both changed. Here is what each step took on the CI run of 20 November 2026 that ran when our blog sharing feature reached `main`, and on the merge queue’s run for the pull request that brought in the merge queue, on 21 November:
 
@@ -644,7 +644,7 @@ it.each([
 })
 ```
 
-**CI that runs the same commands**, plus a search for suppression comments that does not depend on any linter honouring its own settings. Make the job a required status check:
+**CI that runs the same commands**, plus a search for suppression comments that does not depend on any linter honouring its own settings. Make the job a required status check. Each action is pinned to the commit of a release, with its tag after it, because a tag can be moved to other code and a commit cannot; saasyland.com pins every action this way, and a test fails on a tag ([CI/CD](/docs/tooling/ci-cd)):
 
 ```yaml
 name: CI
@@ -658,10 +658,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - run: npm ci

@@ -68,7 +68,9 @@ Os projetos que o `saasyland init` escreve levam suas próprias cópias dos patc
 
 Um patch altera os arquivos de um pacote, não as versões que o Bun instala para ele. Quando um pacote fixa uma das próprias dependências abaixo da versão que a aplicação usa e os tipos das duas cópias não batem, uma entrada em `overrides` no `package.json` a eleva em vez disso. Hoje nenhuma é necessária. O `@polar-sh/adapter-utils` 1.1.1, que o `@polar-sh/better-auth` usa, fixa o `@polar-sh/sdk` 1.3.1, então o Bun instala essa cópia ao lado da 1.3.2 da aplicação. O adaptador importa o SDK só para tipar o `webhooks({ onPayload })` do plugin, e `handlePolarEvent`, que recebe o payload da 1.3.2, aceita o da 1.3.1, porque a 1.3.2 só amplia tipos, como `trial_ended` entre os status de assinatura. Quando uma versão posterior do SDK mudar um payload de um jeito que a cópia do adaptador não aceite, `bun run check` falha em `handlePolarEvent`; aí uma entrada em `overrides` para o `@polar-sh/sdk` eleva a cópia do adaptador até que uma versão do `@polar-sh/adapter-utils` dependa desse SDK (`npm view @polar-sh/adapter-utils dependencies`).
 
-## Avisos de segurança
+## Avisos de segurança [#security-advisories]
+
+`bun run deps:audit` executa `bun audit` nas dependências de produção no job `check` de todo pull request e grupo de merge, e de novo toda semana em `updates.yml` ([CI/CD](/docs/tooling/ci-cd#checks)). Falha com um aviso de gravidade <RepositoryFact name="auditBlockingSeverities" /> que nenhuma exceção vigente cubra e mostra os de gravidade menor sem falhar.
 
 Os alertas do Dependabot cobrem `remotion/package-lock.json`, mas o GitHub não lê `bun.lock`, então verifique a aplicação com `bun audit` e o projeto de vídeo com `npm audit` dentro de `remotion/`. Resolva um aviso com a versão mais recente do pacote que traz o pacote vulnerável. Quando a faixa de versões desse pacote já permite a versão corrigida, basta atualizar o lockfile: `bun update`, ou `npm update` em `remotion/`.
 
@@ -82,6 +84,16 @@ O `bun audit` ainda relata um aviso que não tem correção a adotar:
 - `esbuild` 0.18.20 (GHSA-67mh-4wv8-2f99, moderada), por meio do `drizzle-kit` e do `@esbuild-kit/esm-loader`. O `drizzle-kit` 0.31.11 declara o loader, mas nunca o importa, e o aviso diz respeito ao servidor de desenvolvimento do esbuild, que nada aqui inicia. [drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) acompanha a remoção; as release candidates do `drizzle-kit` 1.0 já não dependem dele.
 
 O GitHub retirou o aviso de `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4), que vinha por `shadcn` e `@shadcn/registry`, depois de [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910), então o `bun audit` não o relata mais.
+
+### Exceções [#audit-exceptions]
+
+Um aviso que ainda não tem correção, em geral num pacote transitivo, recebe uma exceção em `AUDIT_EXCEPTIONS` (`src/data/dependency-audit.ts`), a única lista de exceções, adicionada num pull request próprio e revisada como qualquer outra mudança. Cada entrada indica o aviso do GitHub (`advisory`) e o pacote (`package`), explica por que o aviso é aceito até sair uma correção (`reason`) e traz a data da revisão (`reviewedOn`), a data em que a exceção termina (`expiresOn`) e um link para a issue ou o pull request upstream que acompanha a correção (`tracking`). A varredura falha com uma exceção:
+
+- que expirou: revise-a de novo com datas novas ou remova-a;
+- que dura mais de <RepositoryFact name="auditExceptionMaxDays" unit="day" /> após a revisão, ou cuja data de revisão está no futuro;
+- que não corresponde mais a nenhum aviso alto ou crítico reportado, para que nenhuma sobreviva ao seu motivo.
+
+Todo aviso que uma exceção permite aparece como alerta em cada execução, então nenhuma exceção passa em silêncio, e `dependency-audit.test.ts` confere os campos de cada entrada. O pull request que traz a correção remove a entrada.
 
 ## As entradas do Vite+ no package.json
 

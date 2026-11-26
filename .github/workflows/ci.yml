@@ -29,6 +29,9 @@ jobs:
       - name: Format, lint, typecheck, and i18n
         run: bun run check
 
+      - name: Scan production dependencies for high and critical advisories
+        run: bun run deps:audit
+
   test:
     name: Tests shard ${{ matrix.shard }} of ${{ strategy.job-total }}
     runs-on: ubuntu-latest
@@ -132,6 +135,30 @@ jobs:
 
       - name: Prune the scenario's features, then format, type-check and check the translations of the site that is left
         run: bun run check:features ${{ matrix.scenario }}
+
+  sbom:
+    name: Software bill of materials
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
+
+      - name: Write the CycloneDX SBOM of the production dependencies
+        run: bun run deps:sbom
+
+      - name: Upload the SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90
+          if-no-files-found: error
 
   e2e:
     name: Build and E2E

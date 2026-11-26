@@ -142,6 +142,7 @@ import {
   SCAFFOLD_TARGET,
 } from "~/src/data/cli"
 import { DATA_GRID_ACTIONS_SIZE, DATA_GRID_DATE_PRESETS } from "~/src/data/data-grid"
+import { AUDIT_EXCEPTION_MAX_DAYS, BLOCKING_SEVERITIES } from "~/src/data/dependency-audit"
 import { HEAD_START_CLAIM_MAX_HOURS } from "~/src/data/head-start"
 import { CORE_PRICE_IN_HOURS, TIER_SUPPORT_VALUES } from "~/src/data/license"
 import { LOCAL_SERVER_ORIGIN, TEST_SERVER_PORTS } from "~/src/data/local-server"
@@ -162,6 +163,7 @@ import {
 import { NEWSLETTER_SENDING } from "~/src/data/newsletter"
 import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
 import { REFUND_TERMS } from "~/src/data/refunds"
+import { SECURITY_RESPONSE_WORKING_DAYS, SECURITY_TXT_LANGUAGES } from "~/src/data/security"
 import { SKILL_SOURCES } from "~/src/data/skills"
 
 import { oauthCallbackPath } from "~/src/lib/auth"
@@ -184,7 +186,7 @@ import {
   CHECKOUT_CONFIRMATION_TIMEOUT_MS,
 } from "~/src/presentation/components/custom/billing/checkout-confirmation"
 
-import { REQUEST_RENDERED_ROUTES } from "~/src/routes"
+import { REQUEST_RENDERED_ROUTES, ROUTES } from "~/src/routes"
 
 type Value = number | string | readonly string[]
 
@@ -248,6 +250,8 @@ const FACTS = {
   attachmentUploadsPerMinute: LESSON_ATTACHMENT_UPLOADS_PER_MINUTE,
   audioBitrate: AUDIO_BITRATE,
   audioSampleRate: AUDIO_SAMPLE_RATE,
+  auditBlockingSeverities: BLOCKING_SEVERITIES,
+  auditExceptionMaxDays: AUDIT_EXCEPTION_MAX_DAYS,
   backupCodeMaxLength: BACKUP_CODE_MAX_LENGTH,
   backupCodeMinLength: BACKUP_CODE_MIN_LENGTH,
   billingGeneration: BILLING_GENERATION,
@@ -381,6 +385,10 @@ const FACTS = {
   scaffoldTarget: SCAFFOLD_TARGET,
   secretPlaceholderBrackets: SECRET_PLACEHOLDER_BRACKETS.map(([open, close]) => `${open}…${close}`),
   secretPlaceholderWords: SECRET_PLACEHOLDER_WORDS,
+  securityAcknowledgeWorkingDays: SECURITY_RESPONSE_WORKING_DAYS.ACKNOWLEDGE,
+  securityAssessWorkingDays: SECURITY_RESPONSE_WORKING_DAYS.ASSESS,
+  securityTxtLanguages: SECURITY_TXT_LANGUAGES,
+  securityTxtPath: ROUTES.WELL_KNOWN.SECURITY_TXT,
   sensitiveRateLimit: RATE_LIMITS.SENSITIVE.max,
   sessionStaleTimeMinutes: SESSION_STALE_TIME_MS / MILLISECONDS_PER_MINUTE,
   signedDownloadHours: LESSON_ATTACHMENT_DOWNLOAD_TTL_SECONDS / SECONDS_PER_HOUR,

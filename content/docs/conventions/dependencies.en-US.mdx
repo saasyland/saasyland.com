@@ -68,7 +68,9 @@ Projects that `saasyland init` writes carry their own copies of the patches thei
 
 A patch changes a package's files, not the versions Bun installs for it. When a package pins one of its own dependencies below the release the application uses and the two copies' types disagree, an `overrides` entry in `package.json` lifts it instead. None is needed today. `@polar-sh/adapter-utils` 1.1.1, which `@polar-sh/better-auth` uses, pins `@polar-sh/sdk` 1.3.1, so Bun installs that copy beside the application's 1.3.2. The adapter imports the SDK only to type the plugin's `webhooks({ onPayload })`, and `handlePolarEvent`, which takes the 1.3.2 payload, accepts the 1.3.1 one, because 1.3.2 only widens types, such as `trial_ended` among the subscription statuses. When a later SDK release changes a payload in a way the adapter's copy does not accept, `bun run check` fails at `handlePolarEvent`; an `overrides` entry for `@polar-sh/sdk` then lifts the adapter's copy until an `@polar-sh/adapter-utils` release depends on that SDK (`npm view @polar-sh/adapter-utils dependencies`).
 
-## Security advisories
+## Security advisories [#security-advisories]
+
+`bun run deps:audit` runs `bun audit` on the production dependencies in the `check` job of every pull request and merge group, and again every week in `updates.yml` ([CI/CD](/docs/tooling/ci-cd#checks)). It fails on an advisory rated <RepositoryFact name="auditBlockingSeverities" /> that no current exception covers, and prints the lower ones without failing.
 
 Dependabot alerts cover `remotion/package-lock.json`, but GitHub does not read `bun.lock`, so check the application with `bun audit` and the video project with `npm audit` inside `remotion/`. Clear an advisory with the newest release of the package that pulls in the vulnerable one. When that package's version range already allows the fixed release, refreshing the lockfile is enough: `bun update`, or `npm update` in `remotion/`.
 
@@ -82,6 +84,16 @@ When no release of the parent allows the fix yet, an `overrides` entry lifts the
 - `esbuild` 0.18.20 (GHSA-67mh-4wv8-2f99, moderate), through `drizzle-kit` and `@esbuild-kit/esm-loader`. `drizzle-kit` 0.31.11 declares the loader but never imports it, and the advisory concerns esbuild's development server, which nothing here starts. [drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) tracks removing it; the `drizzle-kit` 1.0 release candidates no longer depend on it.
 
 GitHub withdrew the `deepmerge` 4.3.1 advisory (GHSA-gcqx-w48m-w2h4), which `shadcn` and `@shadcn/registry` pulled in, after [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910), so `bun audit` no longer reports it.
+
+### Exceptions [#audit-exceptions]
+
+An advisory with no fix to take yet, usually in a transitive package, gets an exception in `AUDIT_EXCEPTIONS` (`src/data/dependency-audit.ts`), the one list of them, added in a pull request of its own and reviewed like any other change. Each entry names the GitHub advisory (`advisory`) and the package (`package`), says why the advisory is accepted until a fix ships (`reason`), and carries the date of the review (`reviewedOn`), the date the exception ends (`expiresOn`) and a link to the upstream issue or pull request that tracks the fix (`tracking`). The scan fails on an exception:
+
+- that has expired: review it again with new dates, or remove it;
+- that lasts more than <RepositoryFact name="auditExceptionMaxDays" unit="day" /> after its review, or whose review date lies in the future;
+- that no longer matches a reported high or critical advisory, so none outlives its reason.
+
+Every advisory an exception allows is printed as a warning in each run, so no exception is silent, and `dependency-audit.test.ts` checks the fields of every entry. The pull request that takes the fix removes the entry.
 
 ## The Vite+ entries in package.json
 

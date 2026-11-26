@@ -6,6 +6,7 @@ import { createSocialCardRenderer } from "~/src/integrations/takumi/takumi.rende
 import { MILLISECONDS_PER_SECOND } from "~/src/lib/duration"
 import { buildBlogFeeds } from "~/src/lib/feed"
 import { readPageHead } from "~/src/lib/page-head"
+import { SECURITY_TXT_CONTENT } from "~/src/lib/security-txt"
 import { ORGANIZATION_LOGO, PAGES_SITEMAP_PATH, SITEMAP_PATH, SOCIAL_IMAGE } from "~/src/lib/seo"
 import { buildSitemap, buildSitemapIndex, listedPages } from "~/src/lib/sitemap"
 
@@ -31,6 +32,11 @@ const xmlFiles = [
 ]
 
 await Promise.all(xmlFiles.map(({ path, xml }) => writeFile(join(CLIENT_DIR, path), xml)))
+
+const securityTxt = join(CLIENT_DIR, ROUTES.WELL_KNOWN.SECURITY_TXT)
+
+await mkdir(dirname(securityTxt), { recursive: true })
+await writeFile(securityTxt, SECURITY_TXT_CONTENT)
 
 const imagePath = (url: string): string => {
   const image = new URL(url)
@@ -72,5 +78,5 @@ await Promise.all(
 const seconds = ((performance.now() - started) / MILLISECONDS_PER_SECOND).toFixed(1)
 
 console.log(
-  `Wrote ${xmlFiles.map(({ path }) => path).join(", ")} with ${listed.length} of ${pages.length} prerendered pages listed, the organisation logo and ${cards.size - 1} social images in ${seconds} s.`,
+  `Wrote ${[...xmlFiles.map(({ path }) => path), ROUTES.WELL_KNOWN.SECURITY_TXT].join(", ")} with ${listed.length} of ${pages.length} prerendered pages listed, the organisation logo and ${cards.size - 1} social images in ${seconds} s.`,
 )

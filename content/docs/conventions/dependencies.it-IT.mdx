@@ -68,7 +68,9 @@ I progetti che `saasyland init` scrive portano le proprie copie delle patch di c
 
 Una patch modifica i file di un pacchetto, non le versioni che Bun installa per esso. Quando un pacchetto fissa una delle proprie dipendenze a una versione precedente a quella che usa l'applicazione e i tipi delle due copie non coincidono, una voce di `overrides` in `package.json` ne alza invece la versione. Oggi non ne serve nessuna. `@polar-sh/adapter-utils` 1.1.1, che `@polar-sh/better-auth` usa, fissa `@polar-sh/sdk` 1.3.1, quindi Bun installa quella copia accanto alla 1.3.2 dell'applicazione. L'adapter importa l'SDK solo per tipizzare `webhooks({ onPayload })` del plugin, e `handlePolarEvent`, che riceve il payload della 1.3.2, accetta quello della 1.3.1, perché la 1.3.2 si limita ad ampliare dei tipi, come `trial_ended` tra gli stati dell'abbonamento. Quando una release successiva dell'SDK cambierà un payload in un modo che la copia dell'adapter non accetta, `bun run check` fallirà su `handlePolarEvent`; allora una voce di `overrides` per `@polar-sh/sdk` alzerà la copia dell'adapter finché una release di `@polar-sh/adapter-utils` non dipenderà da quell'SDK (`npm view @polar-sh/adapter-utils dependencies`).
 
-## Avvisi di sicurezza
+## Avvisi di sicurezza [#security-advisories]
+
+`bun run deps:audit` esegue `bun audit` sulle dipendenze di produzione nel job `check` di ogni pull request e di ogni gruppo di merge, e di nuovo ogni settimana in `updates.yml` ([CI/CD](/docs/tooling/ci-cd#checks)). Fallisce con un avviso di gravità <RepositoryFact name="auditBlockingSeverities" /> che nessuna eccezione valida copre e stampa quelli meno gravi senza fallire.
 
 Gli alert di Dependabot coprono `remotion/package-lock.json`, ma GitHub non legge `bun.lock`, quindi controlla l'applicazione con `bun audit` e il progetto video con `npm audit` dentro `remotion/`. Risolvi un avviso con la release più recente del pacchetto che porta con sé quello vulnerabile. Se l'intervallo di versioni di quel pacchetto ammette già la release corretta, basta aggiornare il lockfile: `bun update`, oppure `npm update` in `remotion/`.
 
@@ -82,6 +84,16 @@ Finché nessuna release del pacchetto padre ammette la correzione, una voce in `
 - `esbuild` 0.18.20 (GHSA-67mh-4wv8-2f99, moderata), tramite `drizzle-kit` e `@esbuild-kit/esm-loader`. `drizzle-kit` 0.31.11 dichiara il loader ma non lo importa mai, e l'avviso riguarda il server di sviluppo di esbuild, che qui nulla avvia. [drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) ne segue la rimozione; le release candidate di `drizzle-kit` 1.0 non ne dipendono più.
 
 GitHub ha ritirato l'avviso su `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4), portato da `shadcn` e `@shadcn/registry`, dopo [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910), quindi `bun audit` non lo segnala più.
+
+### Eccezioni [#audit-exceptions]
+
+Un avviso che non ha ancora una correzione, di solito in un pacchetto transitivo, riceve un'eccezione in `AUDIT_EXCEPTIONS` (`src/data/dependency-audit.ts`), l'unica lista delle eccezioni, aggiunta in una pull request dedicata e revisionata come qualsiasi altra modifica. Ogni voce indica l'avviso GitHub (`advisory`) e il pacchetto (`package`), spiega perché l'avviso è accettato finché non arriva una correzione (`reason`) e riporta la data della revisione (`reviewedOn`), la data in cui l'eccezione scade (`expiresOn`) e un link alla issue o alla pull request upstream che segue la correzione (`tracking`). La scansione fallisce con un'eccezione:
+
+- scaduta: rivedila con nuove date o rimuovila;
+- che dura più di <RepositoryFact name="auditExceptionMaxDays" unit="day" /> dalla revisione, o la cui data di revisione è nel futuro;
+- che non corrisponde più a nessun avviso alto o critico segnalato, così nessuna sopravvive al suo motivo.
+
+Ogni avviso consentito da un'eccezione viene stampato come warning in ogni run, così nessuna eccezione passa inosservata, e `dependency-audit.test.ts` controlla i campi di ogni voce. La pull request che porta la correzione rimuove la voce.
 
 ## Le voci di Vite+ in package.json
 

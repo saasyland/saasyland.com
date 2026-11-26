@@ -68,7 +68,9 @@ Los proyectos que escribe `saasyland init` llevan sus propias copias de los parc
 
 Un parche cambia los archivos de un paquete, no las versiones que Bun instala para él. Cuando un paquete fija una de sus propias dependencias por debajo de la versión que usa la aplicación y los tipos de las dos copias no coinciden, una entrada de `overrides` en `package.json` la sube en su lugar. Hoy no hace falta ninguna. `@polar-sh/adapter-utils` 1.1.1, que usa `@polar-sh/better-auth`, fija `@polar-sh/sdk` 1.3.1, así que Bun instala esa copia junto a la 1.3.2 de la aplicación. El adaptador importa el SDK solo para tipar el `webhooks({ onPayload })` del plugin, y `handlePolarEvent`, que recibe el payload de la 1.3.2, acepta el de la 1.3.1, porque la 1.3.2 solo amplía tipos, como `trial_ended` entre los estados de suscripción. Cuando una versión posterior del SDK cambie un payload de forma que la copia del adaptador no lo acepte, `bun run check` fallará en `handlePolarEvent`; entonces una entrada de `overrides` para `@polar-sh/sdk` sube la copia del adaptador hasta que una versión de `@polar-sh/adapter-utils` dependa de ese SDK (`npm view @polar-sh/adapter-utils dependencies`).
 
-## Avisos de seguridad
+## Avisos de seguridad [#security-advisories]
+
+`bun run deps:audit` ejecuta `bun audit` sobre las dependencias de producción en el job `check` de cada pull request y de cada grupo de fusión, y de nuevo cada semana en `updates.yml` ([CI/CD](/docs/tooling/ci-cd#checks)). Falla ante un aviso de gravedad <RepositoryFact name="auditBlockingSeverities" /> que no cubra ninguna excepción vigente y muestra los de menor gravedad sin fallar.
 
 Las alertas de Dependabot cubren `remotion/package-lock.json`, pero GitHub no lee `bun.lock`, así que revisa la aplicación con `bun audit` y el proyecto de vídeo con `npm audit` dentro de `remotion/`. Resuelve un aviso con la versión más reciente del paquete que trae el paquete vulnerable. Si el rango de versiones de ese paquete ya admite la versión corregida, basta con actualizar el lockfile: `bun update`, o `npm update` en `remotion/`.
 
@@ -82,6 +84,16 @@ Mientras ninguna versión del paquete padre admita la corrección, una entrada e
 - `esbuild` 0.18.20 (GHSA-67mh-4wv8-2f99, moderada), a través de `drizzle-kit` y `@esbuild-kit/esm-loader`. `drizzle-kit` 0.31.11 declara el loader pero nunca lo importa, y el aviso afecta al servidor de desarrollo de esbuild, que aquí nada inicia. [drizzle-team/drizzle-orm#5304](https://github.com/drizzle-team/drizzle-orm/issues/5304) sigue su eliminación; las release candidates de `drizzle-kit` 1.0 ya no dependen de él.
 
 GitHub retiró el aviso de `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4), que traían `shadcn` y `@shadcn/registry`, tras [github/advisory-database#10910](https://github.com/github/advisory-database/issues/10910), así que `bun audit` ya no lo muestra.
+
+### Excepciones [#audit-exceptions]
+
+Un aviso que aún no tiene corrección, normalmente en un paquete transitivo, recibe una excepción en `AUDIT_EXCEPTIONS` (`src/data/dependency-audit.ts`), la única lista de excepciones, añadida en un pull request propio y revisada como cualquier otro cambio. Cada entrada nombra el aviso de GitHub (`advisory`) y el paquete (`package`), explica por qué se acepta el aviso hasta que haya corrección (`reason`) e incluye la fecha de la revisión (`reviewedOn`), la fecha en que termina la excepción (`expiresOn`) y un enlace a la issue o el pull request del proyecto original que sigue la corrección (`tracking`). El análisis falla ante una excepción:
+
+- que ha caducado: revísala de nuevo con fechas nuevas o elimínala;
+- que dura más de <RepositoryFact name="auditExceptionMaxDays" unit="day" /> desde su revisión, o cuya fecha de revisión está en el futuro;
+- que ya no coincide con ningún aviso alto o crítico notificado, para que ninguna sobreviva a su motivo.
+
+Cada aviso que permite una excepción se muestra como advertencia en cada ejecución, así que ninguna excepción pasa desapercibida, y `dependency-audit.test.ts` comprueba los campos de cada entrada. El pull request que incorpora la corrección elimina la entrada.
 
 ## Las entradas de Vite+ en package.json
 

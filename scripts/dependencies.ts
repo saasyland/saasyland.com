@@ -10,11 +10,13 @@ export const VITE_PLUS = "vite-plus"
 export const VITE_PLUS_BUNDLED: readonly string[] = ["vite", "vitest"]
 
 const RANGE_SPEC = /^[\^~]/u
+const SCRIPT_TOOL = /\bbunx (?:--bun )?(?<name>@?[\w.-]+(?:\/[\w.-]+)?)@(?<version>\d+\.\d+\.\d+[\w.-]*)/gu
 const VERSION_SEPARATOR = "@"
 const SEMVER = /^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?<prerelease>-.+)?$/u
 
 const specsSchema = zod.record(zod.string(), zod.string()).default({})
-const manifestSchema = zod.object({ dependencies: specsSchema, devDependencies: specsSchema })
+const manifestSchema = zod.object({ dependencies: specsSchema, devDependencies: specsSchema, scripts: specsSchema })
+const scriptToolSchema = zod.object({ name: zod.string(), version: zod.string() })
 const lockedPackageSchema = zod.tuple([zod.string()], zod.unknown())
 const bunLockSchema = zod.object({ packages: zod.record(zod.string(), lockedPackageSchema) })
 const latestSchema = zod.object({ version: zod.string() })
@@ -55,23 +57,28 @@ const readBunLock = (root: string): zod.infer<typeof bunLockSchema> => {
   return bunLockSchema.parse(value)
 }
 
+export const readScriptTools = (scripts: Readonly<Record<string, string>>): Dependency[] =>
+  Object.values(scripts)
+    .flatMap((script) => Array.from(script.matchAll(SCRIPT_TOOL), (match) => scriptToolSchema.parse(match.groups)))
+    .map(({ name, version }) => ({ name, package: name, spec: version, version }))
+
 export const readDependencies = (root: string): Dependency[] => {
-  const { dependencies, devDependencies } = readManifest(root)
+  const { dependencies, devDependencies, scripts } = readManifest(root)
   const { packages } = readBunLock(root)
 
-  return Object.entries({ ...dependencies, ...devDependencies })
-    .map(([name, spec]) => {
-      const resolved = packages[name]?.[0]
+  const installed = Object.entries({ ...dependencies, ...devDependencies }).map(([name, spec]) => {
+    const resolved = packages[name]?.[0]
 
-      if (resolved === undefined) {
-        throw new Error(`${BUN_LOCK} has no entry for ${name}; run bun install`)
-      }
+    if (resolved === undefined) {
+      throw new Error(`${BUN_LOCK} has no entry for ${name}; run bun install`)
+    }
 
-      const separator = resolved.lastIndexOf(VERSION_SEPARATOR)
+    const separator = resolved.lastIndexOf(VERSION_SEPARATOR)
 
-      return { name, package: resolved.slice(0, separator), spec, version: resolved.slice(separator + 1) }
-    })
-    .toSorted((left, right) => left.name.localeCompare(right.name))
+    return { name, package: resolved.slice(0, separator), spec, version: resolved.slice(separator + 1) }
+  })
+
+  return [...installed, ...readScriptTools(scripts)].toSorted((left, right) => left.name.localeCompare(right.name))
 }
 
 export const isRange = (spec: string): boolean => RANGE_SPEC.test(spec)

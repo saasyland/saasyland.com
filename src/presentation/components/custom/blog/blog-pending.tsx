@@ -223,9 +223,9 @@ export const AuthorPending = (): JSX.Element => (
             <Skeleton className="h-lh w-full scale-y-70" />
             <Skeleton className="h-lh w-2/5 scale-y-70" />
           </div>
-          <div className="mt-6 flex items-center gap-1">
+          <div className="mt-6 flex h-7 items-center gap-3">
             {AUTHOR_PROFILES.map((profile) => (
-              <Skeleton className="size-9 rounded-md" key={profile} />
+              <Skeleton className="size-4 rounded-sm" key={profile} />
             ))}
           </div>
         </div>

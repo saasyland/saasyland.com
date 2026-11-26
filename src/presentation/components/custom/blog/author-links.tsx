@@ -17,7 +17,7 @@ export const AuthorLinks = ({ author }: { readonly author: BlogAuthor }): JSX.El
   const { name, profiles } = BLOG_AUTHORS[author]
 
   return (
-    <ul className="flex items-center gap-1">
+    <ul className="flex items-center">
       {profiles.map(({ network, url }) => {
         const Icon = PROFILE_ICONS[network]
 
@@ -25,7 +25,7 @@ export const AuthorLinks = ({ author }: { readonly author: BlogAuthor }): JSX.El
           <li key={network}>
             <a
               aria-label={t(network, { name })}
-              className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-exp hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors duration-200 ease-exp hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               href={url}
               rel="me noopener noreferrer"
               target="_blank"

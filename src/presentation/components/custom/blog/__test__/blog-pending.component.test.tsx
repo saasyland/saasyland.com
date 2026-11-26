@@ -46,6 +46,6 @@ describe("the author page skeleton", () => {
 
     expect(container.querySelectorAll('[aria-busy="true"]')).toHaveLength(1)
     expect(container.querySelectorAll(".rounded-full")).toHaveLength(1)
-    expect(container.querySelectorAll(".size-9")).toHaveLength(Object.values(AUTHOR_PROFILE).length)
+    expect(container.querySelectorAll(".size-4")).toHaveLength(Object.values(AUTHOR_PROFILE).length)
   })
 })

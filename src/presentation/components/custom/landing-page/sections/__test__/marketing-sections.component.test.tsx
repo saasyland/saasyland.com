@@ -451,9 +451,9 @@ describe("customer cases", () => {
       const card = caseCard(product.name)
       const item = english.cases.items[product.id]
 
-      expect(within(card).getByText(english.cases.status[product.status], { exact: false })).toHaveTextContent(
-        `${english.cases.status[product.status]}·${item.kind}`,
-      )
+      const meta = `${english.cases.status[product.status]}·${item.kind}`
+
+      expect(within(card).getByText((_, element) => element?.tagName === "P" && element.textContent === meta)).toBeVisible()
       expect(within(card).getByText(withFacts(item.body))).toBeVisible()
       expect(within(card).getByText(item.modules)).toBeVisible()
     }

@@ -6,7 +6,7 @@ import { useTranslations } from "use-intl/react"
 
 import { cn } from "~/src/lib/cn"
 
-const FIRST_SCREEN = "100% 0px 0px 0px"
+const HALF_SCREEN = "50% 0px 0px 0px"
 
 const returnToTop = (): void => {
   globalThis.scrollTo({ top: 0 })
@@ -30,7 +30,7 @@ export const BackToTop = (): JSX.Element => {
           setIsVisible(!entry.isIntersecting)
         }
       },
-      { rootMargin: FIRST_SCREEN },
+      { rootMargin: HALF_SCREEN },
     )
     observer.observe(sentinel)
 

@@ -6,7 +6,11 @@ import { MotionProvider } from "~/src/providers/motion-provider"
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 
 describe("group highlights", () => {
-  it.each(["div", "dl"] as const)("moves and clears the highlight in a %s group", (element) => {
+  it.each([
+    { element: "div", item: "DIV" },
+    { element: "dl", item: "DIV" },
+    { element: "ul", item: "LI" },
+  ] as const)("moves and clears the highlight in a $element group", ({ element, item }) => {
     const { container } = render(
       <MotionProvider>
         <HighlightGroup className="group" element={element} name="specifications">
@@ -25,6 +29,7 @@ describe("group highlights", () => {
       throw new Error("Highlight items missing")
     }
     expect(container.querySelector(`${element}.group`)).toBeInTheDocument()
+    expect(first.tagName).toBe(item)
     expect(first).not.toHaveClass("z-10")
     fireEvent.mouseEnter(first)
     expect(first).toHaveClass("z-10")

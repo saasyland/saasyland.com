@@ -13,6 +13,7 @@ import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 import { cn } from "~/src/lib/cn"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
+import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 import { Reveal } from "~/src/presentation/components/custom/landing-page/components/reveal"
 import { PRICE_TAGS, PricingTiers, type TierAction, TierStructuredData } from "~/src/presentation/components/custom/pricing"
 
@@ -55,13 +56,14 @@ interface OtherOptionProps {
   readonly action: ReactNode
   readonly body: ReactNode
   readonly figure: string
+  readonly id: string
   readonly label: string
   readonly period: string
   readonly title: string
 }
 
-const OtherOption = ({ action, body, figure, label, period, title }: OtherOptionProps): JSX.Element => (
-  <li className="flex flex-col rounded-lg border border-dashed border-border p-6 md:p-7">
+const OtherOption = ({ action, body, figure, id, label, period, title }: OtherOptionProps): JSX.Element => (
+  <HighlightItem className="rounded-lg border border-dashed border-border" contentClassName="flex h-full flex-col p-6 md:p-7" id={id}>
     <p className="text-label text-muted-foreground uppercase">{label}</p>
     <h4 className="mt-3 text-title text-balance text-foreground">{title}</h4>
     <p className="mt-2 text-body-sm text-pretty text-muted-foreground">{body}</p>
@@ -72,7 +74,7 @@ const OtherOption = ({ action, body, figure, label, period, title }: OtherOption
       </p>
       {action}
     </div>
-  </li>
+  </HighlightItem>
 )
 
 const OtherOptions = (): JSX.Element => {
@@ -82,7 +84,7 @@ const OtherOptions = (): JSX.Element => {
   return (
     <div>
       <h3 className="text-label text-muted-foreground uppercase">{t("otherOptions")}</h3>
-      <ul className="mt-5 grid gap-5 md:grid-cols-2">
+      <HighlightGroup className="mt-5 grid gap-5 md:grid-cols-2" element="ul" name="other-options-highlight">
         <OtherOption
           action={
             <a className={SECONDARY_ACTION_CLASSES} href={APP_GITHUB_URL} rel="noopener noreferrer" target="_blank">
@@ -91,6 +93,7 @@ const OtherOptions = (): JSX.Element => {
           }
           body={t("repository-facts.free.body", REPOSITORY_FACTS)}
           figure={format.number(FREE_PRICE, CURRENCY_FORMAT)}
+          id="free"
           label={t("repository-facts.free.label")}
           period={t("repository-facts.free.period")}
           title={t("repository-facts.free.title")}
@@ -103,11 +106,12 @@ const OtherOptions = (): JSX.Element => {
           }
           body={t("license.consulting.body", TIER_SUPPORT_VALUES)}
           figure={format.number(CONSULTING_HOURLY_RATE, CURRENCY_FORMAT)}
+          id="consulting"
           label={t("license.consulting.label")}
           period={t("license.consulting.period")}
           title={t("license.consulting.title")}
         />
-      </ul>
+      </HighlightGroup>
     </div>
   )
 }

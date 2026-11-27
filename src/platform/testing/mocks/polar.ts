@@ -51,7 +51,6 @@ export const POLAR_API = {
   LICENSE_KEY_ACTIVATION: "/v1/license-keys/activate",
   LICENSE_KEY_DEACTIVATION: "/v1/license-keys/deactivate",
   ORDER: "/v1/orders/:id",
-  ORDERS: "/v1/orders/",
   ORDER_INVOICE: "/v1/orders/:id/invoice",
   PRODUCTS: "/v1/products/",
 } as const
@@ -384,15 +383,6 @@ const licenseKeyUpdateSchema = zod.strictObject({
   status: zod.enum(POLAR_LICENSE_KEY_STATUS).optional(),
 } satisfies RequestSchema<models.LicenseKeyUpdate>)
 
-const ordersQuerySchema = zod.strictObject({
-  customer_id: zod.string().min(1),
-  limit: zod.coerce.number().int().min(1).max(MAX_PAGE_SIZE),
-  organization_id: zod.literal(env.POLAR_ORGANIZATION_ID),
-  page: zod.coerce.number().int().min(1),
-  product_id: zod.array(zod.string().min(1)).min(1),
-  sorting: zod.literal("-created_at" satisfies models.OrderSortProperty),
-})
-
 const productsQuerySchema = zod.strictObject({
   limit: zod.coerce.number().int().min(1).max(MAX_PAGE_SIZE),
   organization_id: zod.literal(env.POLAR_ORGANIZATION_ID),
@@ -584,22 +574,6 @@ const updateLicenseKey = async (request: Request, match: URLPatternResult) => {
   return respond(HTTP_STATUS.OK, read satisfies models.LicenseKeyRead)
 }
 
-const listOrders = (request: Request) => {
-  const { searchParams } = new URL(request.url)
-  const query = ordersQuerySchema.safeParse({ ...Object.fromEntries(searchParams), product_id: searchParams.getAll("product_id") })
-  if (!query.success) {
-    return invalid("query", zod.prettifyError(query.error))
-  }
-  const { customer_id: customerId, limit, page, product_id: productIds } = query.data
-  const items = [...orders.values()].filter(
-    (order) => order.customer_id === customerId && order.product_id !== null && productIds.includes(order.product_id),
-  )
-  return respond(HTTP_STATUS.OK, {
-    items: items.slice((page - 1) * limit, page * limit),
-    pagination: { max_page: Math.max(1, Math.ceil(items.length / limit)), total_count: items.length },
-  } satisfies models.ListResourceOrder)
-}
-
 const listProducts = (request: Request) => {
   const query = productsQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams))
   if (!query.success) {
@@ -657,7 +631,6 @@ const resourceSchema = zod.object({ id: zod.string() })
 const resourceId = (match: URLPatternResult): string => resourceSchema.parse(match.pathname.groups).id
 
 const ENDPOINTS: readonly Endpoint[] = [
-  { method: "GET", pattern: new URLPattern({ pathname: POLAR_API.ORDERS }), respond: listOrders, scope: POLAR_SCOPE.ORDERS },
   { method: "POST", pattern: new URLPattern({ pathname: POLAR_API.CHECKOUTS }), respond: createCheckout, scope: POLAR_SCOPE.CHECKOUTS },
   {
     method: "POST",

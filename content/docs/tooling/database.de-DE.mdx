@@ -124,6 +124,18 @@ bun run orders:backfill:production
 
 `scripts/backfill-order-terms.ts` liest `POLAR_ACCESS_TOKEN` und `POLAR_SERVER` aus `.env.<environment>`, listet die Bestellungen mit leerem `discount_amount` mit `wrangler d1 execute` auf (remote für Preview und Produktion, lokal für `orders:backfill:local`) und liest jede mit `polar.orders.get` aus Polar, eine nach der anderen, wobei es so lange wartet, wie Polar verlangt, wenn es mit 429 antwortet. Es schreibt alle Bestellungen in einem einzigen `--file`-Lauf, jedes `UPDATE` beschränkt auf seine ID und auf ein leeres `discount_amount`, sodass es nie eine Kopie überschreibt, die ein Webhook inzwischen gefüllt hat, und ein zweiter Lauf nichts ändert. Es gibt aus, wie viele Bestellungen es kopiert hat, und beendet sich mit einem Fehler, solange noch eine übrig ist, etwa eine Bestellung, die Polar nicht mehr zurückgibt. Wende zuerst die Migration an.
 
+## Beträge älterer Bestellungen [#amounts-of-older-orders]
+
+Die Migration `20261126155255_lively_black_tarantula.sql` hat der Kopie `order` die Spalten `subtotal_amount`, `net_amount` und `refunded_tax_amount` hinzugefügt, die der [Upgrade-Preis](/docs/features/licences#upgrades) addiert, statt Polar zu fragen. Neue Webhooks füllen sie, und bei einer vor der Migration kopierten Bestellung bleiben sie leer, bis Polar sie erneut sendet; bis dahin liest der Upgrade-Preis diese Bestellung aus Polar. Fülle sie als Schritt des Deployments, sobald `bun run deploy:preview` oder `bun run deploy:production` die Migration angewendet und den Worker bereitgestellt hat, der neue Kopien füllt:
+
+```sh
+bunx wrangler login
+bun run orders:backfill-amounts:production
+bun run orders:backfill-amounts:production --apply
+```
+
+Für Preview gelten dieselben zwei Befehle mit `preview`. `scripts/backfill-order-amounts.ts` liest `POLAR_ACCESS_TOKEN` und `POLAR_SERVER` aus `.env.<environment>`, listet die Bestellungen, denen einer der drei Beträge fehlt, mit `wrangler d1 execute` auf (remote für Preview und Produktion, lokal für `orders:backfill-amounts:local`) und liest jede mit `polar.orders.get` aus Polar, eine nach der anderen, wobei es so lange wartet, wie Polar verlangt, wenn es mit 429 antwortet. Ohne `--apply` schreibt es nichts: Es gibt die Beträge jeder Bestellung aus und wie viele davon Polar zurückgegeben hat, und beendet sich mit einem Fehler, wenn Polar weniger zurückgegeben hat, als es aufgelistet hat. Mit `--apply` schreibt es alle Bestellungen in einem einzigen `--file`-Lauf, jedes `UPDATE` beschränkt auf seine ID und auf eine Kopie, der noch ein Betrag fehlt, sodass es nie eine Kopie überschreibt, die ein Webhook inzwischen gefüllt hat, und ein zweiter Lauf nichts ändert. Danach gibt es aus, wie viele Bestellungen es kopiert hat, und beendet sich mit einem Fehler, solange noch eine übrig ist, etwa eine Bestellung, die Polar nicht mehr zurückgibt.
+
 ## Der erste Admin [#the-first-admin]
 
 Kein Endpunkt, keine Variable und kein Seed, der auf Preview oder Produktion läuft, vergibt die Rolle `admin`. Auf Preview und Produktion wird der erste Admin mit einem Skript angelegt, und das ist der einzige Weg:

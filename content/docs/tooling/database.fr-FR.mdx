@@ -124,6 +124,18 @@ bun run orders:backfill:production
 
 `scripts/backfill-order-terms.ts` lit `POLAR_ACCESS_TOKEN` et `POLAR_SERVER` dans `.env.<environment>`, liste les commandes dont le `discount_amount` est vide avec `wrangler d1 execute` (à distance pour la préversion et la production, en local pour `orders:backfill:local`), et lit chacune dans Polar avec `polar.orders.get`, une à la fois, en attendant aussi longtemps que Polar le demande lorsqu’il répond 429. Il écrit toutes les commandes en une seule exécution `--file`, chaque `UPDATE` limité à son ID et à un `discount_amount` vide, si bien qu’il n’écrase jamais une copie qu’un webhook a remplie entre-temps et qu’une deuxième exécution ne change rien. Il affiche combien de commandes il a copiées et se termine avec une erreur tant qu’il en reste une, par exemple une commande que Polar ne renvoie plus. Appliquez d’abord la migration.
 
+## Montants des commandes plus anciennes [#amounts-of-older-orders]
+
+La migration `20261126155255_lively_black_tarantula.sql` a ajouté `subtotal_amount`, `net_amount` et `refunded_tax_amount` à la copie `order`, que le [prix de mise à niveau](/docs/features/licences#upgrades) additionne au lieu d’interroger Polar. Les nouveaux webhooks les remplissent, et une commande copiée avant la migration les a vides jusqu’à ce que Polar l’envoie de nouveau ; d’ici là, le prix de mise à niveau lit cette commande dans Polar. Remplissez-les lors du déploiement, une fois que `bun run deploy:preview` ou `bun run deploy:production` a appliqué la migration et déployé le Worker qui remplit les nouvelles copies :
+
+```sh
+bunx wrangler login
+bun run orders:backfill-amounts:production
+bun run orders:backfill-amounts:production --apply
+```
+
+La préversion prend les deux mêmes commandes avec `preview`. `scripts/backfill-order-amounts.ts` lit `POLAR_ACCESS_TOKEN` et `POLAR_SERVER` dans `.env.<environment>`, liste les commandes auxquelles manque l’un des trois montants avec `wrangler d1 execute` (à distance pour la préversion et la production, en local pour `orders:backfill-amounts:local`), et lit chacune dans Polar avec `polar.orders.get`, une à la fois, en attendant aussi longtemps que Polar le demande lorsqu’il répond 429. Sans `--apply`, il n’écrit rien : il affiche les montants de chaque commande et combien d’entre elles Polar a renvoyées, et se termine avec une erreur lorsque Polar en a renvoyé moins qu’il n’en a listé. Avec `--apply`, il écrit toutes les commandes en une seule exécution `--file`, chaque `UPDATE` limité à son ID et à une copie à laquelle manque encore un montant, si bien qu’il n’écrase jamais une copie qu’un webhook a remplie entre-temps et qu’une deuxième exécution ne change rien. Il affiche ensuite combien de commandes il a copiées et se termine avec une erreur tant qu’il en reste une, par exemple une commande que Polar ne renvoie plus.
+
 ## Le premier administrateur [#the-first-admin]
 
 Aucun endpoint, aucune variable ni aucun seed exécuté en préversion ou en production n'accorde le rôle `admin`. En préversion et en production, le premier administrateur est créé avec un script, et c'est le seul moyen :

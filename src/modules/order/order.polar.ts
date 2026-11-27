@@ -14,3 +14,11 @@ export const polarOrderTerms = ({
   discountId,
   discountName: discount?.name,
 })
+
+type PolarOrderAmounts = Pick<models.Order, "net_amount" | "refunded_tax_amount" | "subtotal_amount">
+
+export const polarOrderAmounts = ({
+  net_amount: netAmount,
+  refunded_tax_amount: refundedTaxAmount,
+  subtotal_amount: subtotalAmount,
+}: PolarOrderAmounts) => ({ netAmount, refundedTaxAmount, subtotalAmount })

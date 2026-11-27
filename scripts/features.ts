@@ -104,6 +104,7 @@ export const FEATURES: Readonly<Record<Feature, FeatureFootprint>> = {
       "src/presentation/components/custom/billing/**",
       "src/lib/checkout-overlay.ts",
       "src/lib/__test__/checkout-overlay.component.test.ts",
+      "scripts/backfill-order-amounts.ts",
       "src/integrations/better-auth/__test__/auth.access.billing.test.ts",
       "e2e/specs/billing.spec.ts",
       "messages/*/components.custom.checkout-button.json",

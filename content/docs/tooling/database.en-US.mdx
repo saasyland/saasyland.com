@@ -124,6 +124,18 @@ bun run orders:backfill:production
 
 `scripts/backfill-order-terms.ts` reads `POLAR_ACCESS_TOKEN` and `POLAR_SERVER` from `.env.<environment>`, lists the orders whose `discount_amount` is empty with `wrangler d1 execute` (remote for preview and production, local for `orders:backfill:local`), and reads each from Polar with `polar.orders.get`, one at a time, waiting as long as Polar asks when it answers 429. It writes every order in one `--file` run, each `UPDATE` limited to its ID and to an empty `discount_amount`, so it never overwrites a copy that a webhook filled meanwhile and a second run changes nothing. It prints how many orders it copied and exits with an error while any is left, such as an order Polar no longer returns. Apply the migration first.
 
+## Amounts of older orders
+
+The migration `20261126155255_lively_black_tarantula.sql` added `subtotal_amount`, `net_amount` and `refunded_tax_amount` to the `order` copy, which the [upgrade price](/docs/features/licences#upgrades) adds up instead of asking Polar. New webhooks fill them, and an order copied before the migration has them empty until Polar sends it again; until then the upgrade price reads that order from Polar. Fill them as a deploy step, once `bun run deploy:preview` or `bun run deploy:production` has applied the migration and deployed the Worker that fills new copies:
+
+```sh
+bunx wrangler login
+bun run orders:backfill-amounts:production
+bun run orders:backfill-amounts:production --apply
+```
+
+Preview takes the same two commands with `preview`. `scripts/backfill-order-amounts.ts` reads `POLAR_ACCESS_TOKEN` and `POLAR_SERVER` from `.env.<environment>`, lists the orders that lack any of the three amounts with `wrangler d1 execute` (remote for preview and production, local for `orders:backfill-amounts:local`), and reads each from Polar with `polar.orders.get`, one at a time, waiting as long as Polar asks when it answers 429. Without `--apply` it writes nothing: it prints the amounts of each order and how many of them Polar returned, and exits with an error when Polar returned fewer than it listed. With `--apply` it writes every order in one `--file` run, each `UPDATE` limited to its ID and to a copy that still lacks an amount, so it never overwrites a copy that a webhook filled meanwhile and a second run changes nothing. It then prints how many orders it copied and exits with an error while any is left, such as an order Polar no longer returns.
+
 ## The first admin
 
 No endpoint, variable or seed that runs on preview or production grants the `admin` role. On preview and production, the first admin is created with a script, and this is the only way:

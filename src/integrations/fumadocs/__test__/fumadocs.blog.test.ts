@@ -24,7 +24,6 @@ const POST: BlogPost = {
   author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
   date: "2026-09-01",
   description: undefined,
-  faq: undefined,
   image: "/images/blog/release.webp",
   path: "release.pl-PL.mdx",
   readingTimeMinutes: 7,

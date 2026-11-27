@@ -34,7 +34,6 @@ type PostStructuredDataInput = PostDates &
   Readonly<{
     blogTitle: string
     description?: string | undefined
-    faq?: readonly { answer: string; question: string }[] | undefined
     image?: string | undefined
     keywords: readonly string[]
     locale: SupportedLocale
@@ -121,17 +120,6 @@ export const buildBlogPostStructuredData = (input: PostStructuredDataInput): Pos
       ],
     },
   ]
-
-  if (input.faq !== undefined && input.faq.length > 0) {
-    graph.push({
-      "@type": "FAQPage",
-      mainEntity: input.faq.map((entry) => ({
-        "@type": "Question",
-        acceptedAnswer: { "@type": "Answer", text: entry.answer },
-        name: entry.question,
-      })),
-    })
-  }
 
   return { "@context": SCHEMA_CONTEXT, "@graph": graph }
 }

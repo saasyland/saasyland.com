@@ -44,7 +44,6 @@ export const GUIDE: BlogPost = {
   author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
   date: "2026-09-01",
   description: "Article description",
-  faq: undefined,
   image: undefined,
   path: "guide.en-US.mdx",
   readingTimeMinutes: 5,

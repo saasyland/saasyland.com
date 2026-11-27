@@ -28,7 +28,6 @@ const { loadBlogIndex } = await vi.hoisted(async () => {
   const base = {
     author: blog.BLOG_AUTHOR.PIOTR_BOROWIECKI,
     date: "2026-09-01",
-    faq: undefined,
     image: undefined,
     readingTimeMinutes: 5,
     summary: "Article summary",
@@ -49,7 +48,6 @@ const { loadBlogIndex } = await vi.hoisted(async () => {
       post("complete", {
         date: "2025-06-01",
         description: "Article description",
-        faq: [{ answer: "Because.", question: "Why?" }],
         image: "/article.webp",
         title: "Complete guide",
         toc: [
@@ -230,7 +228,6 @@ describe("blog post loader", () => {
       post: {
         author: BLOG_AUTHOR.PIOTR_BOROWIECKI,
         description: "Article description",
-        faq: [{ answer: "Because.", question: "Why?" }],
         image: "/article.webp",
         path: "complete.en-US.mdx",
         related: [{ title: "Recent" }, { title: "Older" }, { title: "Featured" }],
@@ -279,10 +276,10 @@ describe("blog post loader", () => {
     })
   })
 
-  it("loads an article without a summary, image or frequently asked questions", async () => {
+  it("loads an article without a summary or image", async () => {
     const router = await load("/blog/minimal")
     expect(router.state.matches.at(-1)?.loaderData).toMatchObject({
-      post: { faq: undefined, image: undefined, summary: undefined, title: "Minimal" },
+      post: { image: undefined, summary: undefined, title: "Minimal" },
     })
   })
 

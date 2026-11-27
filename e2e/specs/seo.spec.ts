@@ -1,7 +1,6 @@
 import { globSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 
-import type { Page } from "@playwright/test"
 import { createTranslator } from "use-intl"
 import * as zod from "zod"
 
@@ -20,6 +19,7 @@ import { ORGANIZATION_LOGO, ORGANIZATION_STRUCTURED_DATA_HTML, PAGES_SITEMAP_PAT
 import { isIndexable, listedPages } from "../../src/lib/sitemap"
 import { APP_URL } from "../../src/presentation/branding"
 import { ROUTES } from "../../src/routes"
+import { collapse, readerText } from "../fixtures/reader-text"
 import { expect, test } from "../fixtures/test"
 
 const CLIENT_DIR = "dist/client"
@@ -58,19 +58,6 @@ const consultingCopySchema = zod.object({ consulting: zod.object({ period: zod.s
 
 const readCopy = (locale: SupportedLocale, namespace: string): unknown =>
   JSON.parse(readFileSync(`messages/${locale}/${namespace}.json`, "utf8"))
-
-const collapse = (text: string): string => text.replaceAll(/\s+/gu, " ").trim()
-
-const readerText = async (page: Page, html: string): Promise<string> =>
-  collapse(
-    await page.evaluate((source) => {
-      const parsed = new DOMParser().parseFromString(source, "text/html")
-      for (const element of parsed.querySelectorAll("script, style")) {
-        element.remove()
-      }
-      return parsed.body.textContent
-    }, html),
-  )
 
 type Requester = { get: (path: string) => Promise<{ status: () => number; text: () => Promise<string> }> }
 

@@ -18,8 +18,6 @@ import { ORGANIZATION_LOGO } from "~/src/lib/seo"
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
-const GRAPH_NODES_WITHOUT_FAQ = 3
-
 const AUTHOR = BLOG_AUTHORS[BLOG_AUTHOR.PIOTR_BOROWIECKI]
 
 const AUTHOR_ROLE = "Founder · Engineer"
@@ -137,21 +135,6 @@ describe("blog post structured data", () => {
       { "@type": "ListItem", item: "https://example.com/ja-JP/blog", name: "ブログ", position: 2 },
       { "@type": "ListItem", item: "https://example.com/ja-JP/blog/a-post", name: BASE_INPUT.title, position: 3 },
     ])
-  })
-
-  it("appends an FAQPage when the post declares faq entries", () => {
-    expect.hasAssertions()
-    const graph = buildBlogPostStructuredData({ ...BASE_INPUT, faq: [{ answer: "Because.", question: "Why?" }] })["@graph"]
-    expect(graph.map((node) => node["@type"])).toStrictEqual(["BlogPosting", "Person", "BreadcrumbList", "FAQPage"])
-    expect(graph[3]?.["mainEntity"]).toStrictEqual([
-      { "@type": "Question", acceptedAnswer: { "@type": "Answer", text: "Because." }, name: "Why?" },
-    ])
-  })
-
-  it("skips the FAQPage when the faq list is empty", () => {
-    expect.hasAssertions()
-    const graph = buildBlogPostStructuredData({ ...BASE_INPUT, faq: [] })["@graph"]
-    expect(graph).toHaveLength(GRAPH_NODES_WITHOUT_FAQ)
   })
 })
 

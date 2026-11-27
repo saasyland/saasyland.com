@@ -136,7 +136,6 @@ const buildBlogIndex = (source: BlogSource, locale: SupportedLocale) =>
         author: data.author,
         date: isoDateSchema.parse(data.date),
         description: data.description,
-        faq: data.faq,
         image: data.image,
         path,
         readingTimeMinutes: readingTimeMinutes({ content: data.content, locale }),

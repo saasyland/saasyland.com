@@ -25,7 +25,6 @@ import { BackToBlogLink } from "~/src/presentation/components/custom/blog/back-t
 import { BlogPostPending } from "~/src/presentation/components/custom/blog/blog-pending"
 import { PostAuthor } from "~/src/presentation/components/custom/blog/post-author"
 import { PostCta } from "~/src/presentation/components/custom/blog/post-cta"
-import { usePostFaq } from "~/src/presentation/components/custom/blog/post-faq"
 import { PostMeta } from "~/src/presentation/components/custom/blog/post-meta"
 import { PostRail } from "~/src/presentation/components/custom/blog/post-rail"
 import { PostRelated } from "~/src/presentation/components/custom/blog/post-related"
@@ -36,13 +35,12 @@ import { APP_URL } from "~/src/presentation/branding"
 import { ROUTES } from "~/src/routes"
 
 const toPostData = ({ locale, post, posts }: { locale: SupportedLocale; post: BlogPost; posts: BlogIndex }) => {
-  const { author, description, faq, image, path, toc, updated } = post
+  const { author, description, image, path, toc, updated } = post
 
   return {
     ...toBlogPostSummary(post, locale),
     author,
     description,
-    faq,
     image,
     path,
     related: relatedBlogPosts({ locale, post, posts }),
@@ -58,7 +56,6 @@ const BlogPostPage = (): JSX.Element => {
   const { locale, post, section } = Route.useLoaderData()
   const content = blogContent.useContent(post.path)
   const t = useTranslations("pages.blog")
-  const faq = usePostFaq(post.faq)
   const i18n = useFumadocsI18n()
 
   const tags = post.tags.map((tag) => t(`tags.${tag}`))
@@ -69,7 +66,6 @@ const BlogPostPage = (): JSX.Element => {
     blogTitle: section,
     date: post.date,
     description: post.description ?? post.summary,
-    faq,
     image: post.image,
     keywords: tags,
     locale,

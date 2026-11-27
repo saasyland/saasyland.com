@@ -7,23 +7,14 @@ import { formatPostText } from "~/src/lib/post-text"
 
 type FaqEntries = readonly { readonly answer: string; readonly question: string }[] | undefined
 
-export const usePostFaq = (entries: FaqEntries): { answer: string; question: string }[] => {
-  const locale = useLocale()
-
-  return (entries ?? []).map(({ answer, question }) => ({
-    answer: formatPostText({ locale, text: answer }),
-    question: formatPostText({ locale, text: question }),
-  }))
-}
-
 export const PostFaq = ({ entries }: Readonly<{ entries: FaqEntries }>): JSX.Element => {
-  const faq = usePostFaq(entries)
+  const locale = useLocale()
 
   return (
     <Accordions>
-      {faq.map(({ answer, question }) => (
-        <Accordion key={question} title={question}>
-          <p>{answer}</p>
+      {(entries ?? []).map(({ answer, question }) => (
+        <Accordion key={question} title={formatPostText({ locale, text: question })}>
+          <p>{formatPostText({ locale, text: answer })}</p>
         </Accordion>
       ))}
     </Accordions>

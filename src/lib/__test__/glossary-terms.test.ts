@@ -40,7 +40,9 @@ describe.each(GLOSSARIES)("the $language glossary's never column", (glossary) =>
 
 describe("a word that is right in another meaning", () => {
   it("is left to the reader", () => {
-    expect(POLISH_GLOSSARY.contextTerms).toEqual(expect.arrayContaining(["karta", "zakładka", "poziom", "rachunek", "maszyna", "wysłać"]))
+    expect(POLISH_GLOSSARY.contextTerms).toEqual(
+      expect.arrayContaining(["karta", "zakładka", "poziom", "rachunek", "maszyna", "wysłać", "haczyk", "gniazdo"]),
+    )
     expect(POLISH_GLOSSARY.checkedTerms.map(({ never }) => never)).not.toContain("poziom")
   })
 })
@@ -62,6 +64,8 @@ describe("glossaryMatches", () => {
     { text: "Raport z bramką pokrycia.", words: ["bramką pokrycia"] },
     { text: "Kod w React z TanStack Start, w Git i na Vercel.", words: ["w React", "w Git", "na Vercel"] },
     { text: "Wygenerowano w pakiecie Agency.", words: ["pakiecie Agency"] },
+    { text: "Komunikaty do wszystkich idą przez socket, w realtime.", words: ["Komunikaty do wszystkich", "socket", "realtime"] },
+    { text: "Rewokacja dostępu zbanowanego konta w Prisma.", words: ["Rewokacja", "zbanowanego", "w Prisma"] },
   ])("finds $words in “$text”", ({ text, words }) => {
     expect(found(text)).toEqual(words)
   })
@@ -75,6 +79,7 @@ describe("glossaryMatches", () => {
     "Płatność w Polarze, w Reakcie i na GitHubie.",
     "Tag i\nRelease opisują pakiet.",
     "Plan Starter jest darmowy, a poziom kursu i karta w przeglądarce zostają.",
+    "Jest jednak haczyk: gniazdo TCP to nie WebSocket, a bank to nie blokada konta w Prismie.",
   ])("leaves “%s” alone", (text) => {
     expect(found(text)).toEqual([])
   })

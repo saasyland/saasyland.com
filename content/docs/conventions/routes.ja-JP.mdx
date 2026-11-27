@@ -82,7 +82,7 @@ export const Route = createFileRoute("/admin/courses/")({
 - **名前空間は 1 つ。** `const NAMESPACE = "pages.<feature>.<page>"` は `export const Route` の直上に置き、`loadPageMetadata`、`preloadNamespaces`、`staticData` で使います。ページが必要とするその他の名前空間は、レイアウトが宣言します。
 - **レスポンスの最初の送信のための `Promise.all` は 1 つ。** ローダーはすべての処理を一度に開始します。サーバーが最初のバイトを送る前に必要なもの、つまりページのメタデータ、名前空間、ローダー自身が読み取るデータ、そして `DataGrid` の最初のページのようにコンポーネントが `useQuery` で読み取るデータを、1 つの `Promise.all` で await します。それ以外のクエリは await せずに開始し、セクションのスケルトンへストリーミングされます（[ストリーミングされるセクション](#streamed-sections)を参照）。ローダーは `head` のために `{ locale, metadata }` を返します。どれかの処理を await してから次を開始してはいけません。
 - **`head: pageHead(ROUTES.X)`** は、名前空間ファイルのメタデータからタイトル、説明、正規 URL、代替リンクを組み立てます。
-- **パスは `src/routes.ts` の `ROUTES` から取得します。** `ROUTES` はすべてのエリアのパスをまとめたものです（[パスとナビゲーション](#paths-and-navigation)を参照）。 パスのリテラルを書いてはいけません。
+- **パスは `src/routes.ts` の `ROUTES` から取得します。** `ROUTES` はすべてのパスを宣言する 1 つの入れ子のオブジェクトです（[パスとナビゲーション](#paths-and-navigation)を参照）。 パスのリテラルを書いてはいけません。
 
 タイトルがレコードから決まるページは、`admin.courses.$courseId.tsx` のように、そのレコードを await し、ローダーのデータから head を組み立てます。
 
@@ -145,7 +145,7 @@ export const Route = createFileRoute("/admin/courses")({
 - レイアウトは `export const Route` の上で `const NAMESPACES = [...] as const` を宣言し、それをプリロードします。名前空間がない場合はオプションごと省略し、`namespaces: []` とは書きません。
 - レイアウトは、配下のページとそのコンポーネントが必要とするすべての名前空間を、ほかの機能のものも含めて、`NAMESPACES` にただの文字列として挙げます。`/app` は、概要にライセンスカードと購入案内を、ライセンスページに撤回のカードを表示するため、`pages.license`、`pages.withdrawal`、`withdrawal.validations` を挙げます。`/admin/users` は `pages.admin.customers`、`pages.admin.orders`、`pages.admin.users.license` を挙げます。`/_site/_marketing` と `/_site/docs` は、フッターにニュースレターのフォームを表示するため `auth.validations` を挙げ、マーケティングのレイアウトはさらに `withdrawal.validations` も挙げます。機能を外すとそのメッセージファイルが削除され、刈り込みのルールがそれらを指す文字列をそれぞれ削除します（[テスト](/docs/conventions/testing#tests-follow-the-features)）。
 - レイアウトがコンポーネントを描画する場合、その名前は `<Name>Layout` とし、`<Outlet />` を配置します。
-- ガードは、そのエリアを所有するレイアウトの `beforeLoad` に置きます。`admin.tsx` では `beforeLoad: requireAdmin`、`app.tsx` では `requireSignedIn` で、どちらも認証のエリアのレイアウトです。ガードが決めるのはナビゲーションだけで、各サーバー関数は引き続き自分で権限をチェックします。
+- ガードは、そのページを所有するレイアウトの `beforeLoad` に置きます。`admin.tsx` では `beforeLoad: requireAdmin`、`app.tsx` では `requireSignedIn` を置き、認証ページの 2 つのレイアウトにも置きます。ガードが決めるのはナビゲーションだけで、各サーバー関数は引き続き自分で権限をチェックします。
 
 ## オプションの順序
 
@@ -173,13 +173,13 @@ export const Route = createFileRoute("/auth/reset-password")({
 | `searchParam(schema)`             | `undefined`                              | パスなど、その他のスキーマ             |
 | `searchChoice(choices, fallback)` | `fallback`                               | タブやビュー                           |
 
-テキストがない場合は `undefined` のままなので、ルーターが組み立てる URL にデフォルト値が紛れ込むことはありません。`searchChoice` のパラメーターには `search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] }` を組み合わせ、URL からデフォルト値を取り除きます。ほかのサイトが訪問者を戻すページは、`/app` と `/app/license` が Polar のチェックアウトのためにしているように、自分のスキーマで `search: { middlewares: [onlyDeclaredSearch(schema)] }` も宣言します。するとルーターは宣言したパラメーターだけでアドレスを組み立て、サーバーはほかのパラメーターを含むアドレスを、それを除いた同じアドレスへリダイレクトします。これはガードやページがそのパラメーターを読む前に行われます。`typeof search["x"] === "string"` のようなチェックを手書きしてはいけません。新しい種類のフィールドが必要になったら、ヘルパーを追加します。ページが存在を検証したパラメーターを子が必要とする場合は、`auth.reset-password.tsx` が `token` を `ResetPasswordForm` に渡しているように、ページが型を絞り込んでから下に渡します。同じパラメーターを読み取るページは、読み取るモジュールの `.zod.ts` にある 1 つのスキーマを共有し、そのスケルトンも同じスキーマでパースします。`/app/license` と、ライセンスのエリアが概要ページに追加する部分が `licenseSearchSchema`（`src/modules/license/license.zod.ts`）を共有しているのがその例です。
+テキストがない場合は `undefined` のままなので、ルーターが組み立てる URL にデフォルト値が紛れ込むことはありません。`searchChoice` のパラメーターには `search: { middlewares: [stripSearchParams({ tab: DEFAULT_TAB })] }` を組み合わせ、URL からデフォルト値を取り除きます。ほかのサイトが訪問者を戻すページは、`/app` と `/app/license` が Polar のチェックアウトのためにしているように、自分のスキーマで `search: { middlewares: [onlyDeclaredSearch(schema)] }` も宣言します。するとルーターは宣言したパラメーターだけでアドレスを組み立て、サーバーはほかのパラメーターを含むアドレスを、それを除いた同じアドレスへリダイレクトします。これはガードやページがそのパラメーターを読む前に行われます。`typeof search["x"] === "string"` のようなチェックを手書きしてはいけません。新しい種類のフィールドが必要になったら、ヘルパーを追加します。ページが存在を検証したパラメーターを子が必要とする場合は、`auth.reset-password.tsx` が `token` を `ResetPasswordForm` に渡しているように、ページが型を絞り込んでから下に渡します。同じパラメーターを読み取るページは、読み取るモジュールの `.zod.ts` にある 1 つのスキーマを共有し、そのスケルトンも同じスキーマでパースします。`/app/license` と、ライセンス機能が概要ページに追加する部分が `licenseSearchSchema`（`src/modules/license/license.zod.ts`）を共有しているのがその例です。
 
 ## スケルトン
 
 ナビゲーションは一瞬で終わるように感じられなければなりません。そのため、ページを描画するすべてのルートは、そのページを再現する `pendingComponent` を持ちます。レイアウトも、カードも、行数も同じです。
 
-- スケルトンはエリアのペンディングファイル（`admin/products-pending.tsx`、`courses/courses-pending.tsx`）に置き、shadcn の `Skeleton` を使います。
+- スケルトンは、サイトの部分ごとのペンディングファイル（`admin/products-pending.tsx`、`courses/courses-pending.tsx`）に置き、shadcn の `Skeleton` を使います。
 - スケルトンはすべてのページのエントリースクリプトに含まれるため、スケルトンがインポートするのは `Skeleton`、shadcn のプリミティブ、他のスケルトン、長さを決める定数だけで、フォームやフォームを含むファイルは決してインポートしません。いずれかが `@tanstack/react-form` に到達すると `pending-imports.test.ts` が失敗します（[パフォーマンス](/docs/conventions/performance#skeletons-stay-in-the-entry-script)を参照）。
 - テキストのプレースホルダーには、実際のタイポグラフィのトークンに `h-lh scale-y-70` を加え、置き換える行と同じ高さにします（`<Skeleton className="h-lh w-28 scale-y-70 text-label" />`）。
 - リストの長さは、ページが使う定数から取ります。`data-grid-pending.tsx` の `DataGridPending` は、既定で、すべての管理画面のテーブルのページサイズである `DEFAULT_PAGE_SIZE` 行を描画します。
@@ -209,7 +209,7 @@ export const Route = createFileRoute("/auth/reset-password")({
 
 Worker とビルドのリストも同じです。`src/server.ts` の `REQUEST_HANDLERS` と `DOCUMENT_REWRITES`、`vite.config.ts` の `VITE_PLUGINS` もリテラルのリストで、オプションの機能はそこに 1 つの要素として加わります。
 
-`src/data/navigation.ts` は 7 つのメニューをリテラルのリストとして持ちます。各項目は `to` にそのページを、`label` にメッセージの完全なキーを持ち、管理画面とワークスペースでは `lucide-react` のアイコンも持ちます。管理画面のメニューは項目をサイドバーのグループ（`ADMIN_NAVIGATION_GROUP` の `key`）の下にまとめ、フッターはリンクを列（`FOOTER_COLUMN` の `key`）の下にまとめます。このファイルがインポートするのは `lucide-react`、`~/src/routes`、`~/src/data/navigation.constants` だけです。Remotion プロジェクトが管理画面のメニューを読み込み、その CI ジョブは Remotion 自身のパッケージしかインストールしないからです。ほかのものをインポートすると `src/__test__/source-layout.test.ts` が失敗します。管理画面と顧客ワークスペースはサインインがあって初めて存在するため、それらの項目は認証のエリアのパスを名指しし、エリアと一緒に消えます。ヘッダーとフッターの **ログイン** も同じです。
+`src/data/navigation.ts` は 7 つのメニューをリテラルのリストとして持ちます。各項目は `to` にそのページを、`label` にメッセージの完全なキーを持ち、管理画面とワークスペースでは `lucide-react` のアイコンも持ちます。管理画面のメニューは項目をサイドバーのグループ（`ADMIN_NAVIGATION_GROUP` の `key`）の下にまとめ、フッターはリンクを列（`FOOTER_COLUMN` の `key`）の下にまとめます。このファイルがインポートするのは `lucide-react`、`~/src/routes`、`~/src/data/navigation.constants` だけです。Remotion プロジェクトが管理画面のメニューを読み込み、その CI ジョブは Remotion 自身のパッケージしかインストールしないからです。ほかのものをインポートすると `src/__test__/source-layout.test.ts` が失敗します。管理画面と顧客ワークスペースはサインインがあって初めて存在するため、それらの項目は認証機能のパスを名指しし、その機能と一緒に消えます。ヘッダーとフッターの **ログイン** も同じです。
 
 ```ts title="src/data/navigation.ts"
 export const HEADER_NAVIGATION: readonly SiteEntry[] = [
@@ -235,7 +235,7 @@ export const HEADER_NAVIGATION: readonly SiteEntry[] = [
 
 `auth.access.ts` の `APP_STATEMENTS` は権限ステートメントをリソースごとに 1 つずつ宣言します。`scripts/features.ts` は、外せる機能のステートメントを `APP_STATEMENTS.course` のように名指しするので、その機能を外すとステートメントも削除されます（[ロールと権限](/docs/guides/roles-and-permissions)を参照）。
 
-`src/data/navigation.ts` のリストには、`IconEntry` や `SiteEntry` のような、`src/data/navigation.constants.ts` で宣言された型が付いています。そのため、決済エリアのないプロジェクトのダッシュボードアクションのように、プロジェクトが項目を外したリストは空のリストになり、それでも型チェックを通ります。`navigation.test.ts` は、すべての項目の `to` がルートツリーのパスであること、そしてどのメニューも同じページやラベルを 2 回指定していないことをチェックします。
+`src/data/navigation.ts` のリストには、`IconEntry` や `SiteEntry` のような、`src/data/navigation.constants.ts` で宣言された型が付いています。そのため、決済機能のないプロジェクトのダッシュボードアクションのように、プロジェクトが項目を外したリストは空のリストになり、それでも型チェックを通ります。`navigation.test.ts` は、すべての項目の `to` がルートツリーのパスであること、そしてどのメニューも同じページやラベルを 2 回指定していないことをチェックします。
 
 項目の `label` はメッセージの完全なキーで（`navigation.courses.admin.courses` など）、メッセージはそのページを所有する機能のファイル `messages/<locale>/navigation.<feature>.json` にあります。そのため、機能を外すとそのラベルも一緒に消えます。コンポーネントは `useTranslations()` の `t(entry.label)` でラベルを描画します。管理画面のセクションは、パンくずリストに表示するサブページのラベルを、項目の `breadcrumbs` にパスのセグメントからキーへの対応として置きます（`create` から `navigation.courses.breadcrumbs.create` など）。ユーザー管理のタブ、コマンドパレットの検索、ダッシュボードの統計も、`navigation.team.userTabs.invitations`、`navigation.auth.search.users`、`dashboard.courses.learners` のように、ラベルの完全なキーを指定します。ダッシュボードのパネルは、`dashboard.<feature>.json` の自分の `key` の下にある文言を読み取ります。どちらの種類のファイルも root 名前空間なので、どのメニューもすべての項目にラベルを付けられます。メニュー自体に属するものは、そのメニューの名前空間に残ります。`pages.admin.sidebar` の `groups.<group>`、`components.custom.footer` の `columns.<column>`、`components.custom.navigation` のヘッダーの行動喚起ボタン、メニューボタン、スキップリンクです。いずれかのロケールで項目、サインイン時の別ラベル、パンくずリスト、ユーザー管理のタブ、コマンドパレットの検索のメッセージが欠けていると `navigation.test.ts` が失敗し、統計のラベルが欠けていると `admin-dashboard.component.test.tsx` が失敗します。
 

@@ -270,6 +270,31 @@ const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loade
 
 Load messages only through `loadNamespace`, and never add an `import.meta.glob` over `messages/` to a module that the root route imports. `scripts/verify-build.ts` follows the static imports of the browser's entry script and fails the build when they hold the loader of a page namespace.
 
+## Repository tables load with the docs
+
+`REPOSITORY_FACTS` (`src/lib/repository-facts.ts`) is in every page's entry script, because the landing page prints its counts. The `repositoryFacts` plugin used to serve those counts and every table the docs print with `<RepositoryTable>`, such as the endpoints of the CLI licence API, the seeded accounts and the user flows, as one module, `virtual:repository-facts`. Rolldown puts a whole module into one chunk, so every page loaded the tables too. The plugin now serves the counts as `virtual:repository-facts` and the tables as `virtual:repository-tables`, which only `repository-fact.tsx`, the MDX components of the docs, imports. `scripts/verify-build.ts` fails the build when the static imports of the browser's entry script reach them. That took 25.7 KiB gzipped out of the entry script, but Lighthouse measured no change on `/`, because the header preloads the docs' code once the page is idle (see [The header's pages load before a click](#the-headers-pages-load-before-a-click)).
+
+That preload is where the cost was. `repository-fact.tsx` printed the Polish terms that the glossary check leaves to the reader from `POLISH_GLOSSARY` in `src/lib/glossary-terms.ts`, which compiles a pattern for every term of both glossaries when it loads and searches every preferred term with each. Every page ran that when the header preloaded the docs: under Lighthouse's mobile throttling it was one task of about two seconds right after the page loaded. The plugin now builds the glossary tables and those terms when a build first imports `virtual:repository-tables`, so no browser loads `glossary-terms.ts`. The plugin runs before Vite resolves the `~` alias, so `glossary-terms.ts` imports the glossaries by relative path, as `src/lib/prerender.ts` imports `src/routes.ts`.
+
+Below are the entry script with its static imports, from the `bun run build:test` output, and Lighthouse's mobile preset on `/` (4× CPU, simulated slow 4G) on the same build behind an HTTP/2 proxy with compression, medians of five interleaved runs:
+
+| Measure                                       | Before      | After       |
+| --------------------------------------------- | ----------- | ----------- |
+| Entry script with its static imports, gzipped | 415.5 KiB   | 389.7 KiB   |
+| Performance score                             | 68          | 95          |
+| Largest Contentful Paint                      | 2,555 ms    | 2,728 ms    |
+| Total Blocking Time                           | 2,594 ms    | 46 ms       |
+| Bytes transferred                             | 1,010.1 KiB | 1,009.5 KiB |
+| Requests                                      | 286         | 286         |
+
+Other builds kept the machine busy during these runs, with a load average of 29 to 72, which moves the paint times by a few hundred milliseconds from one run to the next; Total Blocking Time fell from seconds to tens of milliseconds in every pair. The landing page's HTML did not change: 449 KB, 37.9 KB with brotli.
+
+Three other ways to make the landing page lighter were measured and left out:
+
+- **Fewer chunks.** The landing page loads 277 scripts, 216 of them under 2 KiB, because Rolldown gives each set of modules that the entry script shares with the lazy routes a chunk of its own. A chunk group for every module that the entry script imports statically cut the entry's files from 161 to 3, but a module's static imports name every module that a barrel file re-exports, used or not, so the entry grew from 415.3 KiB to 509.8 KiB gzipped, and the median Largest Contentful Paint went from 2,101 ms to 2,586 ms. A group that sorts modules by the routes that use them (`entriesAware`) and merges the sets under 16 KiB left 87 files and 1,023.9 KiB gzipped.
+- **An SVG sprite.** The 122 icons inlined in the HTML are 52 KB of it, but only 1.8 KB with brotli, because they repeat. A sprite would save at most that and add a request.
+- **Fewer messages in the HTML.** TanStack Start hands the query cache to the browser in a script of 93 KB, 14.1 KB with brotli. It holds the page's own locale only: the namespaces that the root route and the landing page load, which hydration needs, and the GitHub star count. The landing page does not render every root namespace, but every component reads its own namespace on any page (see [Translations and content](/docs/conventions/translations)), so loading fewer would change that convention.
+
 ## Prerendered pages load CSS and fonts first
 
 Public pages are prerendered and need no JavaScript for their first paint. TanStack Start emits a `modulepreload` hint for every chunk a page may need, more than a hundred on the landing page, and under a simulated mobile network they compete with the stylesheet and fonts. `scripts/optimize-prerendered-html.ts`, which every build script runs, removes every dependency hint and keeps only the page's own entry script hint, at `fetchpriority="low"`:

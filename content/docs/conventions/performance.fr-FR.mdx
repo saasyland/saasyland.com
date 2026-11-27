@@ -270,6 +270,31 @@ const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loade
 
 Chargez les messages uniquement via `loadNamespace`, et n'ajoutez jamais d'`import.meta.glob` sur `messages/` à un module que la route racine importe. `scripts/verify-build.ts` suit les imports statiques du script d'entrée du navigateur et fait échouer le build lorsqu'ils contiennent le loader d'un namespace de page.
 
+## Les tableaux du dépôt se chargent avec la documentation [#repository-tables-load-with-the-docs]
+
+`REPOSITORY_FACTS` (`src/lib/repository-facts.ts`) fait partie du script d'entrée de chaque page, car la page d'accueil affiche ses nombres. Le plugin `repositoryFacts` servait ces nombres et chaque tableau que la documentation affiche avec `<RepositoryTable>`, comme les endpoints de l'API de licence de la CLI, les comptes créés par le seed et les parcours utilisateur, sous la forme d'un seul module, `virtual:repository-facts`. Rolldown place un module entier dans un seul chunk, donc chaque page chargeait aussi les tableaux. Le plugin sert désormais les nombres sous `virtual:repository-facts` et les tableaux sous `virtual:repository-tables`, que seul `repository-fact.tsx`, les composants MDX de la documentation, importe. `scripts/verify-build.ts` fait échouer le build quand les imports statiques du script d'entrée du navigateur les atteignent. Le script d'entrée a perdu 25,7 Kio avec gzip, mais Lighthouse n'a mesuré aucun changement sur `/`, car l'en-tête précharge le code de la documentation dès que la page est inactive (voir [Les pages de l'en-tête se chargent avant le clic](#the-headers-pages-load-before-a-click)).
+
+C'est ce préchargement qui coûtait. `repository-fact.tsx` affichait les termes polonais que la vérification du glossaire laisse au lecteur à partir de `POLISH_GLOSSARY` dans `src/lib/glossary-terms.ts`, qui compile au chargement un motif pour chaque terme des deux glossaires et cherche chacun dans chaque terme préféré. Chaque page exécutait ce travail quand l'en-tête préchargeait la documentation : sous le bridage mobile de Lighthouse, c'était une seule tâche d'environ deux secondes juste après le chargement de la page. Le plugin construit désormais les tableaux des glossaires et ces termes quand un build importe `virtual:repository-tables` pour la première fois, si bien qu'aucun navigateur ne charge `glossary-terms.ts`. Le plugin s'exécute avant que Vite ne résolve l'alias `~`, donc `glossary-terms.ts` importe les glossaires par un chemin relatif, comme `src/lib/prerender.ts` importe `src/routes.ts`.
+
+Ci-dessous, le script d'entrée avec ses imports statiques, d'après la sortie de `bun run build:test`, et le preset mobile de Lighthouse sur `/` (processeur ralenti 4 fois, 4G lente simulée) sur le même build derrière un proxy HTTP/2 avec compression, médianes de cinq exécutions alternées :
+
+| Mesure                                           | Avant       | Après       |
+| ------------------------------------------------ | ----------- | ----------- |
+| Script d'entrée avec ses imports statiques, gzip | 415,5 Kio   | 389,7 Kio   |
+| Score de performance                             | 68          | 95          |
+| Largest Contentful Paint                         | 2 555 ms    | 2 728 ms    |
+| Total Blocking Time                              | 2 594 ms    | 46 ms       |
+| Octets transférés                                | 1 010,1 Kio | 1 009,5 Kio |
+| Requêtes                                         | 286         | 286         |
+
+D'autres builds occupaient la machine pendant ces exécutions, avec une charge moyenne de 29 à 72, ce qui décale les temps d'affichage de quelques centaines de millisecondes d'une exécution à l'autre ; le Total Blocking Time est passé de quelques secondes à quelques dizaines de millisecondes dans chaque paire. Le HTML de la page d'accueil n'a pas changé : 449 Ko, 37,9 Ko avec Brotli.
+
+Trois autres façons d'alléger la page d'accueil ont été mesurées et écartées :
+
+- **Moins de chunks.** La page d'accueil charge 277 scripts, dont 216 de moins de 2 Kio, car Rolldown donne un chunk à chaque ensemble de modules que le script d'entrée partage avec les routes chargées à la demande. Un groupe de chunks pour chaque module que le script d'entrée importe statiquement a fait passer ses fichiers de 161 à 3, mais les imports statiques d'un module nomment chaque module qu'un fichier barrel réexporte, utilisé ou non : le script d'entrée est passé de 415,3 Kio à 509,8 Kio avec gzip, et la médiane du Largest Contentful Paint de 2 101 ms à 2 586 ms. Un groupe qui trie les modules selon les routes qui les utilisent (`entriesAware`) et fusionne les ensembles de moins de 16 Kio a laissé 87 fichiers et 1 023,9 Kio avec gzip.
+- **Un sprite SVG.** Les 122 icônes intégrées au HTML en représentent 52 Ko, mais seulement 1,8 Ko avec Brotli, car elles se répètent. Un sprite économiserait au mieux cela et ajouterait une requête.
+- **Moins de messages dans le HTML.** TanStack Start transmet le cache des requêtes au navigateur dans un script de 93 Ko, 14,1 Ko avec Brotli. Il ne contient que la langue de la page : les espaces de noms que chargent la route racine et la page d'accueil, dont l'hydratation a besoin, et le nombre d'étoiles GitHub. La page d'accueil n'affiche pas tous les espaces de noms racine, mais chaque composant lit son propre espace de noms sur n'importe quelle page (voir [Traductions et contenu](/docs/conventions/translations)) : en charger moins changerait cette convention.
+
 ## Les pages prérendues chargent d'abord le CSS et les polices
 
 Les pages publiques sont prérendues et n'ont besoin d'aucun JavaScript pour leur premier affichage. TanStack Start émet une indication `modulepreload` pour chaque chunk dont une page peut avoir besoin, plus d'une centaine sur la page d'accueil, et sur un réseau mobile simulé elles entrent en concurrence avec la feuille de style et les polices. `scripts/optimize-prerendered-html.ts`, qu'exécute chaque script de build, supprime toutes les indications de dépendances et ne conserve que celle du script d'entrée de la page, avec `fetchpriority="low"` :

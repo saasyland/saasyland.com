@@ -270,6 +270,31 @@ const { MESSAGE_LOADERS } = await import("~/src/integrations/use-intl/i18n.loade
 
 Carga los mensajes solo a través de `loadNamespace`, y nunca añadas un `import.meta.glob` sobre `messages/` a un módulo que importe la ruta raíz. `scripts/verify-build.ts` sigue los imports estáticos del script de entrada del navegador y hace fallar el build cuando contienen el loader de un namespace de página.
 
+## Las tablas del repositorio se cargan con la documentación [#repository-tables-load-with-the-docs]
+
+`REPOSITORY_FACTS` (`src/lib/repository-facts.ts`) está en el script de entrada de cada página, porque la página de inicio muestra sus cifras. El plugin `repositoryFacts` servía esas cifras y cada tabla que la documentación muestra con `<RepositoryTable>`, como los endpoints de la API de licencias de la CLI, las cuentas sembradas y los flujos de usuario, como un solo módulo, `virtual:repository-facts`. Rolldown coloca un módulo entero en un solo chunk, así que cada página cargaba también las tablas. Ahora el plugin sirve las cifras como `virtual:repository-facts` y las tablas como `virtual:repository-tables`, que solo importa `repository-fact.tsx`, los componentes MDX de la documentación. `scripts/verify-build.ts` hace fallar el build cuando los imports estáticos del script de entrada del navegador llegan a ellas. Eso le quitó 25,7 KiB con gzip al script de entrada, pero Lighthouse no midió ningún cambio en `/`, porque la cabecera precarga el código de la documentación en cuanto la página está inactiva (consulta [Las páginas de la cabecera cargan antes del clic](#the-headers-pages-load-before-a-click)).
+
+Esa precarga era lo que costaba. `repository-fact.tsx` mostraba los términos polacos que la comprobación del glosario deja al lector a partir de `POLISH_GLOSSARY` en `src/lib/glossary-terms.ts`, que al cargarse compila un patrón por cada término de los dos glosarios y busca cada uno en cada término preferido. Todas las páginas hacían ese trabajo cuando la cabecera precargaba la documentación: con la limitación móvil de Lighthouse era una sola tarea de unos dos segundos justo después de cargar la página. Ahora el plugin construye las tablas de los glosarios y esos términos cuando un build importa `virtual:repository-tables` por primera vez, así que ningún navegador carga `glossary-terms.ts`. El plugin se ejecuta antes de que Vite resuelva el alias `~`, por eso `glossary-terms.ts` importa los glosarios por ruta relativa, como `src/lib/prerender.ts` importa `src/routes.ts`.
+
+Abajo están el script de entrada con sus imports estáticos, según la salida de `bun run build:test`, y el preset móvil de Lighthouse en `/` (CPU 4 veces más lenta, 4G lenta simulada) sobre el mismo build detrás de un proxy HTTP/2 con compresión, medianas de cinco ejecuciones alternas:
+
+| Medida                                            | Antes      | Después    |
+| ------------------------------------------------- | ---------- | ---------- |
+| Script de entrada con sus imports estáticos, gzip | 415,5 KiB  | 389,7 KiB  |
+| Puntuación de rendimiento                         | 68         | 95         |
+| Largest Contentful Paint                          | 2555 ms    | 2728 ms    |
+| Total Blocking Time                               | 2594 ms    | 46 ms      |
+| Bytes transferidos                                | 1010,1 KiB | 1009,5 KiB |
+| Peticiones                                        | 286        | 286        |
+
+Durante estas ejecuciones otros builds mantenían ocupada la máquina, con una carga media de 29 a 72, lo que mueve los tiempos de pintado unos cientos de milisegundos de una ejecución a otra; el Total Blocking Time bajó de segundos a decenas de milisegundos en cada pareja. El HTML de la página de inicio no cambió: 449 KB, 37,9 KB con Brotli.
+
+Otras tres formas de aligerar la página de inicio se midieron y se descartaron:
+
+- **Menos chunks.** La página de inicio carga 277 scripts, 216 de ellos de menos de 2 KiB, porque Rolldown da un chunk propio a cada conjunto de módulos que el script de entrada comparte con las rutas diferidas. Un grupo de chunks con todos los módulos que el script de entrada importa estáticamente redujo sus archivos de 161 a 3, pero los imports estáticos de un módulo nombran cada módulo que un archivo barrel reexporta, se use o no, así que el script de entrada pasó de 415,3 KiB a 509,8 KiB con gzip y la mediana del Largest Contentful Paint de 2101 ms a 2586 ms. Un grupo que ordena los módulos según las rutas que los usan (`entriesAware`) y fusiona los conjuntos de menos de 16 KiB dejó 87 archivos y 1023,9 KiB con gzip.
+- **Un sprite SVG.** Los 122 iconos incrustados en el HTML ocupan 52 KB, pero solo 1,8 KB con Brotli, porque se repiten. Un sprite ahorraría como mucho eso y añadiría una petición.
+- **Menos mensajes en el HTML.** TanStack Start entrega la caché de consultas al navegador en un script de 93 KB, 14,1 KB con Brotli. Solo contiene el idioma de la página: los espacios de nombres que cargan la ruta raíz y la página de inicio, que la hidratación necesita, y el número de estrellas de GitHub. La página de inicio no renderiza todos los espacios de nombres raíz, pero cada componente lee su propio espacio de nombres en cualquier página (consulta [Traducciones y contenido](/docs/conventions/translations)), así que cargar menos cambiaría esa convención.
+
 ## Las páginas prerenderizadas cargan primero el CSS y las fuentes
 
 Las páginas públicas se prerenderizan y no necesitan JavaScript para su primer pintado. TanStack Start emite una sugerencia `modulepreload` para cada chunk que pueda necesitar una página, más de cien en la página de inicio, y en una red móvil simulada compiten con la hoja de estilos y las fuentes. `scripts/optimize-prerendered-html.ts`, que ejecutan todos los scripts de build, elimina todas las sugerencias de dependencias y conserva solo la del script de entrada de la propia página, con `fetchpriority="low"`:

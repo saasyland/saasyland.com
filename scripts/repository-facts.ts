@@ -10,6 +10,8 @@ import { FLOW_FEATURE, FLOW_STATUS, type Flow } from "../e2e/data/flows.ts"
 import { TEST_COURSE_LICENSE, TEST_LICENSE, TEST_LICENSED_ACCOUNT } from "../e2e/data/licenses.ts"
 import { FOOTER_PHONE_WIDTHS, TEXT_LAYOUT_VIEWPORTS } from "../e2e/data/viewports.ts"
 import playwrightConfig, { CI_RETRIES, CI_WORKERS, DEV_RETRIES, LOCAL_WORKERS } from "../playwright.config.ts"
+import { GERMAN_NAMES, GERMAN_PHRASES, GERMAN_TERMS } from "../src/data/german-glossary.ts"
+import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "../src/data/polish-glossary.ts"
 import { MILLISECONDS_PER_SECOND, SECONDS_PER_DAY } from "../src/lib/duration.ts"
 import { COUNTRIES } from "../src/modules/_core/constants/country.ts"
 import { CURRENCY_CODES } from "../src/modules/_core/constants/currency.ts"
@@ -385,31 +387,60 @@ export const collectTestViewports = () => ({
 
 export type TestViewports = ReturnType<typeof collectTestViewports>
 
+type GlossaryRow = readonly [meaning: string, preferred: readonly string[], never: readonly string[]]
+
+export const collectGlossaryTables = async () => {
+  const { POLISH_GLOSSARY, neverTermText } = await import("../src/lib/glossary-terms.ts")
+  const table = (rows: readonly GlossaryRow[]) =>
+    rows.map(([meaning, preferred, never]) => [meaning, preferred, never.map((term) => neverTermText(term))] as const)
+
+  return {
+    glossaryTables: {
+      germanNames: table(GERMAN_NAMES),
+      germanPhrases: table(GERMAN_PHRASES),
+      germanTerms: table(GERMAN_TERMS),
+      polishNames: table(POLISH_NAMES),
+      polishPhrases: table(POLISH_PHRASES),
+      polishTerms: table(POLISH_TERMS),
+    },
+    polishContextTerms: POLISH_GLOSSARY.contextTerms,
+  }
+}
+
+export type GlossaryTables = Awaited<ReturnType<typeof collectGlossaryTables>>["glossaryTables"]
+
 export const repositoryFacts = (): Plugin => {
-  const sources = new Map<string, string>()
+  const sources = new Map<string, () => Promise<string>>()
 
   return {
     config: {
       handler: async (config) => {
-        const facts = collectRepositoryFacts(config, listBrowserTests())
-        sources.set(`${RESOLVED}${FACTS_MODULE_ID}`, `export default ${JSON.stringify(facts)}`)
-        sources.set(
-          `${RESOLVED}${TABLES_MODULE_ID}`,
-          [
-            `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
-            `export const cliApiTables = ${JSON.stringify(await collectCliApiTables())}`,
-            `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
-            `export const flowTables = ${JSON.stringify(collectFlowTables())}`,
-            `export const coverageScope = ${JSON.stringify(collectCoverageScope(config))}`,
-            `export const moduleTables = ${JSON.stringify(collectModuleTables())}`,
-            `export const testViewports = ${JSON.stringify(collectTestViewports())}`,
-          ].join("\n"),
-        )
+        const facts = `export default ${JSON.stringify(collectRepositoryFacts(config, listBrowserTests()))}`
+        const tables = [
+          `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
+          `export const cliApiTables = ${JSON.stringify(await collectCliApiTables())}`,
+          `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
+          `export const flowTables = ${JSON.stringify(collectFlowTables())}`,
+          `export const coverageScope = ${JSON.stringify(collectCoverageScope(config))}`,
+          `export const moduleTables = ${JSON.stringify(collectModuleTables())}`,
+          `export const testViewports = ${JSON.stringify(collectTestViewports())}`,
+        ]
+        const loadTables = async () => {
+          const { glossaryTables, polishContextTerms } = await collectGlossaryTables()
+
+          return [
+            ...tables,
+            `export const glossaryTables = ${JSON.stringify(glossaryTables)}`,
+            `export const polishContextTerms = ${JSON.stringify(polishContextTerms)}`,
+          ].join("\n")
+        }
+        sources.set(`${RESOLVED}${FACTS_MODULE_ID}`, () => Promise.resolve(facts))
+        sources.set(`${RESOLVED}${TABLES_MODULE_ID}`, loadTables)
       },
       order: "pre",
     },
     enforce: "pre",
-    load: { filter: { id: RESOLVED_MODULE_IDS }, handler: (id) => sources.get(id) },
+    load: { filter: { id: RESOLVED_MODULE_IDS }, handler: (id) => sources.get(id)?.() },
     name: "saasyland:repository-facts",
     resolveId: { filter: { id: MODULE_IDS }, handler: (id) => `${RESOLVED}${id}` },
   }

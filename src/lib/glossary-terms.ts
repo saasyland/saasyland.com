@@ -1,7 +1,7 @@
 import type { SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 
-import { GERMAN_NAMES, GERMAN_PHRASES, GERMAN_TERMS } from "~/src/data/german-glossary"
-import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "~/src/data/polish-glossary"
+import { GERMAN_NAMES, GERMAN_PHRASES, GERMAN_TERMS } from "../data/german-glossary.ts"
+import { POLISH_NAMES, POLISH_PHRASES, POLISH_TERMS } from "../data/polish-glossary.ts"
 
 export const STEM_MARK = "|"
 

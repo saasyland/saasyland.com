@@ -11,4 +11,6 @@ declare module "virtual:repository-tables" {
   export const coverageScope: import("~/scripts/repository-facts").CoverageScope
   export const moduleTables: import("~/scripts/repository-facts").ModuleTables
   export const testViewports: import("~/scripts/repository-facts").TestViewports
+  export const glossaryTables: import("~/scripts/repository-facts").GlossaryTables
+  export const polishContextTerms: readonly string[]
 }

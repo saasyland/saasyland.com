@@ -30,6 +30,7 @@ const BOOT_CLOSURE_FORBIDDEN_MODULE = /^\/\/ node_modules\/(?<name>@polar-sh\/[^
 const CLIENT_ENTRY_SCRIPT = /<script\b(?=[^>]*\btype="module")(?=[^>]*\bsrc="\/(?<entry>assets\/[^"]+)")[^>]*>/u
 const PAGE_MESSAGES_LOADER = /messages\/[^/"`]+\/pages\.[^/"`]+\.json/u
 const CHECKOUT_EMBED = /polar-loader-spinner/u
+const REPOSITORY_TABLES = /\bbundleBuckets\b/u
 
 const LOCALIZED_PAGES = [ROUTES.HOME, ROUTES.PRIVACY, ROUTES.TERMS, ROUTES.REFUNDS, ROUTES.LICENCE, ROUTES.AFFILIATES]
 const LOCALE_ALIASES = [...I18N.SUPPORTED_LOCALES.map((locale) => `/${locale.split("-")[0]}`), `/${I18N.DEFAULT_LOCALE}`]
@@ -207,6 +208,22 @@ if (!clientAssets.some((file) => importsOf(file, "dynamic-import").includes(chec
   throw new Error(`No client asset imports Polar's checkout embed in ${relative(process.cwd(), checkoutEmbed)} when a checkout starts`)
 }
 
+const repositoryTables = clientAssets.filter((file) => REPOSITORY_TABLES.test(readFileSync(file, "utf8")))
+
+if (repositoryTables.length === 0) {
+  throw new Error("No client asset holds the repository tables of virtual:repository-tables")
+}
+
+const eagerTables = staticClosureOf(resolve(CLIENT_DIR, clientEntry))
+  .filter((file) => repositoryTables.includes(file))
+  .map((file) => relative(process.cwd(), file))
+
+if (eagerTables.length > 0) {
+  throw new Error(
+    `Every page loads the repository tables in ${eagerTables.join(", ")}; import virtual:repository-tables only where a table is printed`,
+  )
+}
+
 const serverChunks = globSync("**/*.js", { cwd: SERVER_DIR }).map((file) => resolve(SERVER_DIR, file))
 
 const chunkOf = (module: string): string => {
@@ -289,5 +306,5 @@ const serverBytes = bytesOf(serverChunks)
 const routeTreeBytes = bytesOf(staticClosureOf(chunkOf(ROUTE_TREE_MODULE)))
 
 process.stdout.write(
-  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, an entry script without the page messages, Polar's checkout embed loaded only when a checkout starts, the ${String(bootBytes)} bytes the Worker loads on a cold start, the ${String(routeTreeBytes)} bytes of the route tree, a Worker of ${String(serverChunks.length)} files and ${String(serverBytes)} bytes without any docs or blog content, and one docs search index per locale with every docs page of that locale.\n`,
+  `Verified the ${environment} Worker deployment config, prerendered locales and content pages, fonts, client assets, an entry script without the page messages or the repository tables, Polar's checkout embed loaded only when a checkout starts, the ${String(bootBytes)} bytes the Worker loads on a cold start, the ${String(routeTreeBytes)} bytes of the route tree, a Worker of ${String(serverChunks.length)} files and ${String(serverBytes)} bytes without any docs or blog content, and one docs search index per locale with every docs page of that locale.\n`,
 )

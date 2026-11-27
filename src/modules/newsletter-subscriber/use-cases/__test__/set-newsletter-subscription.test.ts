@@ -43,10 +43,11 @@ vi.mock(import("@tanstack/react-start/server"), (): Partial<typeof StartServerMo
   getRequest: vi.fn(() => new Request("http://127.0.0.1:3000/", { headers: HEADERS })),
 }))
 
-const signedIn = (): void => {
+const signedIn = ({ emailVerified = true } = {}): void => {
+  const session = createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID })
   getSessionMock.mockReset()
   vi.spyOn(authServer.auth.api, "getSession").mockImplementation(getSessionMock)
-  getSessionMock.mockResolvedValue(createAuthSessionFixture({ role: ROLE_CODES.CUSTOMER, userId: USER_ID }))
+  getSessionMock.mockResolvedValue({ ...session, user: { ...session.user, emailVerified } })
   dbMocks.insertMock.mockClear()
   dbMocks.updateMock.mockClear()
 }
@@ -75,6 +76,29 @@ describe("set-newsletter-subscription", () => {
     expect(dbMocks.updateMock).toHaveBeenCalledTimes(1)
     expect(dbMocks.insertMock).not.toHaveBeenCalled()
     expect(dbMocks.set).toHaveBeenCalledWith(expect.objectContaining({ status: NEWSLETTER_STATUS.UNSUBSCRIBED }))
+  })
+
+  it("refuses to add an address the account has not confirmed and writes nothing", async () => {
+    expect.hasAssertions()
+    signedIn({ emailVerified: false })
+
+    await expect(executeMutation(setNewsletterSubscriptionMutation, { isSubscribed: true, locale: "en-US" })).rejects.toThrow(
+      ERROR_CODES.FORBIDDEN,
+    )
+
+    expect(dbMocks.insertMock).not.toHaveBeenCalled()
+    expect(dbMocks.updateMock).not.toHaveBeenCalled()
+  })
+
+  it("takes an address the account has not confirmed off the list", async () => {
+    expect.hasAssertions()
+    signedIn({ emailVerified: false })
+
+    await expect(executeMutation(setNewsletterSubscriptionMutation, { isSubscribed: false, locale: "en-US" })).resolves.toMatchObject({
+      isSubscribed: false,
+    })
+
+    expect(dbMocks.updateMock).toHaveBeenCalledTimes(1)
   })
 
   it("refuses a caller with no session", async () => {

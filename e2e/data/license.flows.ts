@@ -507,7 +507,7 @@ export const LICENSE_FLOWS = [
     id: "chargeback",
     outcome: "A chargeback revokes the licence, and the CLI is refused",
     reason:
-      "No code handles Polar's dispute events; a lost dispute reaches the licence only if Polar also sends order.refunded or benefit_grant.revoked.",
+      "Polar's webhooks carry no dispute event and no code reads its disputes API, so a lost dispute reaches the licence only if Polar also sends order.refunded or benefit_grant.revoked.",
     status: FLOW_STATUS.TO_BUILD,
   },
   {
@@ -811,7 +811,7 @@ export const LICENSE_FLOWS = [
     id: "cli-init-project",
     outcome: "The published CLI's init, with an activated licence, downloads the bundle for the chosen answers and writes the project",
     reason:
-      "The published CLI asks for the bundle of its own release and downloads it from the https address the API contract requires, while the browser suite's Worker serves plain http and holds only a fixture bundle; the journey stops at the licence commands.",
+      "The published CLI asks for the bundle of its own release, downloads it from the https address the API contract requires and accepts it only when its digest matches the one the release pinned, while the browser suite's Worker serves plain http and holds only a fixture bundle; the journey stops at the licence commands.",
     status: FLOW_STATUS.MISSING,
   },
 ] as const satisfies readonly Flow[]

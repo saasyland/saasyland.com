@@ -1,13 +1,13 @@
 ---
 title: "Einstellungen"
-description: "Die Ansichten /app/settings und /admin/settings: Präferenzen, E-Mail-Adresse, Passwort, Zwei-Faktor-Authentifizierung, verknüpfte Konten, Sitzungen und Kontolöschung."
+description: "Die Ansichten /app/settings und /admin/settings: Präferenzen, Newsletter, E-Mail-Adresse, Passwort, Zwei-Faktor-Authentifizierung, verknüpfte Konten, Sitzungen und Kontolöschung."
 ---
 
-`src/routes/app.settings.tsx` und `src/routes/admin.settings.tsx` rendern zwei Tabs aus `SETTINGS_TABS` (`src/data/auth.ts`), **Allgemein** und **Sicherheit**. Der Tab ist der Suchparameter `tab`, den `settingsSearchSchema` validiert und der aus der Adresse entfällt, wenn er dem Standard entspricht; so führt ein OAuth-Link zurück zu `?tab=security`. Die Karten liegen in `src/presentation/components/custom/settings`, teilen sich den Namespace `auth.security`, den die Layouts `/app` und `/admin` laden, und dienen Kunden und Admins gleichermaßen; nur der Tab „Allgemein“ der Kunden endet mit **Konto löschen**. Beide Loader laden die Sitzungsliste (`getActiveSessionsQuery`) und die Anmeldemethoden (`listAccountsQuery`) vorab, und `/app/settings` führt zusätzlich die Ladevorgänge der Hinweise zur Kontolöschung aus.
+`src/routes/app.settings.tsx` und `src/routes/admin.settings.tsx` rendern zwei Tabs aus `SETTINGS_TABS` (`src/data/auth.ts`), **Allgemein** und **Sicherheit**. Der Tab ist der Suchparameter `tab`, den `settingsSearchSchema` validiert und der aus der Adresse entfällt, wenn er dem Standard entspricht; so führt ein OAuth-Link zurück zu `?tab=security`. Die Karten liegen in `src/presentation/components/custom/settings`, teilen sich den Namespace `auth.security`, den die Layouts `/app` und `/admin` laden, und dienen Kunden und Admins gleichermaßen; nur der Tab „Allgemein“ der Kunden endet mit **Konto löschen**. Beide Loader laden die Sitzungsliste (`getActiveSessionsQuery`) und die Anmeldemethoden (`listAccountsQuery`) vorab, und `/app/settings` lädt zusätzlich das Newsletter-Abonnement vorab und führt die Ladevorgänge der Hinweise zur Kontolöschung aus.
 
 | Tab        | `/app/settings`                                                          | `/admin/settings`                                                         |
 | ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| Allgemein  | `PreferencesCard`, `EmailCard`, `DeleteAccountCard`                      | `BusinessProfileCard`, `BusinessLogoCard`, `PreferencesCard`, `EmailCard` |
+| Allgemein  | `PreferencesCard`, `NewsletterCard`, `EmailCard`, `DeleteAccountCard`    | `BusinessProfileCard`, `BusinessLogoCard`, `PreferencesCard`, `EmailCard` |
 | Sicherheit | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard` | `PasswordCard`, `TwoFactorCard`, `ConnectedAccountsCard`, `SessionsCard`  |
 
 ## Unternehmensprofil [#business-profile]
@@ -28,6 +28,10 @@ Der Tab Allgemein von `/admin/settings` beginnt mit zwei Karten, die das Unterne
 - **Präferenzen speichern** ruft `updatePreferences` auf (`src/modules/user/use-cases/update-preferences.ts`, angemeldet), das die Zeitzone mit `userZodSchemas.updatePreferences` validiert und über `updateUser` von Better Auth speichert. Danach invalidiert die Karte die aktuelle Session-Query, und `TranslationsProvider` zeigt jedes Datum in der neuen Zeitzone an ([Internationalisierung und Locales](/docs/features/internationalization)).
 
 Die Sprache wird nicht gespeichert: Sie ist die Locale in der URL, wird mit `LocaleSelect` gewechselt und bestimmt außerdem die Reihenfolge der Datumsangaben, die 12- oder 24-Stunden-Uhr und die Trennzeichen in Zahlen.
+
+## Newsletter [#newsletter]
+
+Auf `/app/settings` folgt auf die Präferenzen `NewsletterCard` mit einem Schalter, der das Entwicklungsjournal für die Adresse des Kontos ein- und ausschaltet: sofort und ohne Bestätigungs-E-Mail, weil das Konto diese Adresse bereits bestätigt hat. Solange die Adresse nicht bestätigt ist, kann der Schalter das Entwicklungsjournal nur ausschalten. Das Newsletter-[Feature](/docs/conventions/testing#tests-follow-the-features) fügt die Karte hinzu, eine Website ohne dieses Feature hat also keine; siehe [Newsletter](/docs/features/newsletter#in-the-workspace).
 
 ## E-Mail-Adresse
 
@@ -60,3 +64,5 @@ Das Löschen des Benutzers löscht per Kaskade auch seine Sitzungen, Anmeldemeth
 ## Skeletons
 
 `PreferencesCardPending` in `preferences-card-pending.tsx` sowie `SettingsTabsPending`, `EmailCardPending` und `DeleteAccountCardPending` in `custom/settings/settings-pending.tsx` zeichnen `AdminSettingsPending`, `AppSettingsPending` und `AppDeleteAccountPending`. Sie haben eigene Dateien, weil jede Seite die Skeletons lädt und die Dateien der Karten die Formulare enthalten (siehe [Performance](/docs/conventions/performance#skeletons-stay-in-the-entry-script)). Ein Skeleton zeichnet den Tab „Allgemein“. `BusinessProfileCardPending` und `BusinessLogoCardPending` in `custom/admin/business-profile-pending.tsx` eröffnen den Tab Allgemein des Admins in `AdminSettingsPending`.
+
+`AppSettingsPending` zeichnet außerdem `NewsletterCardPending` aus `newsletter-pending.tsx`, das Skeleton der Karte aus dem Newsletter-Feature.

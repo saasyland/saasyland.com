@@ -1,9 +1,9 @@
 ---
 title: "Newsletter"
-description: "Die Abonnentenliste im Admin und ihr CSV-Export, eine Ausgabe in jeder Sprache mit Vorschau schreiben und sie über Resend in Batches verschicken, die ein erneuter Versuch oder ein zweiter Klick nie doppelt verschickt."
+description: "Die Abonnentenliste im Admin und ihr CSV-Export, eine Ausgabe in jeder Sprache mit Vorschau schreiben, sie über Resend in Batches verschicken, die ein erneuter Versuch oder ein zweiter Klick nie doppelt verschickt, und der Schalter in den Einstellungen der Kunden."
 ---
 
-Besucher melden sich im Footer für das Entwicklungsjournal an und bestätigen ihre Adresse per E-Mail ([Landingpage](/docs/features/landing-page#newsletter)). Der Admin liest die Anmeldungen und verschickt die Ausgaben unter `/admin/newsletter`. Das [Newsletter-Feature](/docs/conventions/testing#tests-follow-the-features) fügt die Seite in `src/data/navigation.ts` der Gruppe Inhalt der Seitenleiste hinzu, mit den Tabs Abonnenten und Ausgaben aus `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Die Kachel Newsletter-Abonnenten im Dashboard verlinkt dorthin ([Admin-Dashboard](/docs/features/admin-dashboard#newsletter-subscribers)). Jede Serverfunktion unten läuft mit `authorized({ admin: ["access"] })`, also erreicht sie nur ein Admin.
+Besucher melden sich im Footer für das Entwicklungsjournal an und bestätigen ihre Adresse per E-Mail ([Landingpage](/docs/features/landing-page#newsletter)). Der Admin liest die Anmeldungen und verschickt die Ausgaben unter `/admin/newsletter`. Das [Newsletter-Feature](/docs/conventions/testing#tests-follow-the-features) fügt die Seite in `src/data/navigation.ts` der Gruppe Inhalt der Seitenleiste hinzu, mit den Tabs Abonnenten und Ausgaben aus `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Die Kachel Newsletter-Abonnenten im Dashboard verlinkt dorthin ([Admin-Dashboard](/docs/features/admin-dashboard#newsletter-subscribers)). Jede Serverfunktion unten läuft mit `authorized({ admin: ["access"] })`, also erreicht sie nur ein Admin. Die beiden Serverfunktionen hinter dem Schalter im Kundenbereich brauchen nur eine Sitzung ([Im Kundenbereich](#in-the-workspace)).
 
 ## Abonnenten [#subscribers]
 
@@ -49,6 +49,15 @@ Jede E-Mail endet mit einer Zeile, die sagt, warum der Leser sie erhält, und ei
 ## Ausgaben [#issues]
 
 `/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) listet die Ausgaben mit `getNewsletterIssues` und `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): den englischen Betreff, Wird verschickt oder Verschickt, wie viele E-Mails von wie vielen Empfängern hinausgingen, in wie vielen Sprachen die Ausgabe geschrieben wurde, wann sie begann und wann sie abgeschlossen war. Die Suche findet den Betreff in jeder Sprache; die Filter sind der Status und der Starttag.
+
+## Im Kundenbereich [#in-the-workspace]
+
+Angemeldete Kunden schalten das Entwicklungsjournal im Tab „Allgemein“ von `/app/settings` ein und aus, wo `NewsletterCard` (`src/presentation/components/custom/newsletter-card.tsx`) auf die Präferenzen folgt ([Einstellungen](/docs/features/settings#newsletter)). Der Loader der Seite lädt `getNewsletterSubscriptionQuery` vorab, die angibt, ob die Adresse des Kontos abonniert ist, und der Schalter ruft `setNewsletterSubscription` mit der Sprache der Seite auf. Beide laufen mit `authorized()` und nehmen die Adresse aus der Sitzung, ein Konto ändert also nur sein eigenes Abonnement.
+
+- Einschalten abonniert die Adresse sofort mit der Quelle `app` und ohne Bestätigungs-E-Mail, weil das Konto die Adresse bereits bestätigt hat. Solange sie nicht bestätigt ist, kann der Schalter das Entwicklungsjournal nicht einschalten und bittet darum, zuerst die Adresse zu bestätigen, und `setNewsletterSubscription` lehnt mit `FORBIDDEN` ab.
+- Ausschalten meldet die Adresse ab und hält wie der Abmeldelink fest, wann, ob die Adresse bestätigt ist oder nicht.
+
+Der Schalter zeigt den neuen Zustand, während die Änderung gespeichert wird; danach liest die Karte das Abonnement erneut und bestätigt mit einem Toast. Die Karte, ihr Skeleton `NewsletterCardPending` (`newsletter-pending.tsx`) und ihre Texte (`components.custom.newsletter-card`) gehören zum Newsletter-Feature, eine Website ohne Newsletter hat also keine Karte.
 
 ## Verwandte Seiten
 

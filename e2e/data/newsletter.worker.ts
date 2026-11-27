@@ -11,7 +11,7 @@ export const NEWSLETTER_TEST_WORKER = [
         return Response.json({ error: "A test email address is required" }, { status: HTTP_STATUS.BAD_REQUEST })
       }
       const subscriber = await env.DB.prepare(
-        "SELECT status, unsubscribe_token AS unsubscribeToken, unsubscribed_at AS unsubscribedAt FROM newsletter_subscriber WHERE email = ?",
+        "SELECT locale, source, status, unsubscribe_token AS unsubscribeToken, unsubscribed_at AS unsubscribedAt FROM newsletter_subscriber WHERE email = ?",
       )
         .bind(email)
         .first()

@@ -6,6 +6,7 @@ import { v7 } from "uuid"
 import { authorized } from "~/src/integrations/better-auth/auth.middleware"
 import { db } from "~/src/integrations/drizzle-orm/drizzle.database"
 
+import { AppError, ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import {
   NEWSLETTER_SOURCE,
   NEWSLETTER_STATUS,
@@ -31,6 +32,10 @@ export const setNewsletterSubscription = createServerFn({ method: "POST" })
         .where(eq(newsletterSubscriber.email, address))
 
       return { isSubscribed: false }
+    }
+
+    if (!context.auth.user.emailVerified) {
+      throw new AppError(ERROR_CODES.FORBIDDEN)
     }
 
     await db

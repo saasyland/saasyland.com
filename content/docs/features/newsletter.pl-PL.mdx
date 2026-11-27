@@ -1,9 +1,9 @@
 ---
 title: "Newsletter"
-description: "Lista subskrybentów w panelu administracyjnym z eksportem do CSV, pisanie numeru w każdym języku z podglądem i wysyłka przez Resend partiami, których ponowna próba ani drugie kliknięcie nigdy nie wyślą dwa razy."
+description: "Lista subskrybentów w panelu administracyjnym z eksportem do CSV, pisanie numeru w każdym języku z podglądem, wysyłka przez Resend partiami, których ponowna próba ani drugie kliknięcie nigdy nie wyślą dwa razy, oraz przełącznik w ustawieniach klienta."
 ---
 
-Odwiedzający zapisują się do dziennika prac w stopce i potwierdzają adres e-mailem ([Strona główna](/docs/features/landing-page#newsletter)). Administrator przegląda zapisy i wysyła numery pod `/admin/newsletter`. [Funkcja](/docs/conventions/testing#tests-follow-the-features) newslettera dodaje tę stronę do grupy Treści na pasku bocznym w `src/data/navigation.ts`, z zakładkami Subskrybenci i Numery z `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Prowadzi do niej kafelek Subskrybenci newslettera na pulpicie ([Panel administracyjny](/docs/features/admin-dashboard#newsletter-subscribers)). Każda opisana niżej funkcja serwerowa wywołuje `authorized({ admin: ["access"] })`, więc korzysta z nich tylko administrator.
+Odwiedzający zapisują się do dziennika prac w stopce i potwierdzają adres e-mailem ([Strona główna](/docs/features/landing-page#newsletter)). Administrator przegląda zapisy i wysyła numery pod `/admin/newsletter`. [Funkcja](/docs/conventions/testing#tests-follow-the-features) newslettera dodaje tę stronę do grupy Treści na pasku bocznym w `src/data/navigation.ts`, z zakładkami Subskrybenci i Numery z `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). Prowadzi do niej kafelek Subskrybenci newslettera na pulpicie ([Panel administracyjny](/docs/features/admin-dashboard#newsletter-subscribers)). Każda opisana niżej funkcja serwerowa wywołuje `authorized({ admin: ["access"] })`, więc korzysta z nich tylko administrator. Dwie funkcje, z których korzysta przełącznik w panelu klienta, wymagają tylko sesji ([W panelu klienta](#in-the-workspace)).
 
 ## Subskrybenci [#subscribers]
 
@@ -49,6 +49,15 @@ Każdy e-mail kończy się zdaniem, dlaczego czytelnik go dostaje, i linkiem do 
 ## Numery [#issues]
 
 `/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) pokazuje numery z `getNewsletterIssues` i kolumnami z `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`): temat po angielsku, stan W trakcie wysyłki lub Wysłany, do ilu odbiorców spośród wszystkich wyszedł już e-mail, w ilu językach napisano numer, kiedy wysyłka się zaczęła i kiedy się skończyła. Wyszukiwanie znajduje temat w każdym języku; filtry obejmują status i dzień rozpoczęcia.
+
+## W panelu klienta [#in-the-workspace]
+
+Zalogowany klient włącza i wyłącza dziennik prac na zakładce Ogólne w `/app/settings`, gdzie `NewsletterCard` (`src/presentation/components/custom/newsletter-card.tsx`) jest zaraz po preferencjach ([Ustawienia](/docs/features/settings#newsletter)). Loader strony wczytuje z wyprzedzeniem `getNewsletterSubscriptionQuery`, które mówi, czy adres konta jest zapisany, a przełącznik wywołuje `setNewsletterSubscription` z językiem strony. Obie funkcje wywołują `authorized()` i biorą adres z sesji, więc konto zmienia tylko własną subskrypcję.
+
+- Włączenie od razu zapisuje adres ze źródłem `app`, bez e-maila z potwierdzeniem, bo konto ma już potwierdzony ten adres. Dopóki adres nie jest potwierdzony, przełącznik nie włączy dziennika prac i prosi najpierw o potwierdzenie adresu, a `setNewsletterSubscription` odmawia z kodem `FORBIDDEN`.
+- Wyłączenie wypisuje adres i zapisuje, kiedy to nastąpiło, tak jak link do wypisania się, niezależnie od tego, czy adres jest potwierdzony.
+
+Podczas zapisywania przełącznik pokazuje już nowy stan, a potem karta ponownie odczytuje subskrypcję i potwierdza zmianę powiadomieniem. Karta, jej szkielet `NewsletterCardPending` (`newsletter-pending.tsx`) i jej teksty (`components.custom.newsletter-card`) należą do funkcji newslettera, więc witryna zbudowana bez newslettera nie ma tej karty.
 
 ## Powiązane strony
 

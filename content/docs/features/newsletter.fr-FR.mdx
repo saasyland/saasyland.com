@@ -1,9 +1,9 @@
 ---
 title: "Newsletter"
-description: "La liste des abonnés de l’administration et son export CSV, la rédaction d’un numéro dans chaque langue avec aperçu, et son envoi par Resend en lots qu’une nouvelle tentative ou un second clic n’envoie jamais deux fois."
+description: "La liste des abonnés de l’administration et son export CSV, la rédaction d’un numéro dans chaque langue avec aperçu, son envoi par Resend en lots qu’une nouvelle tentative ou un second clic n’envoie jamais deux fois, et l’interrupteur dans les paramètres du client."
 ---
 
-Les visiteurs s’inscrivent au journal de développement depuis le pied de page et confirment leur adresse par e-mail ([Page d’accueil](/docs/features/landing-page#newsletter)). L’administrateur consulte les inscriptions et envoie les numéros sur `/admin/newsletter`, que la [fonctionnalité](/docs/conventions/testing#tests-follow-the-features) newsletter ajoute au groupe Contenu de la barre latérale dans `src/data/navigation.ts`, avec les onglets Abonnés et Numéros de `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). La tuile Abonnés à la newsletter du tableau de bord y renvoie ([Tableau de bord d’administration](/docs/features/admin-dashboard#newsletter-subscribers)). Chaque fonction serveur ci-dessous exécute `authorized({ admin: ["access"] })`, si bien que seul un administrateur y accède.
+Les visiteurs s’inscrivent au journal de développement depuis le pied de page et confirment leur adresse par e-mail ([Page d’accueil](/docs/features/landing-page#newsletter)). L’administrateur consulte les inscriptions et envoie les numéros sur `/admin/newsletter`, que la [fonctionnalité](/docs/conventions/testing#tests-follow-the-features) newsletter ajoute au groupe Contenu de la barre latérale dans `src/data/navigation.ts`, avec les onglets Abonnés et Numéros de `NEWSLETTER_TABS` (`newsletter-tabs.tsx`). La tuile Abonnés à la newsletter du tableau de bord y renvoie ([Tableau de bord d’administration](/docs/features/admin-dashboard#newsletter-subscribers)). Chaque fonction serveur ci-dessous exécute `authorized({ admin: ["access"] })`, si bien que seul un administrateur y accède. Les deux fonctions derrière l’interrupteur du client dans son application ne demandent qu’une session ([Dans l’application client](#in-the-workspace)).
 
 ## Abonnés [#subscribers]
 
@@ -49,6 +49,15 @@ Chaque e-mail se termine par une ligne qui explique pourquoi le lecteur le reço
 ## Numéros [#issues]
 
 `/admin/newsletter/issues` (`admin.newsletter.issues.tsx`) affiche les numéros avec `getNewsletterIssues` et `useNewsletterIssueColumns` (`newsletter-issue-columns.tsx`) : l’objet en anglais, Envoi en cours ou Envoyé, le nombre d’e-mails partis sur le nombre de destinataires, le nombre de langues dans lesquelles le numéro a été rédigé, le début et la fin de l’envoi. La recherche trouve l’objet dans toutes les langues ; les filtres portent sur le statut et le jour de début.
+
+## Dans l’application client [#in-the-workspace]
+
+Un client connecté active et désactive le journal de développement dans l’onglet Général de `/app/settings`, où `NewsletterCard` (`src/presentation/components/custom/newsletter-card.tsx`) suit les préférences ([Paramètres](/docs/features/settings#newsletter)). Le loader de la page précharge `getNewsletterSubscriptionQuery`, qui indique si l’adresse du compte est abonnée, et l’interrupteur appelle `setNewsletterSubscription` avec la langue de la page. Les deux exécutent `authorized()` et prennent l’adresse dans la session, si bien qu’un compte ne change que son propre abonnement.
+
+- Activer l’interrupteur abonne l’adresse immédiatement avec la source `app`, sans e-mail de confirmation, puisque le compte a déjà confirmé l’adresse. Tant qu’elle n’est pas confirmée, l’interrupteur ne peut pas l’activer et demande de confirmer d’abord l’adresse, et `setNewsletterSubscription` refuse avec `FORBIDDEN`.
+- Le désactiver désabonne l’adresse et enregistre quand, comme le lien de désinscription, que l’adresse soit confirmée ou non.
+
+L’interrupteur affiche le nouvel état pendant l’enregistrement ; la carte relit ensuite l’abonnement et confirme par une notification. La carte, son squelette `NewsletterCardPending` (`newsletter-pending.tsx`) et ses textes (`components.custom.newsletter-card`) appartiennent à la fonctionnalité newsletter, si bien qu’un site construit sans newsletter n’a pas de carte.
 
 ## Pages associées
 

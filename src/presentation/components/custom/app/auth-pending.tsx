@@ -4,6 +4,7 @@ import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
 import { LicenseOverviewPending } from "~/src/presentation/components/custom/app/license-pending"
 import { PageHeaderPending } from "~/src/presentation/components/custom/app/pending-blocks"
+import { NewsletterCardPending } from "~/src/presentation/components/custom/newsletter-pending"
 import { PreferencesCardPending } from "~/src/presentation/components/custom/preferences-card-pending"
 import {
   DeleteAccountCardPending,
@@ -51,6 +52,7 @@ export const AppSettingsPending = (): JSX.Element => (
     <div className="flex w-full flex-col gap-6">
       <SettingsTabsPending />
       <PreferencesCardPending />
+      <NewsletterCardPending />
       <EmailCardPending />
       <DeleteAccountCardPending />
     </div>

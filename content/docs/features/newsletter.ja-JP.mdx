@@ -1,9 +1,9 @@
 ---
 title: "ニュースレター"
-description: "管理画面の購読者一覧と CSV 書き出し、プレビュー付きで各言語の号を作成する方法、再試行や二度目のクリックでも二重送信しないバッチで Resend から配信する仕組み。"
+description: "管理画面の購読者一覧と CSV 書き出し、プレビュー付きで各言語の号を作成する方法、再試行や二度目のクリックでも二重送信しないバッチで Resend から配信する仕組み、顧客の設定にある配信スイッチ。"
 ---
 
-訪問者はフッターから開発日誌に登録し、メールでアドレスを確認します（[ランディングページ](/docs/features/landing-page#newsletter)）。管理者は `/admin/newsletter` で登録を確認し、号を配信します。ニュースレターの[機能](/docs/conventions/testing#tests-follow-the-features)は `src/data/navigation.ts` でこのページをサイドバーのコンテンツグループに追加し、`NEWSLETTER_TABS`（`newsletter-tabs.tsx`）の「購読者」と「配信号」のタブを並べます。ダッシュボードのニュースレター購読者タイルからもこのページへ移動できます（[管理ダッシュボード](/docs/features/admin-dashboard#newsletter-subscribers)）。以下のサーバー関数はすべて `authorized({ admin: ["access"] })` を実行するため、呼び出せるのは管理者だけです。
+訪問者はフッターから開発日誌に登録し、メールでアドレスを確認します（[ランディングページ](/docs/features/landing-page#newsletter)）。管理者は `/admin/newsletter` で登録を確認し、号を配信します。ニュースレターの[機能](/docs/conventions/testing#tests-follow-the-features)は `src/data/navigation.ts` でこのページをサイドバーのコンテンツグループに追加し、`NEWSLETTER_TABS`（`newsletter-tabs.tsx`）の「購読者」と「配信号」のタブを並べます。ダッシュボードのニュースレター購読者タイルからもこのページへ移動できます（[管理ダッシュボード](/docs/features/admin-dashboard#newsletter-subscribers)）。以下のサーバー関数はすべて `authorized({ admin: ["access"] })` を実行するため、呼び出せるのは管理者だけです。顧客アプリのスイッチが呼び出す 2 つのサーバー関数だけは、セッションがあれば呼び出せます（[顧客アプリ](#in-the-workspace)）。
 
 ## 購読者 [#subscribers]
 
@@ -49,6 +49,15 @@ Resend がバッチ全体を拒否すると、確保が解除され、管理者�
 ## 配信号 [#issues]
 
 `/admin/newsletter/issues`（`admin.newsletter.issues.tsx`）は、`getNewsletterIssues` と `useNewsletterIssueColumns`（`newsletter-issue-columns.tsx`）で号を一覧表示します。英語の件名、配信中または配信済み、受信者数のうち送ったメールの数、号を書いた言語の数、開始日時と完了日時が表示されます。検索はすべての言語の件名に一致し、フィルターはステータスと開始日です。
+
+## 顧客アプリ [#in-the-workspace]
+
+サインインした顧客は、`/app/settings` の一般タブで開発日誌の配信をオン・オフします。そこでは環境設定の次に `NewsletterCard`（`src/presentation/components/custom/newsletter-card.tsx`）があります（[設定](/docs/features/settings#newsletter)）。ページのローダーは、アカウントのアドレスが購読中かどうかを返す `getNewsletterSubscriptionQuery` をプリロードし、スイッチはページの言語を添えて `setNewsletterSubscription` を呼び出します。どちらも `authorized()` を実行し、アドレスをセッションから取るため、アカウントが変えられるのは自分の購読だけです。
+
+- スイッチをオンにすると、アドレスはソース `app` ですぐに購読されます。アカウントがすでにアドレスを確認しているため、確認メールは送りません。アドレスが未確認のあいだ、スイッチはオンにできず、先にアドレスを確認するよう案内し、`setNewsletterSubscription` も `FORBIDDEN` で拒否します。
+- オフにすると、配信停止リンクと同じように、アドレスの購読を停止して日時を記録します。アドレスが確認済みかどうかは問いません。
+
+変更を保存しているあいだ、スイッチは新しい状態を表示します。保存後、カードは購読状態を読み直し、トーストで知らせます。カード、そのスケルトン `NewsletterCardPending`（`newsletter-pending.tsx`）、文言（`components.custom.newsletter-card`）はニュースレター機能に属するため、ニュースレターなしで作ったサイトにはこのカードがありません。
 
 ## 関連ページ
 

@@ -1,0 +1,31 @@
+diff --git a/dist/utils/use-media-query.js b/dist/utils/use-media-query.js
+index dd4393e71ad9c1ec55fb95ad675e3a42ab0fcb82..fca0bcd05fec13f8eb1b8e135ae651ba392eebbc 100644
+--- a/dist/utils/use-media-query.js
++++ b/dist/utils/use-media-query.js
+@@ -1,16 +1,21 @@
+-import { useCallback, useSyncExternalStore } from "react";
++import { startTransition, useEffect, useState } from "react";
+ // src/utils/use-media-query.ts
+-const getServerSnapshot = () => null;
+ /**
+ * @returns `null` on the server, during hydration, or when disabled.
+ */
+ function useMediaQuery(query, disabled = false) {
+-	const subscribe = useCallback((onChange) => {
+-		if (disabled) return () => {};
++	const [matches, setMatches] = useState(null);
++	useEffect(() => {
++		if (disabled) {
++			startTransition(() => setMatches(null));
++			return;
++		}
+ 		const list = window.matchMedia(query);
++		const onChange = () => startTransition(() => setMatches(list.matches));
++		onChange();
+ 		list.addEventListener("change", onChange);
+ 		return () => list.removeEventListener("change", onChange);
+ 	}, [query, disabled]);
+-	return useSyncExternalStore(subscribe, () => disabled ? null : window.matchMedia(query).matches, getServerSnapshot);
++	return matches;
+ }
+ export { useMediaQuery };

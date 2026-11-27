@@ -60,16 +60,20 @@ test("mobile menu closes with Escape and after choosing the pricing section", as
   await expect(page.locator(`#${MARKETING_SECTION_IDS.PRICING}`)).toBeInViewport()
 })
 
-test("back to top appears past the first screen and returns smoothly to the page heading", async ({ landingPage, page }) => {
+test("back to top appears past half a screen and returns smoothly to the page heading", async ({ landingPage, page }) => {
   await landingPage.goto()
   const backToTop = page.getByRole("button", { name: "Back to top", exact: true })
   await expect(backToTop).toBeHidden()
 
-  await scrollScreens(page, 0.5)
+  await scrollScreens(page, 0.25)
   await expect(backToTop).toBeHidden()
+  await scrollScreens(page, 0.6)
+  await expect(backToTop).toBeVisible()
+  await scrollScreens(page, 0.25)
+  await expect(backToTop).toBeHidden()
+
   await scrollScreens(page, 3)
   await expect(backToTop).toBeVisible()
-
   await backToTop.click()
   expect(await scrollY(page)).toBeGreaterThan(0)
   await expect.poll(async () => scrollY(page)).toBe(0)

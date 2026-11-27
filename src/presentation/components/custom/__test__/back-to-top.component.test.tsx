@@ -21,7 +21,7 @@ interface TestObserver {
   readonly options: IntersectionObserverInit | undefined
 }
 
-const FIRST_SCREEN = "100% 0px 0px 0px"
+const HALF_SCREEN = "50% 0px 0px 0px"
 const REDUCED_MOTION_SCROLL = /@media \(prefers-reduced-motion: reduce\) \{\s*html \{\s*scroll-behavior: auto;/u
 const HIDDEN_CLASSES = ["invisible", "translate-y-2", "opacity-0"]
 
@@ -48,7 +48,7 @@ const sentinelObserver = (): TestObserver => {
   return observer
 }
 
-const scrollPastFirstScreen = (isPast: boolean) => {
+const scrollPastHalfScreen = (isPast: boolean) => {
   act(() => {
     sentinelObserver().callback(
       [
@@ -91,24 +91,24 @@ afterEach(() => {
 })
 
 describe("back to top visibility", () => {
-  it("stays hidden near the top and watches a sentinel one screen deep instead of scroll events", () => {
+  it("stays hidden near the top and watches a sentinel half a screen deep instead of scroll events", () => {
     const addListener = vi.spyOn(browserWindow, "addEventListener")
     const { container } = renderBackToTop()
 
     expect(backToTop()).toHaveClass(...HIDDEN_CLASSES)
-    expect(sentinelObserver().options).toEqual({ rootMargin: FIRST_SCREEN })
+    expect(sentinelObserver().options).toEqual({ rootMargin: HALF_SCREEN })
     expect(sentinelObserver().observe).toHaveBeenCalledExactlyOnceWith(container.firstElementChild)
     expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true")
     expect(addListener.mock.calls.filter(([type]) => type === "scroll")).toEqual([])
   })
 
-  it("appears once the first screen has scrolled away and hides again near the top", () => {
+  it("appears once half a screen has scrolled away and hides again near the top", () => {
     renderBackToTop()
 
-    scrollPastFirstScreen(true)
+    scrollPastHalfScreen(true)
     expect(backToTop()).not.toHaveClass(...HIDDEN_CLASSES)
 
-    scrollPastFirstScreen(false)
+    scrollPastHalfScreen(false)
     expect(backToTop()).toHaveClass(...HIDDEN_CLASSES)
   })
 
@@ -144,7 +144,7 @@ describe("back to top press", () => {
   it("scrolls to the top and moves focus to the page heading", async () => {
     const user = userEvent.setup({ delay: null })
     renderBackToTop({ children: <h1>Ship it</h1> })
-    scrollPastFirstScreen(true)
+    scrollPastHalfScreen(true)
 
     await user.click(backToTop())
 
@@ -157,7 +157,7 @@ describe("back to top press", () => {
   it("leaves the scroll behaviour to the stylesheet, which is instant under reduced motion", async () => {
     const user = userEvent.setup({ delay: null })
     renderBackToTop()
-    scrollPastFirstScreen(true)
+    scrollPastHalfScreen(true)
 
     backToTop().focus()
     await user.keyboard("{Enter}")
@@ -169,7 +169,7 @@ describe("back to top press", () => {
   it("keeps focus on the button when the page has no heading", async () => {
     const user = userEvent.setup({ delay: null })
     renderBackToTop()
-    scrollPastFirstScreen(true)
+    scrollPastHalfScreen(true)
 
     await user.click(backToTop())
 

@@ -7,7 +7,7 @@ import { PRESS } from "~/src/integrations/motion/motion.tokens"
 
 import { cn } from "~/src/lib/cn"
 
-type HighlightElement = "div" | "dl"
+type HighlightElement = "div" | "dl" | "ul"
 
 interface HighlightState {
   readonly element: HighlightElement
@@ -16,6 +16,8 @@ interface HighlightState {
   readonly setHovered: (id?: string) => void
 }
 
+const ITEM_ELEMENTS = { div: "div", ul: "li" } as const
+
 const HIDDEN = { opacity: 0 }
 const SHOWN = { opacity: 1 }
 
@@ -23,10 +25,11 @@ const ignoreHover = (): void => {}
 
 const HighlightContext = createContext<HighlightState>({ element: "div", name: "", setHovered: ignoreHover })
 
-type HighlightGroupProps = Required<Pick<ComponentProps<"div">, "children" | "className">> & {
-  readonly element?: HighlightElement
-  readonly name: string
-}
+type HighlightGroupProps = Pick<ComponentProps<"div">, "children"> &
+  Required<Pick<ComponentProps<"div">, "className">> & {
+    readonly element?: HighlightElement
+    readonly name: string
+  }
 
 export const HighlightGroup = ({ children, className, element = "div", name }: HighlightGroupProps): JSX.Element => {
   const [hovered, setHovered] = useState<string>()
@@ -36,20 +39,22 @@ export const HighlightGroup = ({ children, className, element = "div", name }: H
     setHovered(undefined)
   }
 
-  if (element === "dl") {
+  if (element === "div") {
     return (
       <HighlightContext value={state}>
-        <div onMouseLeave={leave}>
-          <dl className={className}>{children}</dl>
+        <div className={className} onMouseLeave={leave}>
+          {children}
         </div>
       </HighlightContext>
     )
   }
 
+  const List = element
+
   return (
     <HighlightContext value={state}>
-      <div className={className} onMouseLeave={leave}>
-        {children}
+      <div onMouseLeave={leave}>
+        <List className={className}>{children}</List>
       </div>
     </HighlightContext>
   )
@@ -61,7 +66,7 @@ const HighlightGlow = ({ isLit, name }: Readonly<{ isLit: boolean; name: string 
       <m.div
         animate={SHOWN}
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-muted/45"
+        className="pointer-events-none absolute inset-0 rounded-[inherit] bg-muted/45"
         exit={HIDDEN}
         initial={HIDDEN}
         key={name}
@@ -94,10 +99,12 @@ export const HighlightItem = ({ children, className, contentClassName, id }: Hig
     )
   }
 
+  const Item = ITEM_ELEMENTS[element]
+
   return (
-    <div className={cn("relative", { "z-10": isLit }, className)} onMouseEnter={enter}>
+    <Item className={cn("relative", { "z-10": isLit }, className)} onMouseEnter={enter}>
       <HighlightGlow isLit={isLit} name={name} />
       <div className={cn("relative", contentClassName)}>{children}</div>
-    </div>
+    </Item>
   )
 }

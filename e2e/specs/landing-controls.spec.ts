@@ -45,6 +45,21 @@ test("foundation shares its hover highlight and clears it when leaving", async (
   await expect(cells.nth(1)).toHaveCSS("z-index", "auto")
 })
 
+test("other options share a rounded hover highlight and clear it when leaving", async ({ landingPage, page }) => {
+  await landingPage.goto()
+  const heading = page.locator(`#${MARKETING_SECTION_IDS.PRICING}`).getByRole("heading", { exact: true, name: "Other options" })
+  const options = heading.locator("..").getByRole("listitem")
+  await options.nth(0).hover()
+  await expect(options.nth(0)).toHaveCSS("z-index", "10")
+  await options.nth(1).hover()
+  await expect(options.nth(1)).toHaveCSS("z-index", "10")
+  await expect(options.nth(0)).toHaveCSS("z-index", "auto")
+  const radius = await options.nth(1).evaluate((option) => getComputedStyle(option).borderTopLeftRadius)
+  await expect(options.nth(1).locator(":scope > [aria-hidden]")).toHaveCSS("border-top-left-radius", radius)
+  await heading.hover()
+  await expect(options.nth(1)).toHaveCSS("z-index", "auto")
+})
+
 test("mobile menu closes with Escape and after choosing the pricing section", async ({ landingPage, page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await landingPage.goto()

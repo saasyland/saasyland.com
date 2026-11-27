@@ -506,16 +506,39 @@ test.describe("the phone menu", () => {
 })
 
 const PRELOADED_DESTINATIONS = [
-  { from: ROUTES.HOME, link: contentNavigation.header.docs, shown: (page: Page) => page.locator(`#${DOCS_CONTENT_ID} h1`) },
-  { from: ROUTES.HOME, link: contentNavigation.header.blog, shown: (page: Page) => page.getByRole("heading", { level: 1, name: blog.index.title }) },
+  {
+    from: ROUTES.HOME,
+    link: contentNavigation.header.docs,
+    shown: (page: Page) => page.locator(`#${DOCS_CONTENT_ID} h1`),
+    to: ROUTES.DOCS.INDEX,
+  },
+  {
+    from: ROUTES.HOME,
+    link: contentNavigation.header.blog,
+    shown: (page: Page) => page.getByRole("heading", { level: 1, name: blog.index.title }),
+    to: ROUTES.BLOG.INDEX,
+  },
   {
     from: ROUTES.HOME,
     link: coursesNavigation.header.courses,
     shown: (page: Page) => page.getByRole("heading", { level: 1, name: courses.catalogue.title }),
+    to: ROUTES.COURSES,
   },
-  { from: ROUTES.HOME, link: authNavigation.header.signIn, shown: (page: Page) => page.getByRole("heading", { level: 1, name: signIn.form.title }) },
-  { from: ROUTES.DOCS.INDEX, link: coreNavigation.header.pricing, shown: (page: Page) => page.locator(`#${MARKETING_SECTION_IDS.PRICING}`) },
+  {
+    from: ROUTES.HOME,
+    link: authNavigation.header.signIn,
+    shown: (page: Page) => page.getByRole("heading", { level: 1, name: signIn.form.title }),
+    to: ROUTES.AUTH.SIGN_IN,
+  },
+  {
+    from: ROUTES.DOCS.INDEX,
+    link: coreNavigation.header.pricing,
+    shown: (page: Page) => page.locator(`#${MARKETING_SECTION_IDS.PRICING}`),
+    to: ROUTES.HOME,
+  },
 ]
+
+const HEADER_DESTINATIONS = [...new Set(PRELOADED_DESTINATIONS.map(({ to }) => to))]
 
 const serverFunctionRequests = (page: Page): string[] => {
   const requests: string[] = []
@@ -525,11 +548,18 @@ const serverFunctionRequests = (page: Page): string[] => {
   return requests
 }
 
+const isPreloaded = async (page: Page, to: string): Promise<boolean> =>
+  page.evaluate((path) => {
+    const router = Reflect.get(window, "__TSR_ROUTER__")
+    if (router === undefined) {
+      return false
+    }
+    return router.matchRoutes(router.buildLocation({ to: path })).every(({ status }: { status: string }) => status === "success")
+  }, to)
+
 const waitForHeaderPreloads = async (page: Page, path: string): Promise<void> => {
-  const requests = serverFunctionRequests(page)
   await visit(page, path)
-  await expect.poll(() => requests.length).toBeGreaterThan(0)
-  await page.waitForLoadState("networkidle")
+  await Promise.all(HEADER_DESTINATIONS.map(async (to) => expect.poll(() => isPreloaded(page, to)).toBe(true)))
 }
 
 const holdServerFunctions = async (page: Page): Promise<() => void> => {
@@ -586,7 +616,7 @@ test.describe("a link preloaded on hover", () => {
 
     await link.hover()
     await expect.poll(() => requests.length).toBeGreaterThan(0)
-    await page.waitForLoadState("networkidle")
+    await expect.poll(() => isPreloaded(page, course)).toBe(true)
     requests.length = 0
     await link.click()
 

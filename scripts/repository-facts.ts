@@ -25,8 +25,9 @@ import { readBucketNames } from "./wrangler-config.ts"
 const FACTS_MODULE_ID = "virtual:repository-facts"
 const TABLES_MODULE_ID = "virtual:repository-tables"
 const RESOLVED = "\0"
-const MODULE_IDS = [FACTS_MODULE_ID, TABLES_MODULE_ID].map((id) => exactRegex(id))
-const RESOLVED_MODULE_IDS = [FACTS_MODULE_ID, TABLES_MODULE_ID].map((id) => exactRegex(`${RESOLVED}${id}`))
+const VIRTUAL_MODULES = [FACTS_MODULE_ID, TABLES_MODULE_ID]
+const MODULE_IDS = VIRTUAL_MODULES.map((id) => exactRegex(id))
+const RESOLVED_MODULE_IDS = VIRTUAL_MODULES.map((id) => exactRegex(`${RESOLVED}${id}`))
 const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
 const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
 const JOURNEY_WORKFLOW = ".github/workflows/journey.yml"

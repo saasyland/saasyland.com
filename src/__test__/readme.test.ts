@@ -2,7 +2,7 @@ import { API_BASE_PATH } from "@saasyland/stack/api"
 import { execFileSync } from "node:child_process"
 import { existsSync, globSync, readFileSync } from "node:fs"
 import { basename, posix } from "node:path"
-import { seededAccounts } from "virtual:repository-facts"
+import { seededAccounts } from "virtual:repository-tables"
 import { describe, expect, it } from "vite-plus/test"
 import * as zod from "zod"
 

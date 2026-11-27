@@ -22,8 +22,11 @@ import { LOCAL_ADMIN } from "./local-admin.ts"
 import { ISSUE_TITLE } from "./report-updates.ts"
 import { readBucketNames } from "./wrangler-config.ts"
 
-const MODULE_ID = "virtual:repository-facts"
-const RESOLVED_MODULE_ID = `\0${MODULE_ID}`
+const FACTS_MODULE_ID = "virtual:repository-facts"
+const TABLES_MODULE_ID = "virtual:repository-tables"
+const RESOLVED = "\0"
+const MODULE_IDS = [FACTS_MODULE_ID, TABLES_MODULE_ID].map((id) => exactRegex(id))
+const RESOLVED_MODULE_IDS = [FACTS_MODULE_ID, TABLES_MODULE_ID].map((id) => exactRegex(`${RESOLVED}${id}`))
 const E2E_FULL_WORKFLOW = ".github/workflows/e2e-full.yml"
 const E2E_WORKFLOW = ".github/workflows/e2e-reusable.yml"
 const JOURNEY_WORKFLOW = ".github/workflows/journey.yml"
@@ -382,27 +385,31 @@ export const collectTestViewports = () => ({
 export type TestViewports = ReturnType<typeof collectTestViewports>
 
 export const repositoryFacts = (): Plugin => {
-  let moduleSource = ""
+  const sources = new Map<string, string>()
 
   return {
     config: {
       handler: async (config) => {
-        moduleSource = [
-          `export default ${JSON.stringify(collectRepositoryFacts(config, listBrowserTests()))}`,
-          `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
-          `export const cliApiTables = ${JSON.stringify(await collectCliApiTables())}`,
-          `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
-          `export const flowTables = ${JSON.stringify(collectFlowTables())}`,
-          `export const coverageScope = ${JSON.stringify(collectCoverageScope(config))}`,
-          `export const moduleTables = ${JSON.stringify(collectModuleTables())}`,
-          `export const testViewports = ${JSON.stringify(collectTestViewports())}`,
-        ].join("\n")
+        const facts = collectRepositoryFacts(config, listBrowserTests())
+        sources.set(`${RESOLVED}${FACTS_MODULE_ID}`, `export default ${JSON.stringify(facts)}`)
+        sources.set(
+          `${RESOLVED}${TABLES_MODULE_ID}`,
+          [
+            `export const commitEmojis = ${JSON.stringify(COMMIT_EMOJIS)}`,
+            `export const cliApiTables = ${JSON.stringify(await collectCliApiTables())}`,
+            `export const seededAccounts = ${JSON.stringify(collectSeededAccounts())}`,
+            `export const flowTables = ${JSON.stringify(collectFlowTables())}`,
+            `export const coverageScope = ${JSON.stringify(collectCoverageScope(config))}`,
+            `export const moduleTables = ${JSON.stringify(collectModuleTables())}`,
+            `export const testViewports = ${JSON.stringify(collectTestViewports())}`,
+          ].join("\n"),
+        )
       },
       order: "pre",
     },
     enforce: "pre",
-    load: { filter: { id: exactRegex(RESOLVED_MODULE_ID) }, handler: () => moduleSource },
+    load: { filter: { id: RESOLVED_MODULE_IDS }, handler: (id) => sources.get(id) },
     name: "saasyland:repository-facts",
-    resolveId: { filter: { id: exactRegex(MODULE_ID) }, handler: () => RESOLVED_MODULE_ID },
+    resolveId: { filter: { id: MODULE_IDS }, handler: (id) => `${RESOLVED}${id}` },
   }
 }

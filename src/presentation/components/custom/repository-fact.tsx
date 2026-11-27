@@ -15,7 +15,7 @@ import {
   moduleTables,
   seededAccounts,
   testViewports,
-} from "virtual:repository-facts"
+} from "virtual:repository-tables"
 
 import { AFFONSO } from "~/src/integrations/affonso/affonso.constants"
 import { APP_STATEMENTS } from "~/src/integrations/better-auth/auth.access"

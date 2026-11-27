@@ -23,7 +23,9 @@ export const ManifestoSection = (): JSX.Element => {
           <p className="max-w-[24ch] text-headline-peak text-balance text-foreground">{t("p1")}</p>
         </Reveal>
         <Reveal variant="quiet" delay={LINE_STEP_MS}>
-          <p className="mt-8 max-w-[43.5rem] text-statement text-pretty text-muted-foreground">{t("p2", REPOSITORY_FACTS)}</p>
+          <p className="mt-8 max-w-[43.5rem] text-statement text-pretty text-muted-foreground">
+            {t("repository-facts.p2", REPOSITORY_FACTS)}
+          </p>
         </Reveal>
         <Reveal variant="block" delay={SECOND_LINE_DELAY_MS}>
           <div className="mt-12 flex">

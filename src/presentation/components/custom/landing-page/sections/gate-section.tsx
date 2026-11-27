@@ -42,7 +42,7 @@ export const GateSection = (): JSX.Element => {
             {t("ctaPrimary")}
           </a>
           <Link className={CTA_CLASSES.SECONDARY} to={ROUTES.DOCS.INDEX}>
-            {t("ctaSecondary")}
+            {t("content.ctaSecondary")}
             <ArrowRight
               aria-hidden
               className="size-3.5 text-muted-foreground transition-transform duration-200 ease-exp group-hover:translate-x-0.5 motion-reduce:transition-none"

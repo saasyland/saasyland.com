@@ -80,14 +80,14 @@ export const QualitySection = (): JSX.Element => {
         <Reveal variant="heading">
           <h2 className="max-w-[14ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
           <p className="mt-5 max-w-xl text-statement text-pretty text-foreground">{t("lead")}</p>
-          <p className="mt-5 max-w-xl text-body text-pretty text-muted-foreground">{t("body", REPOSITORY_FACTS)}</p>
+          <p className="mt-5 max-w-xl text-body text-pretty text-muted-foreground">{t("repository-facts.body", REPOSITORY_FACTS)}</p>
           <p className="mt-4 max-w-xl text-body text-pretty text-muted-foreground">{t("consequence")}</p>
 
           <ul className="mt-8 space-y-2.5 border-t border-border pt-8">
             {SPEC_KEYS.map((key) => (
               <li className="flex items-start gap-3" key={key}>
                 <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-                <span className="text-spec text-pretty text-muted-foreground">{t(`specs.${key}`, REPOSITORY_FACTS)}</span>
+                <span className="text-spec text-pretty text-muted-foreground">{t(`repository-facts.specs.${key}`, REPOSITORY_FACTS)}</span>
               </li>
             ))}
           </ul>
@@ -96,7 +96,7 @@ export const QualitySection = (): JSX.Element => {
             className="mt-4 flex w-fit rounded-sm text-spec text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground data-focus-visible:outline-2 data-focus-visible:outline-offset-4 data-focus-visible:outline-ring data-focus-visible:outline-solid"
             href={ROUTES.DOCS.TOOLING.TEST_COVERAGE}
           >
-            {t("coverageLink")}
+            {t("content.coverageLink")}
           </Link>
 
           <a

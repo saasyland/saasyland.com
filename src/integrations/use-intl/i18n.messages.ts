@@ -76,6 +76,18 @@ export async function loadNamespace({ locale, namespace }: { locale: SupportedLo
 
 const isMessageTree = (value: AbstractIntlMessages | string | undefined): value is MessageTree => typeof value === "object"
 
+const mergeMessages = (existing: AbstractIntlMessages, messages: AbstractIntlMessages): AbstractIntlMessages => {
+  const merged: AbstractIntlMessages = { ...existing }
+
+  for (const [key, value] of Object.entries(messages)) {
+    const current = merged[key]
+
+    merged[key] = isMessageTree(current) && isMessageTree(value) ? mergeMessages(current, value) : value
+  }
+
+  return merged
+}
+
 const insertNamespace = ({ messages, namespace, tree }: { messages: AbstractIntlMessages; namespace: string; tree: MessageTree }): void => {
   const separator = namespace.lastIndexOf(NAMESPACE_SEPARATOR)
   const leaf = namespace.slice(separator + NAMESPACE_SEPARATOR.length)
@@ -92,7 +104,7 @@ const insertNamespace = ({ messages, namespace, tree }: { messages: AbstractIntl
   }
 
   const existing = node[leaf]
-  node[leaf] = isMessageTree(existing) ? { ...existing, ...messages } : messages
+  node[leaf] = isMessageTree(existing) ? mergeMessages(existing, messages) : messages
 }
 
 export const buildMessageTree = (entries: readonly NamespaceEntry[]): AbstractIntlMessages => {

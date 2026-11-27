@@ -1,3 +1,4 @@
+import { posix } from "node:path"
 import { type ESTree, parseSync } from "vite/rolldown/utils"
 
 export const BINDING_KIND = { IMPORT: "import", LOCAL: "local" } as const
@@ -74,6 +75,10 @@ interface Walk {
 }
 
 const INTRINSIC_ELEMENT = /^[a-z]|-/u
+const ROOT_ALIAS = "~/"
+const RELATIVE_PREFIX = "."
+const MODULE_SUFFIXES = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"] as const
+const QUERY = /\?.*$/u
 
 const SKIPPED_KEYS: Readonly<Partial<Record<ESTree.Node["type"], readonly string[]>>> = {
   BreakStatement: ["label"],
@@ -151,6 +156,15 @@ export const childNodes = (node: ESTree.Node): [string, ESTree.Node][] =>
   })
 
 export const nameOf = (node: ESTree.ModuleExportName): string => (node.type === "Literal" ? node.value : node.name)
+
+export const resolveSourceFile = (from: string, specifier: string, files: ReadonlySet<string>): string | undefined => {
+  const path = specifier.replace(QUERY, "")
+  const isAliased = path.startsWith(ROOT_ALIAS)
+  const base = isAliased ? path.slice(ROOT_ALIAS.length) : posix.join(posix.dirname(from), path)
+  const candidates = isAliased || path.startsWith(RELATIVE_PREFIX) ? MODULE_SUFFIXES.map((suffix) => `${base}${suffix}`) : []
+
+  return candidates.find((candidate) => files.has(candidate))
+}
 
 const patternDeclarations = (node: Pattern, owner: ESTree.Node, removable: boolean): Declared[] => {
   if (node.type === "Identifier") {

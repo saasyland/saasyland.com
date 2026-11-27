@@ -8,6 +8,7 @@ import { expectInvitationEmail } from "../fixtures/invitation-emails"
 import { approveGitHub } from "../fixtures/github"
 import type { AuthPage } from "../pages"
 import { APP_NAVIGATION_WAIT_UNTIL, BasePage, RENDERED_LOCATION_KEY, recordRenderedLocations } from "../pages/base-page"
+import invitationsMessages from "../../messages/en-US/pages.admin.users.invitations.json" with { type: "json" }
 import usersMessages from "../../messages/en-US/pages.admin.users.json" with { type: "json" }
 
 const [admin] = TEST_ACCOUNTS
@@ -233,14 +234,14 @@ test("the admin searches the open invitations, filters them by role, hides a col
   const asCustomer = inviteeEmail()
   await invite(page, asAdmin, "Admin")
   await invite(page, asCustomer, "Customer")
-  const { table } = usersMessages.invitations
-  const grid = gridOf(page, usersMessages.invitations.title)
+  const { table } = invitationsMessages
+  const grid = gridOf(page, invitationsMessages.title)
   const rows = grid.locator("tbody tr")
 
-  await grid.getByRole("searchbox", { name: usersMessages.invitations.search }).fill(asCustomer)
+  await grid.getByRole("searchbox", { name: invitationsMessages.search }).fill(asCustomer)
   await expect(rows).toHaveCount(1)
   await expect(rows).toContainText(asCustomer)
-  await grid.getByRole("searchbox", { name: usersMessages.invitations.search }).fill("")
+  await grid.getByRole("searchbox", { name: invitationsMessages.search }).fill("")
   await filterByOption(grid, table.role, usersMessages.filters.role.options.admin)
   await expect(rows.filter({ hasText: asAdmin })).toHaveCount(1)
   await expect(rows.filter({ hasText: asCustomer })).toHaveCount(0)

@@ -87,7 +87,9 @@ export const NotesSection = (): JSX.Element => {
       <div className="mx-auto w-full max-w-site px-6 py-24 md:px-10 md:py-32">
         <Reveal variant="heading">
           <h2 className="max-w-[18ch] text-headline-peak text-balance text-foreground">{t("title")}</h2>
-          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">{t("description", REPOSITORY_FACTS)}</p>
+          <p className="mt-5 max-w-2xl text-lead text-pretty text-muted-foreground">
+            {t("repository-facts.description", REPOSITORY_FACTS)}
+          </p>
         </Reveal>
 
         <Reveal className="mt-14 grid gap-12 md:mt-20 lg:grid-cols-[1.3fr_1fr] lg:gap-14" delay={GRID_DELAY_MS}>

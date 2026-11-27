@@ -39,7 +39,7 @@ const OverviewPage = (): JSX.Element => {
             <p className="text-sm text-muted-foreground">{t("overview.docs.description", CLI_GENERATION_VALUES)}</p>
           </div>
           <AnchorButton href={ROUTES.DOCS.CLI} size="sm" variant="outline">
-            {t("overview.docs.action")}
+            {t("content.overview.docs.action")}
           </AnchorButton>
         </section>
         <section className="flex flex-col items-start gap-3">
@@ -57,6 +57,7 @@ const OverviewPage = (): JSX.Element => {
 }
 
 const NAMESPACE = "pages.app"
+const NAMESPACES = [NAMESPACE, "pages.app.content"] as const
 
 const overviewSearchSchema = zod.object({ ...licenseSearchSchema.shape })
 
@@ -67,7 +68,7 @@ export const Route = createFileRoute("/app/")({
     const locale = getCurrentLocale()
     const [metadata] = await Promise.all([
       loadPageMetadata({ locale, namespace: NAMESPACE }),
-      preloadNamespaces({ locale, namespaces: [NAMESPACE], queryClient: context.queryClient }),
+      preloadNamespaces({ locale, namespaces: NAMESPACES, queryClient: context.queryClient }),
       loadLicenseOverview({ locale, queryClient: context.queryClient }),
     ])
     return { locale, metadata }
@@ -75,5 +76,5 @@ export const Route = createFileRoute("/app/")({
   head: pageHead(ROUTES.APP.INDEX),
   pendingComponent: AppOverviewPending,
   search: { middlewares: [onlyDeclaredSearch(overviewSearchSchema)] },
-  staticData: { namespaces: [NAMESPACE] },
+  staticData: { namespaces: NAMESPACES },
 })

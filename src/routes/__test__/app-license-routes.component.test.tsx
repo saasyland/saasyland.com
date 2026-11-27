@@ -60,7 +60,7 @@ import bannerMessages from "~/messages/en-US/components.custom.email-verificatio
 import pricingMessages from "~/messages/en-US/components.custom.pricing.json"
 import errorsMessages from "~/messages/en-US/errors.json"
 import navigationLicenseMessages from "~/messages/en-US/navigation.license.json"
-import pagesAppMessages from "~/messages/en-US/pages.app.json"
+import pagesAppContentMessages from "~/messages/en-US/pages.app.content.json"
 import pagesAppSidebarMessages from "~/messages/en-US/pages.app.sidebar.json"
 import pagesLicenseMessages from "~/messages/en-US/pages.license.json"
 import plCheckoutButtonMessages from "~/messages/pl-PL/components.custom.checkout-button.json"
@@ -577,7 +577,7 @@ describe("owning a license", () => {
       expect(screen.getByRole("link", { name: statusCard.action })).toHaveAttribute("href", ROUTES.APP.LICENSE)
       expect(screen.getByRole("region", { name: pagesLicenseMessages.setup.title })).toBeVisible()
       expect(screen.queryByRole("region", { name: buy.title })).toBeNull()
-      expect(screen.getByRole("link", { name: pagesAppMessages.overview.docs.action })).toHaveAttribute("href", ROUTES.DOCS.CLI)
+      expect(screen.getByRole("link", { name: pagesAppContentMessages.overview.docs.action })).toHaveAttribute("href", ROUTES.DOCS.CLI)
     },
   )
 

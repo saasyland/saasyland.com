@@ -62,7 +62,23 @@ const LandingPage = (): JSX.Element => (
 )
 
 const LANDING_NAMESPACE = "pages.landing"
-const NAMESPACES = [LANDING_NAMESPACE, "pages.landing.notes", "pages.landing.proof", "pages.landing.studio.masterclass", "stack"] as const
+const NAMESPACES = [
+  LANDING_NAMESPACE,
+  "pages.landing.faq.repository-facts",
+  "pages.landing.gate.content",
+  "pages.landing.line.repository-facts",
+  "pages.landing.manifesto.repository-facts",
+  "pages.landing.notes",
+  "pages.landing.notes.repository-facts",
+  "pages.landing.pricing.license",
+  "pages.landing.pricing.repository-facts",
+  "pages.landing.proof",
+  "pages.landing.quality.content",
+  "pages.landing.quality.repository-facts",
+  "pages.landing.record.repository-facts",
+  "pages.landing.studio.masterclass",
+  "stack",
+] as const
 
 export const Route = createFileRoute("/_site/_marketing/")({
   component: LandingPage,

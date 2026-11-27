@@ -86,26 +86,26 @@ const OtherOptions = (): JSX.Element => {
         <OtherOption
           action={
             <a className={SECONDARY_ACTION_CLASSES} href={APP_GITHUB_URL} rel="noopener noreferrer" target="_blank">
-              {t("free.cta")}
+              {t("repository-facts.free.cta")}
             </a>
           }
-          body={t("free.body", REPOSITORY_FACTS)}
+          body={t("repository-facts.free.body", REPOSITORY_FACTS)}
           figure={format.number(FREE_PRICE, CURRENCY_FORMAT)}
-          label={t("free.label")}
-          period={t("free.period")}
-          title={t("free.title")}
+          label={t("repository-facts.free.label")}
+          period={t("repository-facts.free.period")}
+          title={t("repository-facts.free.title")}
         />
         <OtherOption
           action={
             <a className={SECONDARY_ACTION_CLASSES} href={CONSULTING_HREF}>
-              {t("consulting.cta")}
+              {t("license.consulting.cta")}
             </a>
           }
-          body={t("consulting.body", TIER_SUPPORT_VALUES)}
+          body={t("license.consulting.body", TIER_SUPPORT_VALUES)}
           figure={format.number(CONSULTING_HOURLY_RATE, CURRENCY_FORMAT)}
-          label={t("consulting.label")}
-          period={t("consulting.period")}
-          title={t("consulting.title")}
+          label={t("license.consulting.label")}
+          period={t("license.consulting.period")}
+          title={t("license.consulting.title")}
         />
       </ul>
     </div>
@@ -134,7 +134,7 @@ export const PricingSection = (): JSX.Element => {
 
           <p className="mt-8 flex max-w-3xl items-start gap-3">
             <Check aria-hidden className="mt-0.5 size-3.5 shrink-0 text-ring" strokeWidth={2.25} />
-            <span className="text-body-sm text-pretty text-muted-foreground">{t("assurance", REPOSITORY_FACTS)}</span>
+            <span className="text-body-sm text-pretty text-muted-foreground">{t("repository-facts.assurance", REPOSITORY_FACTS)}</span>
           </p>
         </Reveal>
 

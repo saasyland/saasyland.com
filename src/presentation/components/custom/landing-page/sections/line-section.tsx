@@ -41,13 +41,15 @@ export const LineSection = (): JSX.Element => {
           >
             {STATIONS.map(({ id, loop, offsetSeconds }) => (
               <HighlightItem className="group bg-background" contentClassName="flex h-full flex-col p-7 md:p-10" id={id} key={id}>
-                <h3 className="text-headline-support text-balance text-foreground">{t(`stations.${id}.title`, REPOSITORY_FACTS)}</h3>
+                <h3 className="text-headline-support text-balance text-foreground">
+                  {t(`repository-facts.stations.${id}.title`, REPOSITORY_FACTS)}
+                </h3>
                 <p className="mt-4 max-w-[44ch] text-body text-pretty text-muted-foreground transition-colors duration-400 ease-exp group-hover:text-foreground">
                   {t(`stations.${id}.body`, { ...REPOSITORY_FACTS, ...CLI_GENERATION_VALUES })}
                 </p>
                 <p className="mt-auto flex items-center gap-2.5 pt-8">
                   <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
-                  <span className="text-spec text-foreground">{t(`stations.${id}.spec`, REPOSITORY_FACTS)}</span>
+                  <span className="text-spec text-foreground">{t(`repository-facts.stations.${id}.spec`, REPOSITORY_FACTS)}</span>
                 </p>
                 <ConceptLoop className="mt-7 max-sm:hidden md:mt-9" name={loop} offsetSeconds={offsetSeconds} sizes={STATION_IMAGE_SIZES} />
               </HighlightItem>

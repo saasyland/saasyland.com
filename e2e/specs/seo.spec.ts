@@ -52,8 +52,9 @@ const pricingCopySchema = zod.object({
 
 const landingCopySchema = zod.object({
   faq: zod.object({ items: zod.record(zod.string(), zod.object({ answer: zod.string() })) }),
-  pricing: zod.object({ consulting: zod.object({ period: zod.string() }) }),
 })
+
+const consultingCopySchema = zod.object({ consulting: zod.object({ period: zod.string() }) })
 
 const readCopy = (locale: SupportedLocale, namespace: string): unknown =>
   JSON.parse(readFileSync(`messages/${locale}/${namespace}.json`, "utf8"))
@@ -174,6 +175,7 @@ for (const locale of I18N.SUPPORTED_LOCALES) {
   const home = localizePathname({ locale, pathname: ROUTES.HOME })
   const pricing = pricingCopySchema.parse(readCopy(locale, "components.custom.pricing"))
   const landing = landingCopySchema.parse(readCopy(locale, "pages.landing"))
+  const { consulting } = consultingCopySchema.parse(readCopy(locale, "pages.landing.pricing.license"))
   const price = (amount: number): string => new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(amount)
   const offer = createTranslator({ locale, messages: { offer: pricing.regional.offer } }).markup("offer", {
     percent: () => "",
@@ -191,7 +193,7 @@ for (const locale of I18N.SUPPORTED_LOCALES) {
       for (const tier of LICENSE_TIERS) {
         expect(text).toContain(collapse(`${price(TIER_PRICES[tier])} ${pricing.tiers[tier].period}`))
       }
-      expect(text).toContain(collapse(`${price(CONSULTING_HOURLY_RATE)} ${landing.pricing.consulting.period}`))
+      expect(text).toContain(collapse(`${price(CONSULTING_HOURLY_RATE)} ${consulting.period}`))
     })
   }
 

@@ -18,7 +18,7 @@ export const deleteProduct = createServerFn({ method: "POST" })
     const [row] = await db.delete(product).where(eq(product.id, data.productId)).returning({ id: product.id })
 
     if (row === undefined) {
-      throw new AppError(ERROR_CODES.NOT_FOUND, "product.errors.notFound")
+      throw new AppError(ERROR_CODES.NOT_FOUND)
     }
 
     return row

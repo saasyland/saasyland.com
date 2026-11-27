@@ -1,6 +1,8 @@
 import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { deLocalizePathname, localeLinks, localizePathname } from "~/src/integrations/use-intl/i18n.paths"
 
+import { toScriptJson } from "~/src/lib/script-json"
+
 import { APP_GITHUB_OWNER_URL, APP_INSTAGRAM_URL, APP_NAME, APP_URL, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ROUTES, isRequestRenderedRoute } from "~/src/routes"
 
@@ -238,7 +240,7 @@ export const ORGANIZATION: StructuredDataNode = {
 }
 
 export const toStructuredDataHtml = (data: StructuredDataNode): { __html: string } => ({
-  __html: JSON.stringify(data).replaceAll("<", String.raw`\u003c`),
+  __html: toScriptJson(data),
 })
 
 export const ORGANIZATION_STRUCTURED_DATA_HTML = toStructuredDataHtml({ "@context": SCHEMA_CONTEXT, ...ORGANIZATION })

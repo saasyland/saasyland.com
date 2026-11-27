@@ -4,6 +4,7 @@ import { join, relative } from "node:path"
 import { type Plugin, runnerImport } from "vite-plus"
 
 import type * as Builder from "../src/integrations/fumadocs/fumadocs.indexes.ts"
+import { toScriptJson } from "../src/lib/script-json.ts"
 
 type ContentIndexes = Awaited<ReturnType<typeof Builder.createContentIndexes>>
 
@@ -29,10 +30,10 @@ const HASH_LENGTH = 8
 const JSON_CONTENT_TYPE = "application/json"
 const CLIENT = "client"
 
-const jsonModule = (data: unknown): string => `export default JSON.parse(${JSON.stringify(JSON.stringify(data))})`
+const jsonModule = (data: unknown): string => `export default JSON.parse(${toScriptJson(JSON.stringify(data))})`
 
 const importers = ({ kind, locales }: { kind: string; locales: readonly Locale[] }): string =>
-  `{${locales.map((locale) => `${JSON.stringify(locale)}: () => import(${JSON.stringify(`${MODULE_ID}/${kind}-${locale}`)})`).join(",")}}`
+  `{${locales.map((locale) => `${toScriptJson(locale)}: () => import(${toScriptJson(`${MODULE_ID}/${kind}-${locale}`)})`).join(",")}}`
 
 const loadersModule = (locales: readonly Locale[]): string =>
   [
@@ -128,7 +129,7 @@ export const contentIndexes = (): Plugin => {
             }),
           )
 
-          return `export const SEARCH_INDEXES = ${JSON.stringify(Object.fromEntries(urls))}`
+          return `export const SEARCH_INDEXES = ${toScriptJson(Object.fromEntries(urls))}`
         }
 
         const groups = LOCALE_INDEX.exec(module)?.groups

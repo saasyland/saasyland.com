@@ -4,6 +4,8 @@ import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import * as zod from "zod"
 
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+
 import { MILLISECONDS_PER_HOUR } from "~/src/lib/duration"
 
 import { APP_GITHUB_OWNER, APP_GITHUB_REPO } from "~/src/presentation/branding"
@@ -56,10 +58,12 @@ export const getStarCount = createServerFn({ method: "GET" }).handler(async () =
   return cached.count
 })
 
+export const starCountStaleTime = (mode: string): number => (mode === ENVIRONMENT.TEST ? Infinity : STAR_COUNT_REFRESH_AFTER_MS)
+
 export const starCountQuery = queryOptions({
   gcTime: STAR_COUNT_REFRESH_AFTER_MS,
   meta: { public: true },
   queryFn: () => getStarCount(),
   queryKey: ["github", "stars"],
-  staleTime: STAR_COUNT_REFRESH_AFTER_MS,
+  staleTime: starCountStaleTime(import.meta.env.MODE),
 })

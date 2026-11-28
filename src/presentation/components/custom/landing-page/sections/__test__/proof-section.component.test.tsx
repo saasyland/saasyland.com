@@ -25,7 +25,9 @@ const sessionRequest = vi.hoisted(() => vi.fn<typeof getCurrentSession>())
 
 vi.mock(import("~/src/lib/github"), async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, starCountQuery: { ...actual.starCountQuery, queryFn: fetchStarsMock } }
+  const { ENVIRONMENT } = await import("~/src/modules/_core/constants/api")
+  const staleTime = actual.starCountStaleTime(ENVIRONMENT.PRODUCTION)
+  return { ...actual, starCountQuery: { ...actual.starCountQuery, queryFn: fetchStarsMock, staleTime } }
 })
 
 vi.mock(import("~/src/integrations/better-auth/auth.session"), async (importOriginal) => {

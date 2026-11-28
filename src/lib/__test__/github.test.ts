@@ -5,7 +5,9 @@ import { afterEach, expect, it, vi } from "vite-plus/test"
 
 import { flushWaitUntil } from "~/src/platform/testing/mocks/cloudflare"
 
-import { STAR_COUNT_REFRESH_AFTER_MS, getStarCount, starCountQuery } from "~/src/lib/github"
+import { ENVIRONMENT } from "~/src/modules/_core/constants/api"
+
+import { STAR_COUNT_REFRESH_AFTER_MS, getStarCount, starCountQuery, starCountStaleTime } from "~/src/lib/github"
 
 const CACHE_KEY = "github:saasyland/saasyland.com:stars"
 
@@ -125,4 +127,11 @@ it("preserves zero from GitHub and the cache", async () => {
   expect(await getStarCount()).toBe(0)
   expect(await getStarCount()).toBe(0)
   expect(fetch).toHaveBeenCalledTimes(1)
+})
+
+it("lets the star count go stale after STAR_COUNT_REFRESH_AFTER_MS in a deployed build, and never in the test build, whose GitHub double answers one fixed count", () => {
+  expect(starCountStaleTime(ENVIRONMENT.PRODUCTION)).toBe(STAR_COUNT_REFRESH_AFTER_MS)
+  expect(starCountStaleTime(ENVIRONMENT.DEVELOPMENT)).toBe(STAR_COUNT_REFRESH_AFTER_MS)
+  expect(starCountStaleTime(ENVIRONMENT.TEST)).toBe(Infinity)
+  expect(starCountQuery.staleTime).toBe(starCountStaleTime(import.meta.env.MODE))
 })

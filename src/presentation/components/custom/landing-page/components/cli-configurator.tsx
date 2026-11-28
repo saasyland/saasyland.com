@@ -135,7 +135,7 @@ const ChoiceRow = ({ answers, choiceId, comingId, options, picked, supported, ..
   }
 
   return (
-    <div className="grid gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[7.5rem_1fr] md:items-baseline md:px-7 md:py-3.5">
+    <div className="grid gap-x-4 gap-y-2 px-4 py-3 md:col-span-2 md:grid-cols-subgrid md:items-baseline md:px-7 md:py-3.5">
       <dt className="text-label text-muted-foreground uppercase" id={labelId}>
         {t(`${choiceId}.label`)}
       </dt>
@@ -313,11 +313,13 @@ export const CliConfigurator = (): JSX.Element => {
       </div>
 
       <div className="grid divide-y divide-border lg:grid-cols-[1.45fr_1fr] lg:divide-x lg:divide-y-0">
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border md:grid md:grid-cols-[minmax(9.25rem,max-content)_1fr]">
           {GROUPS.map((group) => (
             <Fragment key={group}>
-              <div className="bg-muted/25 px-4 py-2 text-label text-muted-foreground uppercase md:px-7">{t(`groups.${group}`)}</div>
-              <dl className="divide-y divide-border">
+              <div className="bg-muted/25 px-4 py-2 text-label text-muted-foreground uppercase md:col-span-2 md:px-7">
+                {t(`groups.${group}`)}
+              </div>
+              <dl className="divide-y divide-border md:col-span-2 md:grid md:grid-cols-subgrid">
                 {rows
                   .filter(({ choice }) => choice.group === group)
                   .map(({ choice, picked }) => (

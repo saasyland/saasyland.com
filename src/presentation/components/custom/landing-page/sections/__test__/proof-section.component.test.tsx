@@ -7,6 +7,10 @@ import { createAuthSessionFixture } from "~/src/integrations/better-auth/__test_
 import { redirectIfSignedIn } from "~/src/integrations/better-auth/auth.routes"
 import type { getCurrentSession } from "~/src/integrations/better-auth/auth.session"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
+import { AUTH_COST_PER_USER } from "~/src/data/marketing"
+
 import { starCountQuery } from "~/src/lib/github"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
@@ -67,6 +71,19 @@ describe("landing page proof statistics", () => {
     }
     expect(screen.getByText(`React ${String(REPOSITORY_FACTS.reactMajor)}`, { selector: "dd" })).toBeVisible()
     expect(screen.getByText(`TanStack v${String(REPOSITORY_FACTS.tanstackTableMajor)}`, { selector: "dd" })).toBeVisible()
+  })
+
+  it.each([
+    { label: english.facts.mau.label, locale: "en-US" },
+    { label: german.facts.mau.label, locale: "de-DE" },
+  ] as const)("prints the auth cost per user in the store currency, formatted for $locale", ({ label, locale }) => {
+    fetchStarsMock.mockResolvedValue(1)
+
+    renderProof(locale)
+
+    expect(screen.getByText(label, { selector: "dt" }).nextElementSibling?.textContent).toBe(
+      new Intl.NumberFormat(locale, CURRENCY_FORMAT).format(AUTH_COST_PER_USER),
+    )
   })
 
   it.each([

@@ -134,20 +134,23 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
 
   return (
     <HighlightItem
-      className={cn("border-border not-last:border-b @2xl:not-last:border-r @2xl:not-last:border-b-0", {
-        "bg-background": !isFeatured,
-        "bg-card": isFeatured,
-      })}
-      contentClassName="flex h-full flex-col"
+      className={cn(
+        "border-border not-last:border-b @2xl:row-span-7 @2xl:grid @2xl:grid-rows-subgrid @2xl:not-last:border-r @2xl:not-last:border-b-0",
+        {
+          "bg-background": !isFeatured,
+          "bg-card": isFeatured,
+        },
+      )}
+      contentClassName="flex h-full flex-col @2xl:row-span-7 @2xl:grid @2xl:grid-rows-subgrid"
       id={tier}
     >
       <div className={cn("flex h-10 items-center border-b border-border px-7 @2xl:px-8", { "border-t-2 border-t-ring": isFeatured })}>
         {isFeatured && <span className="text-label text-ring uppercase">{t("recommended")}</span>}
       </div>
 
-      <div className="flex flex-1 flex-col p-7 @2xl:p-8">
+      <div className="flex flex-1 flex-col p-7 @2xl:row-span-6 @2xl:grid @2xl:grid-rows-subgrid @2xl:p-8">
         <h3 className="text-title text-foreground">{t(`tiers.${tier}.name`)}</h3>
-        <p className="mt-1.5 text-body-sm text-pretty text-muted-foreground @2xl:min-h-12">{t(`tiers.${tier}.whoFor`)}</p>
+        <p className="mt-1.5 text-body-sm text-pretty text-muted-foreground">{t(`tiers.${tier}.whoFor`)}</p>
 
         <p className="mt-7 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="text-price text-foreground tabular-nums">
@@ -155,9 +158,7 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
           </span>{" "}
           <span className="text-spec text-muted-foreground">{t(`tiers.${tier}.period`)}</span> <RegionalSaving />
         </p>
-        <p className="mt-3 text-body-sm text-pretty text-muted-foreground @2xl:min-h-12">
-          {t(`tiers.${tier}.tagline`, CLI_GENERATION_VALUES)}
-        </p>
+        <p className="mt-3 text-body-sm text-pretty text-muted-foreground">{t(`tiers.${tier}.tagline`, CLI_GENERATION_VALUES)}</p>
 
         <div className="mt-7 @2xl:order-last @2xl:mt-auto @2xl:pt-12">
           <Action featured={isFeatured} tier={tier} />

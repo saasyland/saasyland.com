@@ -1,7 +1,11 @@
 import type { JSX } from "react"
 
 import { Check } from "lucide-react"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
+
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
+import { AUTH_COST_PER_USER } from "~/src/data/marketing"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
@@ -15,6 +19,7 @@ const LEDGER_DELAY_MS = 100
 
 export const RecordSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.record")
+  const format = useFormatter()
 
   return (
     <section aria-label={t("ariaLabel")} className="relative border-t border-border">
@@ -35,7 +40,10 @@ export const RecordSection = (): JSX.Element => {
               <HighlightItem contentClassName="grid gap-x-10 px-4 py-5 md:grid-cols-[1fr_1.5fr] md:items-baseline" id={id} key={id}>
                 <dt className="flex items-baseline gap-2.5 text-body-sm font-medium text-foreground">
                   <Check aria-hidden className="size-3.5 shrink-0 translate-y-0.5 text-ring" strokeWidth={2.25} />
-                  {t(`repository-facts.items.${id}.claim`, REPOSITORY_FACTS)}
+                  {t(`repository-facts.items.${id}.claim`, {
+                    ...REPOSITORY_FACTS,
+                    authCost: format.number(AUTH_COST_PER_USER, CURRENCY_FORMAT),
+                  })}
                 </dt>
                 <dd className="mt-1.5 ml-6 text-spec wrap-break-word text-muted-foreground md:mt-0 md:ml-0">
                   {t(`repository-facts.items.${id}.evidence`, REPOSITORY_FACTS)}

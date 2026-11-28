@@ -2,12 +2,15 @@ import type { JSX } from "react"
 
 import { Link, Outlet, createFileRoute, useMatch } from "@tanstack/react-router"
 import { ArrowLeft } from "lucide-react"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
 import { preloadNamespaces } from "~/src/integrations/use-intl/i18n.messages"
 import { getCurrentLocale } from "~/src/integrations/use-intl/i18n.utils"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
 import { AUTH_ASSURANCES } from "~/src/data/auth"
+import { AUTH_COST_PER_USER } from "~/src/data/marketing"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
@@ -18,6 +21,7 @@ import { ROUTES } from "~/src/routes"
 
 const AuthLayout = (): JSX.Element => {
   const t = useTranslations("auth")
+  const format = useFormatter()
   const isSignUp = useMatch({ from: ROUTES.AUTH.SIGN_UP, shouldThrow: false }) !== undefined
   const isVerifyEmail = useMatch({ from: ROUTES.AUTH.VERIFY_EMAIL, shouldThrow: false }) !== undefined
 
@@ -57,7 +61,10 @@ const AuthLayout = (): JSX.Element => {
               <li className="flex items-start gap-3" key={id}>
                 <span aria-hidden className="mt-2 size-1.25 shrink-0 rounded-full bg-ring" />
                 <span className="text-spec text-muted-foreground">
-                  {t(`gate.assurances.${id}`, { coverageThreshold: REPOSITORY_FACTS.coverageThreshold })}
+                  {t(`gate.assurances.${id}`, {
+                    authCost: format.number(AUTH_COST_PER_USER, CURRENCY_FORMAT),
+                    coverageThreshold: REPOSITORY_FACTS.coverageThreshold,
+                  })}
                 </span>
               </li>
             ))}

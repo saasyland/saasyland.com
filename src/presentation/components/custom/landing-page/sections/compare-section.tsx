@@ -1,8 +1,11 @@
 import type { JSX } from "react"
 
 import { ArrowRight } from "lucide-react"
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
+import { AUTH_COST_PER_USER } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
@@ -19,6 +22,7 @@ const TABLE_DELAY_MS = 100
 
 export const CompareSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.compare")
+  const format = useFormatter()
 
   return (
     <section className="relative border-t border-border">
@@ -59,7 +63,11 @@ export const CompareSection = (): JSX.Element => {
                   </dd>
                   <dd className="text-body-sm text-pretty text-foreground md:bg-card md:px-5 md:py-4">
                     <span className="mr-1 text-label text-muted-foreground uppercase md:hidden">{t("columns.saasyland")}</span>{" "}
-                    {t.rich(`dimensions.${id}.ours`, { ...PRICE_TAGS, ...REPOSITORY_FACTS })}
+                    {t.rich(`dimensions.${id}.ours`, {
+                      ...PRICE_TAGS,
+                      ...REPOSITORY_FACTS,
+                      authCost: format.number(AUTH_COST_PER_USER, CURRENCY_FORMAT),
+                    })}
                   </dd>
                 </HighlightItem>
               ))}

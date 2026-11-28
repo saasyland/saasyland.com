@@ -1,8 +1,11 @@
 import type { JSX } from "react"
 
-import { useTranslations } from "use-intl/react"
+import { useFormatter, useTranslations } from "use-intl/react"
+
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 
 import { CLI_GENERATION_VALUES } from "~/src/data/cli"
+import { AUTH_COST_PER_USER } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
@@ -25,6 +28,7 @@ const STATION_IMAGE_SIZES =
 
 export const LineSection = (): JSX.Element => {
   const t = useTranslations("pages.landing.line")
+  const format = useFormatter()
 
   return (
     <section className="relative border-t border-border" id={MARKETING_SECTION_IDS.FOUNDATION}>
@@ -49,7 +53,12 @@ export const LineSection = (): JSX.Element => {
                 </p>
                 <p className="mt-auto flex items-center gap-2.5 pt-8">
                   <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
-                  <span className="text-spec text-foreground">{t(`repository-facts.stations.${id}.spec`, REPOSITORY_FACTS)}</span>
+                  <span className="text-spec text-foreground">
+                    {t(`repository-facts.stations.${id}.spec`, {
+                      ...REPOSITORY_FACTS,
+                      authCost: format.number(AUTH_COST_PER_USER, CURRENCY_FORMAT),
+                    })}
+                  </span>
                 </p>
                 <ConceptLoop className="mt-7 max-sm:hidden md:mt-9" name={loop} offsetSeconds={offsetSeconds} sizes={STATION_IMAGE_SIZES} />
               </HighlightItem>

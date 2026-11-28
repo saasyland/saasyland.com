@@ -38,6 +38,7 @@ export const DASHBOARD_COLUMN_SIZES = {
   count: 184,
   customer: 240,
   date: 176,
+  dateTime: 232,
   name: 256,
   role: 120,
   status: 144,

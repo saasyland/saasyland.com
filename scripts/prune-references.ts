@@ -1,3 +1,4 @@
+import { posix } from "node:path"
 import type { ESTree } from "vite/rolldown/utils"
 
 import {
@@ -10,6 +11,7 @@ import {
   resolveSourceFile,
 } from "./module-bindings.ts"
 import { LINE_BREAK, applyEdits, editsOf, isRemoved } from "./prune-edits.ts"
+import { PACKAGE_FILE, pruneScripts } from "./prune-scripts.ts"
 import { FUNCTIONS, ancestorsOf, callUnit, emptiedUnit, isRemovableDeclarator, unitOf } from "./prune-units.ts"
 import { type ModuleMock, TEST_KIND, type TestCall, isTestFile, moduleMocksOf, testCallsOf } from "./test-cases.ts"
 
@@ -661,6 +663,22 @@ const removedModules = (deletedFiles: ReadonlySet<string>, kept: readonly Parsed
   return new Set([...deletedFiles, ...[...ambient].filter((name) => !declared.has(name))])
 }
 
+const pruneManifest = (file: string, source: string, deleted: ReadonlySet<string>): Omit<FilePrune, "removed"> => {
+  const pruned = pruneScripts({ deleted, directory: posix.dirname(file), source })
+
+  return {
+    changed: pruned.source !== source,
+    deleted: false,
+    file,
+    problems: pruned.problems.map(({ name, reason }) => ({
+      file,
+      ...positionAt(source, source.indexOf(`${JSON.stringify(name)}:`)),
+      reason,
+    })),
+    source: pruned.source,
+  }
+}
+
 export const pruneProject = ({ deleted: deletedFiles, generated, kept, names, namespaces, read }: ProjectPrune): PrunedProject => {
   const files = new Set([...kept, ...deletedFiles])
   const modules = kept.filter((file) => CODE_FILE.test(file) && !generated.has(file)).map((file) => parse(read, file))
@@ -677,10 +695,15 @@ export const pruneProject = ({ deleted: deletedFiles, generated, kept, names, na
     return pathCount(next) > pathCount(paths) ? settle(next) : results
   }
   const results = settle(new Map([...names].map(([file, list]) => [file, new Set(list)])))
+  const manifests = kept
+    .filter((file) => posix.basename(file) === PACKAGE_FILE)
+    .map((file) => pruneManifest(file, read(file), deletedFiles))
 
   return {
     deleted: new Set(results.filter((result) => result.deleted).map(({ file }) => file)),
-    problems: results.flatMap(({ problems }) => problems).toSorted(compareProblems),
-    sources: new Map(results.filter((result) => result.changed && !result.deleted).map(({ file, source }) => [file, source])),
+    problems: [...results, ...manifests].flatMap(({ problems }) => problems).toSorted(compareProblems),
+    sources: new Map(
+      [...results, ...manifests].filter((result) => result.changed && !result.deleted).map(({ file, source }) => [file, source]),
+    ),
   }
 }

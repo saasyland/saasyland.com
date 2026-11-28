@@ -7,12 +7,14 @@ import * as zod from "zod"
 
 import { FEATURE, FEATURES, FEATURE_SCENARIO, FEATURE_SCENARIOS, type Feature, type FeatureScenario } from "./features.ts"
 import { type PruneProblem, pruneProject } from "./prune-references.ts"
+import { PACKAGE_FILE, type ScriptReferences, referencesOf, scriptsOf, stepsOf } from "./prune-scripts.ts"
 import { FAILURE_EXIT_CODE, runCommand, scriptArguments } from "./run-command.ts"
 
 const MESSAGES = "messages"
 const MESSAGE_EXTENSION = ".json"
 const GENERATED = ":(attr:linguist-generated)"
 const DEPENDENCIES = "node_modules"
+const BINARIES = ".bin"
 const CORE_DERIVED = ["generate:cn"]
 const ROUTE_TREE = "generate:routes"
 const TYPE_CHECK = ["run", "tsc", "--noEmit"]
@@ -31,6 +33,11 @@ export interface FeatureRemoval {
 export interface ProjectSource {
   readonly generated: ReadonlySet<string>
   readonly read: (file: string) => string
+}
+
+export interface ScriptTargets {
+  readonly isBinary: (name: string) => boolean
+  readonly isGone: (file: string) => boolean
 }
 
 export const removedFeatures = (features: readonly Feature[]): Feature[] => {
@@ -90,6 +97,23 @@ export const featureRemoval = (
 export const problemLines = (problems: readonly PruneProblem[]): string[] =>
   problems.map(({ column, file, line, reason }) => `${file}:${String(line)}:${String(column)}: ${reason}`)
 
+export const danglingScripts = (source: string, { isBinary, isGone }: ScriptTargets): string[] => {
+  const scripts = scriptsOf(source)
+  const steps = Object.entries(scripts).flatMap(([name, command]) =>
+    stepsOf(command).map((step): [string, ScriptReferences] => [name, referencesOf(step, ".")]),
+  )
+  const files = steps.flatMap(([name, { files: named }]) =>
+    named.filter((file) => isGone(file)).map((file) => `${PACKAGE_FILE}: \`${name}\` names ${file}, which the removed features delete`),
+  )
+  const runs = steps.flatMap(([name, { runs: run }]) =>
+    run
+      .filter((script) => !Object.hasOwn(scripts, script) && !isBinary(script))
+      .map((script) => `${PACKAGE_FILE}: \`${name}\` runs \`${script}\`, which is neither one of its scripts nor an installed binary`),
+  )
+
+  return [...files, ...runs]
+}
+
 const gitFiles = (pathspecs: readonly string[]): string[] => {
   const { stdout } = spawnSync(
     "git",
@@ -137,14 +161,21 @@ const checkScenario = (scenario: FeatureScenario, files: readonly string[], proj
     `check:features ${scenario}: without ${removal.removed.join(", ")}; ${String(files.length - removal.kept.length)} files deleted, ${String(removal.sources.size)} files pruned, ${String(removal.problems.length)} references left that cannot be pruned`,
   )
 
-  if (removal.problems.length > 0) {
-    console.error(problemLines(removal.problems).join("\n"))
+  const projectFiles = new Set(files)
+  const kept = new Set(removal.kept)
+  const dangling = danglingScripts(removal.sources.get(PACKAGE_FILE) ?? project.read(PACKAGE_FILE), {
+    isBinary: (name) => existsSync(join(DEPENDENCIES, BINARIES, name)),
+    isGone: (file) => projectFiles.has(file) && !kept.has(file),
+  })
+
+  if (removal.problems.length > 0 || dangling.length > 0) {
+    console.error([...problemLines(removal.problems), ...dangling].join("\n"))
   }
 
   try {
     copyProject(removal, root)
 
-    return siteChecks(removal, root) && removal.problems.length === 0
+    return siteChecks(removal, root) && removal.problems.length === 0 && dangling.length === 0
   } finally {
     rmSync(root, { force: true, recursive: true })
   }

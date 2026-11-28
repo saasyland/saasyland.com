@@ -1,9 +1,20 @@
-import { globSync, readFileSync } from "node:fs"
+import { existsSync, globSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 
-import { featureRemoval, isInFootprint, problemLines, removedFeatures, removedNames, removedNamespaces } from "~/scripts/check-features"
-import { FEATURE, FEATURES, FEATURE_SCENARIO, FEATURE_SCENARIOS } from "~/scripts/features"
+import {
+  type ScriptTargets,
+  danglingScripts,
+  featureRemoval,
+  isInFootprint,
+  problemLines,
+  removedFeatures,
+  removedNames,
+  removedNamespaces,
+} from "~/scripts/check-features"
+import { FEATURE, FEATURES, FEATURE_SCENARIO, FEATURE_SCENARIOS, type FeatureScenario } from "~/scripts/features"
 import { pruneProject } from "~/scripts/prune-references"
+import { PACKAGE_FILE } from "~/scripts/prune-scripts"
 
 const ROUTES_FILE = "src/routes.ts"
 const COURSES_PAGE = "src/routes/_site._marketing.courses.tsx"
@@ -170,5 +181,56 @@ describe("the feature footprints in scripts/features.ts", () => {
     for (const features of Object.values(FEATURE_SCENARIOS)) {
       expect(features).toEqual(expect.arrayContaining([...FEATURE_SCENARIOS[FEATURE_SCENARIO.WEBSITE_ONLY]]))
     }
+  })
+})
+
+describe("danglingScripts", () => {
+  const CHECK = "scripts/check-content.ts"
+  const targets = { isBinary: (name: string) => name === "cn", isGone: (file: string) => file === CHECK }
+
+  it("names each script that runs a deleted file, or runs with bun what is neither a script nor an installed binary", () => {
+    const source = JSON.stringify({
+      scripts: { check: "bun run lint && bun run check:content", "check:content": `bun ${CHECK}`, generate: "bun run --bun cn build" },
+    })
+
+    expect(danglingScripts(source, targets)).toStrictEqual([
+      `${PACKAGE_FILE}: \`check:content\` names ${CHECK}, which the removed features delete`,
+      `${PACKAGE_FILE}: \`check\` runs \`lint\`, which is neither one of its scripts nor an installed binary`,
+    ])
+  })
+})
+
+const read = (file: string): string => readFileSync(file, "utf8")
+
+const deletedIn = (scenario: FeatureScenario): Set<string> =>
+  new Set(removedFeatures(FEATURE_SCENARIOS[scenario]).flatMap((feature) => FEATURES[feature].files.flatMap((glob) => globSync(glob))))
+
+const targetsIn = (deleted: ReadonlySet<string>): ScriptTargets => ({
+  isBinary: (name) => existsSync(join("node_modules", ".bin", name)),
+  isGone: (file) => deleted.has(file),
+})
+
+describe("the scripts of package.json in each scenario", () => {
+  it.each(Object.values(FEATURE_SCENARIO))("%s: run no deleted file and no script that is gone once pruned", (scenario) => {
+    const deleted = deletedIn(scenario)
+    const { problems, sources } = pruneProject({
+      deleted,
+      generated: new Set(),
+      kept: [PACKAGE_FILE],
+      names: new Map(),
+      namespaces: new Set(),
+      read,
+    })
+
+    expect(problems).toStrictEqual([])
+    expect(danglingScripts(sources.get(PACKAGE_FILE) ?? read(PACKAGE_FILE), targetsIn(deleted))).toStrictEqual([])
+  })
+
+  it("would keep check:content running its deleted script in a site without the content, were they not pruned", () => {
+    const deleted = deletedIn(FEATURE_SCENARIO.WITHOUT_CONTENT)
+
+    expect(danglingScripts(read(PACKAGE_FILE), targetsIn(deleted))).toContain(
+      `${PACKAGE_FILE}: \`check:content\` names scripts/check-content.ts, which the removed features delete`,
+    )
   })
 })

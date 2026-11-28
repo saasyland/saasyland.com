@@ -186,6 +186,15 @@ describe("CLI configurator", () => {
     expect(answer(choices.email.label, choices.email.options.resend)).toHaveFocus()
   })
 
+  it("counts the modules it lists in the output, in the plural the count takes", () => {
+    renderConfigurator()
+
+    const summary = screen.getByText(/modules wired/u)
+    const wired = summary.closest("div")?.querySelectorAll("li").length
+    expect(wired).toBeGreaterThan(1)
+    expect(summary).toHaveTextContent(`${String(wired)} modules wired · ${english.cli.run.green}`)
+  })
+
   it("copies the selected runner with matching development instructions", async () => {
     const user = renderConfigurator()
 

@@ -61,6 +61,19 @@ describe("check-message-formats", () => {
     ])
   })
 
+  it("fails a French translation that puts an ordinary space where a no-break space belongs, inside a tag and a plural too", () => {
+    expect(
+      messageProblems({
+        locale: "fr-FR",
+        original: "<strong>Note:</strong> {count, plural, one {# lesson left!} other {# lessons left!}} Open “{title}”.",
+        value: "<strong>Remarque :</strong> {count, plural, one {# leçon restante !} other {# leçons restantes !}} Ouvrez « {title} ».",
+      }),
+    ).toEqual([
+      "puts U+0020 before “:” where fr-FR needs a no-break space, U+00A0",
+      "puts U+0020 before “!” where fr-FR needs a no-break space, U+00A0",
+    ])
+  })
+
   it("fails Markdown backticks in a translation of plain text", () => {
     expect(
       messageProblems({ locale: "es-ES", original: "Loaded on demand, not bundled", value: "Cargado bajo demanda, no `bundled`" }),

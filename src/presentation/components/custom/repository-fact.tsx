@@ -178,6 +178,7 @@ import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
+import { NO_BREAK_SPACES, type NoBreakSpaceMarks } from "~/src/lib/no-break-spaces"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 import { SOCIAL_IMAGE } from "~/src/lib/seo"
 import { TIER_FEATURE_VALUES, tierFeaturesWith } from "~/src/lib/tier-features"
@@ -479,6 +480,11 @@ const TABLES = {
       [flowFeature(feature), id, { text: outcome }, { text: reason }, { text: tests.join(LINE_SEPARATOR) }] as const,
   ),
   moduleUseCases: moduleTables.modules,
+  noBreakSpaces: I18N.SUPPORTED_LOCALES.flatMap((locale) => {
+    const { after, before }: NoBreakSpaceMarks = NO_BREAK_SPACES[locale]
+
+    return after.length + before.length > 0 ? [[locale, before, after] as const] : []
+  }),
   permissionChecks: moduleTables.permissions,
   pppTiers: PPP_TIERS.map(({ countries, multiplier }) => [multiplier, countries] as const),
   seededAccounts,

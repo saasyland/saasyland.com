@@ -15,6 +15,7 @@ import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.con
 
 import { formOfAddressProblems } from "~/src/lib/forms-of-address"
 import { literalTextOf } from "~/src/lib/glossary-copy"
+import { noBreakSpaceProblems } from "~/src/lib/no-break-spaces"
 
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
 
@@ -60,6 +61,21 @@ const argumentsOf = (nodes: MessageFormatElement[], result = new Set<string>()):
   return [...result].toSorted()
 }
 
+const literalsOf = (nodes: readonly MessageFormatElement[]): string[] =>
+  nodes.flatMap((node) => {
+    if (isLiteralElement(node)) {
+      return [node.value]
+    }
+    if (isSelectElement(node) || isPluralElement(node)) {
+      return Object.values(node.options).flatMap((option) => literalsOf(option.value))
+    }
+    if (isTagElement(node)) {
+      return literalsOf(node.children)
+    }
+
+    return []
+  })
+
 const codeOf = (text: string): string[] => [...(text.match(PATH_PATTERN) ?? []), ...(text.match(COMMAND_PATTERN) ?? [])]
 
 export const messageProblems = ({ locale, original, value }: { locale: SupportedLocale; original: string; value: string }): string[] => {
@@ -77,6 +93,7 @@ export const messageProblems = ({ locale, original, value }: { locale: Supported
         .filter((code) => !text.includes(code))
         .map((code) => `changed the path or command ${code}`),
       ...formOfAddressProblems({ locale, text }),
+      ...literalsOf(parsed).flatMap((literal) => noBreakSpaceProblems({ locale, text: literal })),
     )
     if (locale !== I18N.DEFAULT_LOCALE && value === original && (text.match(/\p{L}+/gu)?.length ?? 0) >= MIN_UNTRANSLATED_WORDS) {
       problems.push("untranslated English text")
@@ -121,5 +138,7 @@ if (import.meta.main) {
     process.exit(FAILURE_EXIT_CODE)
   }
 
-  console.log("✅ Every translated message parses and preserves its ICU arguments, rich-text tags, paths and commands.")
+  console.log(
+    "✅ Every translated message parses, preserves its ICU arguments, rich-text tags, paths and commands, and puts a no-break space wherever its locale needs one.",
+  )
 }

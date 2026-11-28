@@ -245,7 +245,7 @@ const RunOutput = ({ modules }: Readonly<{ modules: readonly string[] }>): JSX.E
       <m.p className="mt-8 flex items-center gap-3 border-t border-border pt-6 text-body-sm text-foreground" layout transition={EXP_FAST}>
         <span aria-hidden className="size-1.25 shrink-0 rounded-full bg-ring" />
         <span>
-          <RunCount value={modules.length} /> {t("run.modules")} · {t("run.green")}
+          {t.rich("run.modules", { count: modules.length, counter: () => <RunCount value={modules.length} /> })} · {t("run.green")}
         </span>
       </m.p>
     </div>

@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test"
+import type { Locator, Page } from "@playwright/test"
 
 import { CLI_PACKAGE_SPEC, PACKAGE_MANAGER } from "../../src/data/cli"
 import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
@@ -24,6 +24,69 @@ const scrollScreens = async (page: Page, screens: number): Promise<void> => {
   await page.evaluate((count) => window.scrollTo({ behavior: "instant", top: window.innerHeight * count }), screens)
 }
 
+const MID_SLIDE_MS = 48
+const PAUSE_AHEAD_MS = 1000
+
+const glowOf = (item: Locator): Locator => item.locator(":scope > [aria-hidden]")
+
+const tierOf = (page: Page, name: string): Locator =>
+  page.locator(`#${MARKETING_SECTION_IDS.PRICING} .grid > div`).filter({ has: page.getByRole("heading", { exact: true, level: 3, name }) })
+
+const otherOptionOf = (page: Page, title: string): Locator =>
+  page
+    .locator(`#${MARKETING_SECTION_IDS.PRICING}`)
+    .getByRole("heading", { exact: true, name: "Other options" })
+    .locator("..")
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { exact: true, level: 4, name: title }) })
+
+const comparisonRowOf = (page: Page, label: string): Locator =>
+  page
+    .locator("dl", { has: page.getByText("What you pay", { exact: true }) })
+    .locator(":scope > div")
+    .filter({ has: page.getByText(label, { exact: true }) })
+
+const SLIDES = [
+  { from: (page: Page) => tierOf(page, "Complete"), name: "back over the featured tier", to: (page: Page) => tierOf(page, "Core") },
+  { from: (page: Page) => tierOf(page, "Core"), name: "forward over the tiers", to: (page: Page) => tierOf(page, "Complete") },
+  {
+    from: (page: Page) => otherOptionOf(page, "The engineer is reachable."),
+    name: "back over the other options",
+    to: (page: Page) => otherOptionOf(page, "Start from the MIT source."),
+  },
+  { from: (page: Page) => comparisonRowOf(page, "What you pay"), name: "down the comparison", to: (page: Page) => comparisonRowOf(page, "Code coverage") },
+] as const
+
+const layersUnderGlow = async (leaving: Locator, glow: Locator): Promise<{ content: number; glow: number; item: number }> => {
+  const item = await leaving.elementHandle()
+  return glow.evaluate((slidingGlow, leavingItem) => {
+    const glowBox = slidingGlow.getBoundingClientRect()
+    const [probe] = [...leavingItem.children]
+      .filter((child) => !child.hasAttribute("aria-hidden"))
+      .map((child) => {
+        const box = child.getBoundingClientRect()
+        const left = Math.max(box.left, glowBox.left)
+        const right = Math.min(box.right, glowBox.right)
+        const top = Math.max(box.top, glowBox.top)
+        const bottom = Math.min(box.bottom, glowBox.bottom)
+        return { area: Math.max(0, right - left) * Math.max(0, bottom - top), x: (left + right) / 2, y: (top + bottom) / 2 }
+      })
+      .filter(({ area }) => area > 0)
+      .toSorted((first, second) => second.area - first.area)
+    if (!probe) {
+      return { content: -1, glow: -1, item: -1 }
+    }
+    slidingGlow.style.pointerEvents = "auto"
+    const stack = document.elementsFromPoint(probe.x, probe.y)
+    slidingGlow.style.removeProperty("pointer-events")
+    return {
+      content: stack.findIndex((element) => element !== leavingItem && leavingItem.contains(element) && !element.hasAttribute("aria-hidden")),
+      glow: stack.indexOf(slidingGlow),
+      item: stack.indexOf(leavingItem),
+    }
+  }, item)
+}
+
 test("hero install command follows the selected package manager", async ({ landingPage, page }) => {
   await landingPage.goto()
   const hero = page.locator("#floor")
@@ -37,12 +100,12 @@ test("foundation shares its hover highlight and clears it when leaving", async (
   await landingPage.goto()
   const cells = page.locator("#foundation .grid.gap-px > div")
   await cells.nth(0).hover()
-  await expect(cells.nth(0)).toHaveCSS("z-index", "10")
+  await expect(glowOf(cells.nth(0))).toHaveCSS("opacity", "1")
   await cells.nth(1).hover()
-  await expect(cells.nth(1)).toHaveCSS("z-index", "10")
-  await expect(cells.nth(0)).toHaveCSS("z-index", "auto")
+  await expect(glowOf(cells.nth(1))).toHaveCSS("opacity", "1")
+  await expect(glowOf(cells.nth(0))).toHaveCount(0)
   await page.locator("#foundation h2").hover()
-  await expect(cells.nth(1)).toHaveCSS("z-index", "auto")
+  await expect(glowOf(cells.nth(1))).toHaveCount(0)
 })
 
 test("other options share a rounded hover highlight and clear it when leaving", async ({ landingPage, page }) => {
@@ -50,15 +113,38 @@ test("other options share a rounded hover highlight and clear it when leaving", 
   const heading = page.locator(`#${MARKETING_SECTION_IDS.PRICING}`).getByRole("heading", { exact: true, name: "Other options" })
   const options = heading.locator("..").getByRole("listitem")
   await options.nth(0).hover()
-  await expect(options.nth(0)).toHaveCSS("z-index", "10")
+  await expect(glowOf(options.nth(0))).toHaveCSS("opacity", "1")
   await options.nth(1).hover()
-  await expect(options.nth(1)).toHaveCSS("z-index", "10")
-  await expect(options.nth(0)).toHaveCSS("z-index", "auto")
+  await expect(glowOf(options.nth(1))).toHaveCSS("opacity", "1")
+  await expect(glowOf(options.nth(0))).toHaveCount(0)
   const radius = await options.nth(1).evaluate((option) => getComputedStyle(option).borderTopLeftRadius)
-  await expect(options.nth(1).locator(":scope > [aria-hidden]")).toHaveCSS("border-top-left-radius", radius)
+  await expect(glowOf(options.nth(1))).toHaveCSS("border-top-left-radius", radius)
   await heading.hover()
-  await expect(options.nth(1)).toHaveCSS("z-index", "auto")
+  await expect(glowOf(options.nth(1))).toHaveCount(0)
 })
+
+for (const slide of SLIDES) {
+  test(`the hover highlight slides ${slide.name} over every background and under every text`, async ({ landingPage, page }) => {
+    await page.clock.install()
+    await landingPage.goto()
+    const leaving = slide.from(page)
+    const entering = slide.to(page)
+    await leaving.hover()
+    await expect(glowOf(leaving)).toHaveCSS("opacity", "1")
+    const target = await entering.boundingBox()
+    if (!target) {
+      throw new Error("The item the highlight slides to has no box")
+    }
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + PAUSE_AHEAD_MS)
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2)
+    await page.clock.runFor(MID_SLIDE_MS)
+
+    const { content, glow, item } = await layersUnderGlow(leaving, glowOf(entering))
+    expect(content).toBeGreaterThanOrEqual(0)
+    expect(content).toBeLessThan(glow)
+    expect(glow).toBeLessThan(item)
+  })
+}
 
 test("mobile menu closes with Escape and after choosing the pricing section", async ({ landingPage, page }) => {
   await page.setViewportSize({ width: 390, height: 844 })

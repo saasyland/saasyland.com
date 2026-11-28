@@ -1,7 +1,7 @@
 import type { ReactElement } from "react"
 
 import { CHOICE } from "@saasyland/stack"
-import { cleanup, fireEvent, screen, within } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { IntlProvider, createTranslator } from "use-intl"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
@@ -104,6 +104,8 @@ const EVIDENCE_CODE: readonly string[] = [
   REPOSITORY_FACTS.i18nCheckCommand,
   REPOSITORY_FACTS.messagesPath,
 ]
+
+const glowOf = (item: Element): Element | null => item.querySelector(":scope > [aria-hidden]")
 
 const renderSection = (ui: ReactElement, locale: SupportedLocale = I18N.DEFAULT_LOCALE) =>
   renderWithRouter(
@@ -403,7 +405,7 @@ describe("marketing content and purchase links", () => {
     expect(screen.getByRole("link", { name: masterclass.browse })).toHaveAttribute("href", "/courses")
   })
 
-  it("highlights only the hovered foundation card and resets the highlight on exit", () => {
+  it("highlights only the hovered foundation card and resets the highlight on exit", async () => {
     const { container } = renderSection(<LineSection />)
     const title = screen.getByRole("heading", { name: lineFacts.stations.auth.title })
     const card = title.parentElement?.parentElement
@@ -411,14 +413,17 @@ describe("marketing content and purchase links", () => {
       throw new Error("Foundation card is missing")
     }
     fireEvent.mouseEnter(card)
-    expect(card).toHaveClass("group", "z-10")
+    expect(card).toHaveClass("group")
+    expect(glowOf(card)).toBeInTheDocument()
     expect(screen.getByText(english.line.stations.auth.body)).toHaveClass("text-muted-foreground", "group-hover:text-foreground")
     const grid = container.querySelector(".grid.gap-px")
     if (!grid) {
       throw new Error("Foundation grid is missing")
     }
     fireEvent.mouseLeave(grid)
-    expect(card).not.toHaveClass("z-10")
+    await waitFor(() => {
+      expect(glowOf(card)).toBeNull()
+    })
   })
 
   it("gives each closing call to action its intended destination", () => {
@@ -495,7 +500,7 @@ describe("customer cases", () => {
     )
   })
 
-  it("lays the products out in three columns from the large breakpoint and highlights only the hovered one", () => {
+  it("lays the products out in three columns from the large breakpoint and highlights only the hovered one", async () => {
     const { container } = renderSection(<CasesSection />)
     const grid = container.querySelector(".grid.gap-px")
     if (!grid) {
@@ -508,13 +513,18 @@ describe("customer cases", () => {
 
     expect(grid).toHaveClass("lg:grid-cols-3")
     fireEvent.mouseEnter(first)
-    expect(first).toHaveClass("group", "z-10")
-    expect(second).not.toHaveClass("z-10")
+    expect(first).toHaveClass("group")
+    expect(glowOf(first)).toBeInTheDocument()
+    expect(glowOf(second)).toBeNull()
     fireEvent.mouseEnter(second)
-    expect(first).not.toHaveClass("z-10")
-    expect(second).toHaveClass("z-10")
+    expect(glowOf(second)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(glowOf(first)).toBeNull()
+    })
     fireEvent.mouseLeave(grid)
-    expect(second).not.toHaveClass("z-10")
+    await waitFor(() => {
+      expect(glowOf(second)).toBeNull()
+    })
   })
 })
 

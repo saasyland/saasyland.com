@@ -42,7 +42,7 @@ export const HighlightGroup = ({ children, className, element = "div", name }: H
   if (element === "div") {
     return (
       <HighlightContext value={state}>
-        <div className={className} onMouseLeave={leave}>
+        <div className={cn("isolate", className)} onMouseLeave={leave}>
           {children}
         </div>
       </HighlightContext>
@@ -54,7 +54,7 @@ export const HighlightGroup = ({ children, className, element = "div", name }: H
   return (
     <HighlightContext value={state}>
       <div onMouseLeave={leave}>
-        <List className={className}>{children}</List>
+        <List className={cn("isolate", className)}>{children}</List>
       </div>
     </HighlightContext>
   )
@@ -66,7 +66,7 @@ const HighlightGlow = ({ isLit, name }: Readonly<{ isLit: boolean; name: string 
       <m.div
         animate={SHOWN}
         aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-[inherit] bg-muted/45"
+        className="pointer-events-none absolute inset-0 z-10 rounded-[inherit] bg-muted/45"
         exit={HIDDEN}
         initial={HIDDEN}
         key={name}
@@ -92,7 +92,10 @@ export const HighlightItem = ({ children, className, contentClassName, id }: Hig
 
   if (element === "dl") {
     return (
-      <div className={cn("relative [&>dd]:relative [&>dt]:relative", { "z-10": isLit }, className, contentClassName)} onMouseEnter={enter}>
+      <div
+        className={cn("relative [&>dd]:relative [&>dd]:z-20 [&>dt]:relative [&>dt]:z-20", className, contentClassName)}
+        onMouseEnter={enter}
+      >
         <HighlightGlow isLit={isLit} name={name} />
         {children}
       </div>
@@ -102,9 +105,9 @@ export const HighlightItem = ({ children, className, contentClassName, id }: Hig
   const Item = ITEM_ELEMENTS[element]
 
   return (
-    <Item className={cn("relative", { "z-10": isLit }, className)} onMouseEnter={enter}>
+    <Item className={cn("relative", className)} onMouseEnter={enter}>
       <HighlightGlow isLit={isLit} name={name} />
-      <div className={cn("relative", contentClassName)}>{children}</div>
+      <div className={cn("relative z-20", contentClassName)}>{children}</div>
     </Item>
   )
 }

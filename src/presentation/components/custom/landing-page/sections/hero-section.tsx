@@ -18,7 +18,11 @@ import { RunnerTabs } from "~/src/presentation/components/custom/landing-page/co
 import { PRICE_TAGS } from "~/src/presentation/components/custom/pricing"
 
 const HERO_TAGS = {
-  accent: (chunks: ReactNode) => <Accent id="hero" text={chunks} />,
+  accent: (chunks: ReactNode) => (
+    <span className="md:inline-block">
+      <Accent id="hero" text={chunks} />
+    </span>
+  ),
   billing: BILLING_GENERATION,
   strong: (chunks: ReactNode) => <strong className="font-medium text-foreground">{chunks}</strong>,
 }
@@ -59,7 +63,7 @@ export const HeroSection = (): JSX.Element => {
       <div aria-hidden className="field-signal pointer-events-none absolute inset-0" />
 
       <div className="relative mx-auto w-full max-w-site px-6 pt-32 pb-16 md:px-10 md:pt-40 md:pb-20">
-        <h1 className="max-w-[14em] text-display-hero text-balance [word-break:auto-phrase] text-foreground sm:motion-safe:animate-rise">
+        <h1 className="max-w-[14em] text-display-hero text-balance text-foreground sm:motion-safe:animate-rise">
           {t.rich("title", { ...HERO_TAGS, ...REPOSITORY_FACTS })}
         </h1>
 

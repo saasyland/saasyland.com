@@ -9,7 +9,7 @@ export const Accent = ({ id, text }: AccentProps): JSX.Element => {
   const gradientId = `accent-stroke-${id}`
 
   return (
-    <span className="relative inline md:inline-block">
+    <span className="relative">
       <span className="bg-gradient-to-r from-ring via-ring to-chart-2 bg-clip-text text-transparent">{text}</span>
       <svg
         aria-hidden

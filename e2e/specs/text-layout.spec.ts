@@ -142,3 +142,20 @@ test("the landing page's command builder keeps every option and label whole, cle
     expect(await textLayoutProblems(builder), `command builder at ${String(viewport.width)}px`).toStrictEqual(CLEAR)
   }
 })
+
+test("the landing page's command builder fits every question label in its column, in every locale", async ({ page }) => {
+  const builder = page.locator(`#${MARKETING_SECTION_IDS.CLI}`)
+  await page.setViewportSize(TEXT_LAYOUT_VIEWPORTS[0])
+
+  for (const locale of I18N.SUPPORTED_LOCALES) {
+    await page.goto(locale === I18N.DEFAULT_LOCALE ? "/" : `/${locale}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+    await builder.scrollIntoViewIfNeeded()
+    await expect(builder.getByRole("radiogroup").first()).toBeVisible()
+    await fontsLoaded(page)
+
+    const cutLabels = await builder
+      .locator("dt")
+      .evaluateAll((labels) => labels.filter((label) => label.scrollWidth > label.clientWidth).map((label) => label.textContent))
+    expect(cutLabels, locale).toStrictEqual([])
+  }
+})

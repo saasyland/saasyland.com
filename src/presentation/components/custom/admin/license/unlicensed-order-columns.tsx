@@ -76,7 +76,7 @@ export const useUnlicensedOrderColumns = (): DataGridColumn<UnlicensedOrder>[] =
           header: t("date"),
           id: "date",
           meta: { filter: { kind: DATA_GRID_FILTER.DATE_RANGE } },
-          size: DASHBOARD_COLUMN_SIZES.date,
+          size: DASHBOARD_COLUMN_SIZES.dateTime,
           sortFn: "datetime",
         }),
         columnHelper.accessor("customerId", {

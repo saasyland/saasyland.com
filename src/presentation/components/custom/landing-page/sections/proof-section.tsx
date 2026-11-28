@@ -3,6 +3,10 @@ import type { JSX } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useFormatter, useTranslations } from "use-intl/react"
 
+import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
+
+import { AUTH_COST_PER_USER } from "~/src/data/marketing"
+
 import { starCountQuery } from "~/src/lib/github"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
@@ -19,6 +23,7 @@ export const ProofSection = (): JSX.Element => {
   const { data: stars } = useQuery(starCountQuery)
 
   const starCount = typeof stars === "number" ? format.number(stars) : <Skeleton aria-hidden className="h-7 w-16" />
+  const values = { ...REPOSITORY_FACTS, authCost: format.number(AUTH_COST_PER_USER, CURRENCY_FORMAT) }
 
   return (
     <section className="relative border-t border-border">
@@ -28,7 +33,7 @@ export const ProofSection = (): JSX.Element => {
             <HighlightItem className="bg-background" contentClassName="px-6 py-8 md:px-8 md:py-10" id={key} key={key}>
               <dt className="text-label break-words text-muted-foreground uppercase">{t(`facts.${key}.label`)}</dt>
               <dd className="mt-3 text-headline-support leading-none text-foreground tabular-nums">
-                {key === "stars" ? starCount : t(`facts.${key}.value`, REPOSITORY_FACTS)}
+                {key === "stars" ? starCount : t(`facts.${key}.value`, values)}
               </dd>
               <dd className="mt-2 text-body-sm text-pretty text-muted-foreground">{t(`facts.${key}.note`, REPOSITORY_FACTS)}</dd>
             </HighlightItem>

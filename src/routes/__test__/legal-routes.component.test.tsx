@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { getDefaultNormalizer, render, screen, within } from "@testing-library/react"
 import { createTranslator } from "use-intl"
 import { IntlProvider } from "use-intl/react"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
@@ -36,6 +36,7 @@ const DOCUMENTS = [
 ] as const
 
 const PORTAL_HOST = new URL(AFFILIATE_PORTAL_URL).host
+const normalize = getDefaultNormalizer()
 
 const joinCopySchema = zod.object({ body: zod.string(), title: zod.string() })
 const affiliatesCopySchema = zod.object({ description: zod.string(), sections: zod.object({ join: joinCopySchema }) })
@@ -140,7 +141,7 @@ describe.each(I18N.SUPPORTED_LOCALES)("the affiliate terms in %s", (locale) => {
   it("send partners to the partner portal while the programme is open", async () => {
     const { copy, join, view } = await renderAffiliates({ locale, program: FEATURE_STATUS.AVAILABLE })
 
-    expect(within(view.container).getByText(copy.lead)).toBeVisible()
+    expect(within(view.container).getByText(normalize(copy.lead))).toBeVisible()
     expect(join?.textContent).toBe(copy.join)
     expect(within(view.container).getByRole("link", { name: PORTAL_HOST })).toHaveAttribute("href", AFFILIATE_PORTAL_URL)
     view.unmount()
@@ -150,7 +151,7 @@ describe.each(I18N.SUPPORTED_LOCALES)("the affiliate terms in %s", (locale) => {
     const open = affiliatesCopy({ locale, program: FEATURE_STATUS.AVAILABLE })
     const { copy, join, view } = await renderAffiliates({ locale, program: FEATURE_STATUS.ARRIVING })
 
-    expect(within(view.container).getByText(copy.lead)).toBeVisible()
+    expect(within(view.container).getByText(normalize(copy.lead))).toBeVisible()
     expect(copy.lead).not.toBe(open.lead)
     expect(join?.textContent).toBe(copy.join)
     expect(copy.join).not.toBe(open.join)

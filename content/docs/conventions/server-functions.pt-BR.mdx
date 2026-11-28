@@ -1,9 +1,9 @@
 ---
-title: "Server functions e erros"
-description: "A forma única de uma server function: middleware, validação da entrada pela interface do módulo, permissões, titularidade, códigos de erro e valores de retorno."
+title: "Funções de servidor e erros"
+description: "A forma única de uma função de servidor: middleware, validação da entrada pela interface do módulo, permissões, titularidade, códigos de erro e valores de retorno."
 ---
 
-Toda operação que o navegador pode chamar é uma server function do TanStack Start criada com `createServerFn`. Uma server function é um endpoint na internet pública, então ela mesma se autoriza e se valida; um guard de rota decide apenas o que um visitante vê.
+Toda operação que o navegador pode chamar é uma função de servidor do TanStack Start criada com `createServerFn`. Uma função de servidor é um endpoint na internet pública, então ela mesma se autoriza e se valida; um guard de rota decide apenas o que um visitante vê.
 
 ## A forma
 
@@ -37,7 +37,7 @@ A cadeia segue sempre esta ordem:
 3. `.validator((input: Module["operation"]) => moduleZodSchemas.operation.parse(input))` quando a função recebe uma entrada. O parâmetro é tipado pela [interface do módulo](/docs/conventions/modules), e o schema é o mesmo com que o formulário valida.
 4. `.handler(async ({ context, data }) => ...)`.
 
-O mesmo arquivo exporta as options que os chamadores usam: `<name>Mutation`, criada com `mutationOptions`, ou uma query criada com `queryOptions` (veja [Busca de dados e cache](/docs/conventions/data-fetching)). Componentes, loaders e testes importam essas options, nunca a server function em si.
+O mesmo arquivo exporta as options que os chamadores usam: `<name>Mutation`, criada com `mutationOptions`, ou uma query criada com `queryOptions` (veja [Busca de dados e cache](/docs/conventions/data-fetching)). Componentes, loaders e testes importam essas options, nunca a função de servidor em si.
 
 ## Middleware
 
@@ -53,7 +53,7 @@ Os três vêm de `src/integrations/better-auth/auth.middleware.ts`.
 
 Uma operação sensível de um usuário autenticado combina os dois: `change-password.ts` usa `[withRateLimit("change-password", RATE_LIMITS.SENSITIVE), authorized()]`. O `kind` nomeia a operação em kebab-case e serve de chave para o seu contador.
 
-`authorized` e `withRateLimit` executam `withRequest` primeiro, então toda server function recebe o mesmo tratamento de erros.
+`authorized` e `withRateLimit` executam `withRequest` primeiro, então toda função de servidor recebe o mesmo tratamento de erros.
 
 ## Permissões
 
@@ -67,8 +67,8 @@ export const ROLES = {
 ```
 
 - Um recurso novo adiciona a sua declaração a `APP_STATEMENTS`, na posição que lhe cabe na ordem, e uma pessoa revisa a mudança (veja [Papéis e permissões](/docs/guides/roles-and-permissions)).
-- As server functions passam a declaração para `authorized`. O restante do código de servidor verifica `hasPermission({ permission, role })` diretamente, como faz `resolveViewer` em `lesson.viewer.ts` para o acesso da equipe. Não existe um wrapper como `canEditCourses()` em volta dele.
-- A permissão que cada server function verifica está listada na [matriz de permissões](/docs/reference/permissions).
+- As funções de servidor passam a declaração para `authorized`. O restante do código de servidor verifica `hasPermission({ permission, role })` diretamente, como faz `resolveViewer` em `lesson.viewer.ts` para o acesso da equipe. Não existe um wrapper como `canEditCourses()` em volta dele.
+- A permissão que cada função de servidor verifica está listada na [matriz de permissões](/docs/reference/permissions).
 
 ## Titularidade
 
@@ -89,7 +89,7 @@ O código de servidor lança `AppError` com um código de `ERROR_CODES` em `src/
 | `AUTH_API_ERROR`    | O Better Auth rejeitou a chamada, com a chave de mensagem do erro                   |
 | `INTERNAL_ERROR`    | Qualquer outra coisa; a causa é registrada em log, nunca enviada                    |
 
-- Uma falha que qualquer funcionalidade pode encontrar ganha o seu código em `ERROR_CODES` e uma mensagem em `errors.codes` em todos os locales. O código é tudo o que o navegador recebe. Uma recusa que só uma funcionalidade explica faz parte, em vez disso, do resultado da sua server function: `startCheckout` retorna `{ alreadyActive: true }` para uma conta que já tem uma licença ativa, e o botão de checkout mostra `buy.alreadyActive` de `pages.license`.
+- Uma falha que qualquer funcionalidade pode encontrar ganha o seu código em `ERROR_CODES` e uma mensagem em `errors.codes` em todos os locales. O código é tudo o que o navegador recebe. Uma recusa que só uma funcionalidade explica faz parte, em vez disso, do resultado da sua função de servidor: `startCheckout` retorna `{ alreadyActive: true }` para uma conta que já tem uma licença ativa, e o botão de checkout mostra `buy.alreadyActive` de `pages.license`.
 - Detecte uma linha ausente pelo resultado (`const [row] = await ... .returning(...)`, depois `if (row === undefined)`), não com uma segunda consulta.
 - Transforme uma violação de unicidade em `CONFLICT` com `.catch(rethrowAsConflict)` de `src/integrations/drizzle-orm/drizzle.errors.ts`, como fazem `create-course.ts` e `update-course.ts`.
 - `withRequest` relança um `AppError` apenas com o seu código, mapeia os erros do Better Auth e do Zod e registra em log todo o resto antes de responder `INTERNAL_ERROR`, então nenhum stack trace ou SQL chega ao navegador.
@@ -103,16 +103,16 @@ O código de servidor lança `AppError` com um código de `ERROR_CODES` em `src/
 - Envie várias instruções em uma única ida e volta com `db.batch([...])`. O D1 executa um batch como uma única transação, e é assim que `moveCourse` renumera todas as posições de uma vez e `getCourses` lê uma página e o seu total juntos.
 - Resolva o idioma de exibição no servidor quando a forma é localizada: `getCourse` retorna os títulos já passados por `localize(text, locale)`.
 
-## Onde ficam as server functions
+## Onde ficam as funções de servidor
 
-| Server function                                           | Fica em                                                           |
+| Função de servidor                                        | Fica em                                                           |
 | --------------------------------------------------------- | ----------------------------------------------------------------- |
 | Lê ou grava uma tabela                                    | `src/modules/<table>/use-cases/<verb>-<noun>.ts`                  |
 | É usada por uma única rota e não é dona de nenhuma tabela | Esse arquivo de rota                                              |
 | Lê um serviço externo ou conteúdo, e é compartilhada      | `src/lib/<topic>.ts`, como `getStarCount` em `src/lib/github.ts`  |
 | Só roda no servidor e nunca é chamada pelo navegador      | Uma função `async` comum em um arquivo marcado como `server-only` |
 
-Os componentes nunca importam `db`, `env` de `cloudflare:workers` nem o cliente de um provedor. Eles chamam as server functions por meio das query options e das mutation options.
+Os componentes nunca importam `db`, `env` de `cloudflare:workers` nem o cliente de um provedor. Eles chamam as funções de servidor por meio das query options e das mutation options.
 
 ## Páginas relacionadas
 

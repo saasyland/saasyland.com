@@ -111,7 +111,12 @@ const TierColumnPending = ({ featured, tier }: Readonly<{ featured: boolean; tie
       "bg-card": featured,
     })}
   >
-    <div className={cn("flex h-10 items-center border-b border-border px-7 @2xl:px-8", { "border-t-2 border-t-ring": featured })}>
+    <div
+      className={cn("h-10 items-center border-b border-border px-7 @2xl:flex @2xl:px-8", {
+        "flex border-t-2 border-t-ring": featured,
+        hidden: !featured,
+      })}
+    >
       {featured && <Skeleton className="h-lh w-24 scale-y-70 text-spec" />}
     </div>
     <div className="flex flex-1 flex-col p-7 @2xl:p-8">

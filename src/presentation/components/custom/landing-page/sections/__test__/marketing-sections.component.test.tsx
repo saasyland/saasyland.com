@@ -25,6 +25,7 @@ import {
   BILLING_GENERATION,
   CONSULTING_HOURLY_RATE,
   COURSE_PLATFORM_VALUES,
+  FIRST_REVENUE_MILESTONE,
   PRODUCT_CASES,
   PRODUCT_CASE_STATUS,
   REACTPROJECTS_FACTS,
@@ -85,6 +86,7 @@ const withFacts = (message: string): string =>
     authCost: new Intl.NumberFormat(I18N.DEFAULT_LOCALE, CURRENCY_FORMAT).format(AUTH_COST_PER_USER),
     billing: BILLING_GENERATION,
     days: REFUND_TERMS.WITHDRAWAL_DAYS,
+    firstRevenue: new Intl.NumberFormat(I18N.DEFAULT_LOCALE, CURRENCY_FORMAT).format(FIRST_REVENUE_MILESTONE),
     sections: ADMIN_SECTION_NAMES,
   })
 
@@ -392,6 +394,7 @@ describe("marketing content and purchase links", () => {
     renderSection(<CompareSection />)
     for (const item of Object.values(english.compare.options)) {
       expect(screen.getByText(item.title)).toBeVisible()
+      expect(screen.getByText(withFacts(item.body))).toBeVisible()
     }
     for (const item of Object.values(english.compare.dimensions)) {
       expect(screen.getByText(item.label)).toBeVisible()

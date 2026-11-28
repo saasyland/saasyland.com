@@ -7,7 +7,7 @@ import { ROUTES } from "../../src/routes"
 import { TEST_ACCOUNTS, TEST_PASSWORD } from "../data/accounts"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { TEST_MACHINES_LICENSE } from "../data/licenses"
-import { TEXT_LAYOUT_VIEWPORTS } from "../data/viewports"
+import { PHONE_VIEWPORT, TEXT_LAYOUT_VIEWPORTS } from "../data/viewports"
 import { expect, test } from "../fixtures/auth"
 import { textLayoutProblems } from "../fixtures/text-layout"
 import type { AuthPage } from "../pages"
@@ -43,10 +43,6 @@ const GRID_PAGES = [
   `${ROUTES.ADMIN.PRODUCTS}?tab=categories`,
   `${ROUTES.ADMIN.PRODUCTS}?tab=collections`,
 ] as const
-
-const LONGEST_HEADERS_LOCALE = "uk-UA"
-
-const GRID_LOCALES = [I18N.DEFAULT_LOCALE, LONGEST_HEADERS_LOCALE] as const
 
 const CLEAR = { clipped: [], overflow: [], overlaps: [], truncated: [] }
 
@@ -87,16 +83,16 @@ const overflowingHeaders = (page: Page): Promise<string[]> =>
     .locator("[data-slot=data-grid-header-label]")
     .evaluateAll((labels) => labels.filter((label) => label.scrollWidth > label.clientWidth).map((label) => label.textContent))
 
-test("every admin grid fits each header label in its column on one line, in English and in the locale with the longest labels", async ({
+test("every admin grid fits each header label in its column on one line, in every locale, on a phone, where no column takes the room left over", async ({
   appPage,
   authPage,
   page,
 }) => {
-  test.setTimeout(Math.max(test.info().timeout, GRID_PAGES.length * GRID_LOCALES.length * PAGE_LAYOUT_TIMEOUT_MS))
+  test.setTimeout(Math.max(test.info().timeout, GRID_PAGES.length * I18N.SUPPORTED_LOCALES.length * PAGE_LAYOUT_TIMEOUT_MS))
   await signInAsAdmin(page, authPage)
-  await page.setViewportSize(TEXT_LAYOUT_VIEWPORTS[0])
+  await page.setViewportSize(PHONE_VIEWPORT)
 
-  for (const locale of GRID_LOCALES) {
+  for (const locale of I18N.SUPPORTED_LOCALES) {
     const prefix = locale === I18N.DEFAULT_LOCALE ? "" : `/${locale}`
     for (const path of GRID_PAGES) {
       await page.goto(`${prefix}${path}`, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })

@@ -164,7 +164,7 @@ const LessonState = ({ lesson }: { readonly lesson: ShowcaseLesson }): JSX.Eleme
     <span className="flex h-lh items-center justify-center" data-slot="lesson-icon">
       <LessonIcon lesson={lesson} />
     </span>
-    <span className="truncate font-medium text-foreground" data-slot="lesson-title">
+    <span className="font-medium text-pretty text-foreground" data-slot="lesson-title">
       {lesson.title}
     </span>{" "}
     <LessonMeta className={cn(COMING_COLLAPSE, "col-start-2 mt-2 flex-nowrap overflow-hidden")} lesson={lesson} />

@@ -5,7 +5,7 @@ import { useFormatter, useTranslations } from "use-intl/react"
 
 import { CURRENCY_FORMAT } from "~/src/modules/_core/constants/pricing"
 
-import { AUTH_COST_PER_USER } from "~/src/data/marketing"
+import { AUTH_COST_PER_USER, FIRST_REVENUE_MILESTONE } from "~/src/data/marketing"
 import { MARKETING_SECTION_IDS } from "~/src/data/navigation.constants"
 
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
@@ -37,7 +37,9 @@ export const CompareSection = (): JSX.Element => {
             {OPTIONS.map((id) => (
               <HighlightItem contentClassName="grid gap-x-10 px-4 py-6 md:grid-cols-[15rem_1fr] md:items-baseline" id={id} key={id}>
                 <dt className="text-title text-foreground">{t(`options.${id}.title`)}</dt>
-                <dd className="mt-2 max-w-[62ch] text-body text-pretty text-muted-foreground md:mt-0">{t(`options.${id}.body`)}</dd>
+                <dd className="mt-2 max-w-[62ch] text-body text-pretty text-muted-foreground md:mt-0">
+                  {t(`options.${id}.body`, { firstRevenue: format.number(FIRST_REVENUE_MILESTONE, CURRENCY_FORMAT) })}
+                </dd>
               </HighlightItem>
             ))}
           </HighlightGroup>

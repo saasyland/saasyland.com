@@ -144,7 +144,12 @@ const TierColumn = ({ Action, tier }: Readonly<{ Action: TierAction; tier: Licen
       contentClassName="flex h-full flex-col @2xl:row-span-7 @2xl:grid @2xl:grid-rows-subgrid"
       id={tier}
     >
-      <div className={cn("flex h-10 items-center border-b border-border px-7 @2xl:px-8", { "border-t-2 border-t-ring": isFeatured })}>
+      <div
+        className={cn("h-10 items-center border-b border-border px-7 @2xl:flex @2xl:px-8", {
+          "flex border-t-2 border-t-ring": isFeatured,
+          hidden: !isFeatured,
+        })}
+      >
         {isFeatured && <span className="text-label text-ring uppercase">{t("recommended")}</span>}
       </div>
 

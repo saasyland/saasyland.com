@@ -1,6 +1,6 @@
 ---
 title: "Ciclo de vida da requisição"
-description: "As etapas pelas quais passam uma requisição de página e uma chamada de server function, do Worker até o resultado renderizado."
+description: "As etapas pelas quais passam uma requisição de página e uma chamada de função de servidor, do Worker até o resultado renderizado."
 ---
 
 ## Requisição de página
@@ -13,11 +13,11 @@ description: "As etapas pelas quais passam uma requisição de página e uma cha
 6. **Loaders** rodam em paralelo. Cada um pré-carrega seus namespaces, os metadados da página e as queries no `QueryClient` da requisição.
 7. **Renderização.** O shell raiz renderiza `<html lang dir>` e envolve o body no `TranslationsProvider`. O cache de queries é serializado no HTML para que o navegador não busque os mesmos dados de novo.
 8. **Headers da resposta.** Em respostas HTML, o Worker adiciona um header `Link` de preload para as fontes do locale, define o cookie de locale quando necessário, aplica os atributos de preços regionais quando o header `cf-ipcountry` dá direito a um desconto e define `data-session` no `<html>` quando a requisição traz o cookie de sessão. Em seguida, toda resposta que o Worker retorna recebe os headers de segurança (`SECURITY_HEADERS`, mais `HTTPS_SECURITY_HEADERS` sobre HTTPS, de `src/modules/_core/constants/api.ts`), que substituem qualquer valor já definido. Uma resposta HTML recebe, em vez disso, `documentPolicy` como Content Security Policy, com o nonce que `src/server.ts` criou para ela, e é `private, no-cache`, com `Vary: Cookie` e sem `ETag` nem `Last-Modified`, de modo que um navegador nunca a reutiliza com o nonce de outra resposta.
-9. **Hidratação.** O navegador faz a hidratação com o cache serializado. As navegações seguintes executam os guards e os loaders no navegador e buscam os dados por meio de server functions.
+9. **Hidratação.** O navegador faz a hidratação com o cache serializado. As navegações seguintes executam os guards e os loaders no navegador e buscam os dados por meio de funções de servidor.
 
-## Chamada de server function
+## Chamada de função de servidor
 
-1. O navegador chama a server function, que o build substituiu por uma requisição RPC para `/_serverFn/…`. O Worker pula o tratamento de locale nesse caminho. A URL não tem prefixo de locale, então `getCurrentLocale()` retorna `en-US` no servidor; uma server function que precisa do locale o recebe como entrada.
+1. O navegador chama a função de servidor, que o build substituiu por uma requisição RPC para `/_serverFn/…`. O Worker pula o tratamento de locale nesse caminho. A URL não tem prefixo de locale, então `getCurrentLocale()` retorna `en-US` no servidor; uma função de servidor que precisa do locale o recebe como entrada.
 2. O middleware roda na ordem declarada. `withRequest` captura os headers da requisição e normaliza os erros, `withRateLimit` contabiliza a tentativa no D1 e `authorized` carrega a sessão e verifica a permissão.
 3. O validator analisa a entrada com o schema Zod do módulo.
 4. O handler consulta o D1 ou chama um provedor e retorna dados simples.

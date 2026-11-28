@@ -9,7 +9,7 @@ export const POLAR_PRODUCT_COLUMN_SIZES = {
   product: 288,
   revenue: 240,
   sales: 160,
-  status: 136,
+  status: 144,
 } as const
 
 export const POLAR_PRODUCT_STATUS_BADGES: Record<PolarProductStatus, BadgeVariant> = {

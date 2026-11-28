@@ -10,6 +10,7 @@ import { localize } from "~/src/modules/_core/utils/localized-text"
 import type { LessonProgress } from "~/src/modules/lesson-progress/lesson-progress.types"
 
 import { DASHBOARD_COLUMN_SIZES } from "~/src/data/admin"
+import { COURSE_PROGRESS_COLUMN_SIZES } from "~/src/data/admin-courses"
 
 import type { DataGridColumn } from "~/src/presentation/components/custom/data-grid"
 
@@ -49,7 +50,7 @@ export const useCourseProgressColumns = (): DataGridColumn<CourseProgressRow>[] 
             cell: CountCell,
             header: t(count),
             meta: { align: DATA_GRID_ALIGN.END, filter: { kind: DATA_GRID_FILTER.NUMBER_RANGE } },
-            size: DASHBOARD_COLUMN_SIZES.count,
+            size: COURSE_PROGRESS_COLUMN_SIZES[count],
           }),
         ),
       ]),

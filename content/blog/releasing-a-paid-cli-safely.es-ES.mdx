@@ -1,7 +1,7 @@
 ---
 title: "Publicar una CLI de pago de forma segura cuando los agentes de IA hacen el trabajo"
 description: "Cómo publicar de forma segura una CLI de pago en npm: staged publishing con aprobación 2FA, trusted publishing sin tokens, descargas fijadas, una barrera en cada plataforma y etiquetas solo cuando npm ya sirve la versión."
-excerpt: "Una versión en npm es permanente, y una CLI de pago, además, descarga lo que genera y habla con un servidor de licencias. Esta guía cubre el pipeline de publicación que permite a los agentes de IA hacerlo todo hasta llegar al registro mientras una persona aprueba el único paso que no se puede deshacer, con los incidentes que le dieron forma."
+excerpt: "Una versión en npm es permanente, y una CLI de pago, además, descarga lo que genera y habla con un servidor de licencias. Esta guía recorre el pipeline de publicación que permite a los agentes de IA hacerlo todo hasta llegar al registro mientras una persona aprueba el único paso que no se puede deshacer, con los incidentes que le dieron forma."
 author: piotr-borowiecki
 date: 2026-11-25
 updated: 2026-11-25
@@ -28,7 +28,7 @@ faq:
   - question: ¿El trusted publishing le da procedencia a mi paquete?
     answer: >-
       Solo desde un repositorio público. npm genera automáticamente atestaciones de procedencia con el
-      trusted publishing cuando tanto el repositorio de origen como el paquete son públicos, y no para
+      trusted publishing cuando tanto el repositorio de origen como el paquete son públicos, pero no en
       repositorios privados. Un paquete construido desde un repositorio privado sigue llevando la firma
       del registro de npm, que verifica npm audit signatures, pero no lleva procedencia.
   - question: ¿Cuándo debe un flujo de trabajo de publicación crear etiquetas de Git y GitHub Releases?
@@ -36,25 +36,25 @@ faq:
       Después de que el registro sirva la versión, no cuando la CI la prepara o la publica. Una versión
       preparada puede rechazarse, quedar sustituida por otra o simplemente no aprobarse nunca, y entonces
       una etiqueta y una Release describen un paquete que nadie puede instalar. Comprueba primero que el
-      registro tiene la versión exacta, haz que el job se pueda ejecutar cualquier número de veces sin
-      riesgo y vuelve a ejecutarlo después de cada aprobación.
+      registro tiene la versión exacta, haz que el job se pueda ejecutar sin riesgo tantas veces como
+      haga falta y vuelve a ejecutarlo después de cada aprobación.
   - question: ¿Cómo puede una CLI asegurarse de que descarga exactamente los archivos con los que se publicó?
     answer: >-
-      Fija en el código que publicas un resumen del contenido, no del archivo comprimido, y escribe ese
+      Fija en el código que publicas un hash del contenido, no del archivo comprimido, y escribe ese
       valor fijado cuando se crea la versión. Sube el archivo antes de que el paquete se pueda instalar,
-      haz que el servidor responda con el tamaño y el resumen que tiene guardados, y rechaza cualquier
-      descarga cuyo tamaño o resumen difieran de la respuesta del servidor o del valor fijado, antes de
+      haz que el servidor responda con el tamaño y el hash que tiene guardados, y rechaza cualquier
+      descarga cuyo tamaño o hash difieran de la respuesta del servidor o del valor fijado, antes de
       leer nada de ella.
   - question: ¿Puede un changeset vacío bloquear una versión?
     answer: >-
-      Sí. La acción de Changesets no selecciona ningún trabajo cuando todos los changesets pendientes
-      están vacíos, aunque la rama contenga una versión que npm todavía no tiene. Nos pasó cuando un
+      Sí. La acción de Changesets decide que no hay nada que hacer cuando todos los changesets
+      pendientes están vacíos, aunque la rama contenga una versión que npm todavía no tiene. Nos pasó cuando un
       changeset vacío llegó después de que se construyera la pull request de versión, y esa pull request
       se fusionó sin reconstruirse. Fusiona una pull request de versión solo cuando se haya construido a
       partir del commit más reciente de la rama.
   - question: ¿Qué debo hacer cuando una versión publicada en npm está rota?
     answer: >-
-      Márcala como obsoleta con un mensaje que nombre la versión corregida, y publica la corrección como
+      Márcala como obsoleta con un mensaje que indique la versión corregida, y publica la corrección como
       un nuevo parche a través del pipeline habitual. No la retires: npm nunca deja volver a usar un
       nombre y una versión, y se rompe cada proyecto que fijó esa versión. Una versión que solo está
       preparada, en cambio, se puede rechazar.
@@ -90,7 +90,7 @@ Trata la publicación como el único paso que no es una fusión. Todo lo que ocu
 
 Una fusión se puede revertir con otra fusión. Una publicación no, por tres motivos.
 
-**El número de versión queda gastado.** La política de retirada de paquetes de npm es tajante: «Una vez que se ha usado `package@version`, no puedes volver a usarlo nunca». Y añade: «Esto es así incluso si ese paquete se retira». Retirar una versión solo se permite en las primeras 72 horas, y únicamente si ningún otro paquete del registro depende del tuyo; después, solo en condiciones más estrictas, y para todo lo demás npm recomienda marcarla como obsoleta. Una mala versión se corrige hacia delante con una versión nueva, y la mala se queda en el registro para todos los que la fijaron.
+**El número de versión queda gastado.** La política de retirada de paquetes de npm es tajante: «Una vez que se ha usado `package@version`, no puedes volver a usarlo nunca». Y añade: «Esto es así incluso si ese paquete se retira». En las primeras 72 horas, retirar una versión solo se permite si ningún otro paquete del registro depende del tuyo, y después, solo en condiciones más estrictas; para todo lo demás, npm recomienda marcarla como obsoleta. Una versión mala se corrige publicando otra nueva, y la mala se queda en el registro para todos los que la fijaron.
 
 **Los clientes la usan en sus scripts.** La interfaz pública de una CLI es más amplia que las exportaciones de una biblioteca: sus comandos, flags y valores por defecto, sus códigos de salida, su salida legible por máquinas, los archivos que escribe y los runtimes en los que arranca. Un valor por defecto cambiado o un código de salida nuevo rompe un job de CI que nunca verás.
 
@@ -98,7 +98,7 @@ Una fusión se puede revertir con otra fusión. Una publicación no, por tres mo
 
 Los agentes de IA cambian el lugar donde está el riesgo. Son rápidos y concienzudos en las partes reversibles: escribir changesets, mantener al día una pull request de versión, editar flujos de trabajo, escribir notas de la versión en <RepositoryFact name="languages" /> idiomas, comprobar el registro después. Y muestran exactamente la misma seguridad en la parte irreversible que en todo lo demás. Así que el principio de diseño de este artículo es sencillo: deja que los agentes lo hagan todo hasta llegar al registro, haz que cada paso anterior se pueda ejecutar dos veces sin riesgo, y pon una llave humana en el único paso que no es ni reversible ni repetible.
 
-Unas palabras sobre la configuración, para que puedas trasladarla a la tuya. La CLI de SaaSy Land son tres paquetes de npm, `saasyland`, `create-saasyland` y `@saasyland/stack`, que se publican desde un repositorio privado de GitHub con Changesets 3 y GitHub Actions. A 25 de noviembre de 2026, las versiones preliminares salen en la etiqueta <RepositoryFact name="cliReleaseChannel" /> de npm, la última es la 0.1.0-beta.5 del 20 de noviembre, y los clientes ejecutan <RepositoryFact name="cliPackageSpec" />; `latest` sigue apuntando a la versión provisional `0.0.0` que reservó los nombres. Los agentes son sesiones de Claude Code, un agente principal y los agentes trabajadores a los que hace sus encargos, y se ocupan de la CLI de principio a fin. Cuando el propietario se la confió, pidió «el versionado, el registro de cambios y todo lo demás, lo más profesional posible», con versiones publicadas «en lotes que tengan sentido de verdad». Él aprueba cada publicación.
+Unas palabras sobre la configuración, para que puedas trasladarla a la tuya. La CLI de SaaSy Land son tres paquetes de npm, `saasyland`, `create-saasyland` y `@saasyland/stack`, que se publican desde un repositorio privado de GitHub con Changesets 3 y GitHub Actions. A 25 de noviembre de 2026, las versiones preliminares salen en la etiqueta <RepositoryFact name="cliReleaseChannel" /> de npm, la última, la 0.1.0-beta.5 del 20 de noviembre, y los clientes ejecutan <RepositoryFact name="cliPackageSpec" />; `latest` sigue apuntando a la versión provisional `0.0.0` que reservó los nombres. Los agentes son sesiones de Claude Code, un agente principal y los agentes trabajadores a los que hace sus encargos, y se ocupan de la CLI de principio a fin. Cuando el propietario se la confió, pidió «el versionado, el registro de cambios y todo lo demás, lo más profesional posible», con versiones publicadas «en lotes que tengan sentido de verdad». Él aprueba cada publicación.
 
 ## El pipeline de un vistazo
 
@@ -142,7 +142,7 @@ La forma en que está escrita la regla decide lo que producen los agentes. Si so
 
 ### Una sola versión para los paquetes que se publican juntos
 
-Los tres paquetes forman un grupo fijo de Changesets, en el que «todos los paquetes del grupo suben de versión y se publican juntos aunque no tengan cambios». Así que `saasyland@0.1.0-beta.5` siempre sale con `@saasyland/stack@0.1.0-beta.5`, y un cliente, un informe de bug y una respuesta de soporte necesitan un solo número. El coste se ve en el registro de cambios: un paquete que no tiene nada propio que contar recibe igualmente una versión, y las notas de la versión de nuestro sitio web imprimen para él «Sin cambios en esta versión.» en lugar de dejar un hueco que parezca un olvido.
+Los tres paquetes forman un grupo fijo de Changesets, en el que «todos los paquetes del grupo suben de versión y se publican juntos aunque no tengan cambios». Así que `saasyland@0.1.0-beta.5` siempre sale con `@saasyland/stack@0.1.0-beta.5`, y a un cliente, a un informe de bug y a una respuesta de soporte les basta un solo número. El coste se ve en el registro de cambios: un paquete que no tiene nada propio que contar recibe igualmente una versión, y las notas de la versión de nuestro sitio web imprimen para él «Sin cambios en esta versión.» en lugar de dejar un hueco que parezca un olvido.
 
 ### Publica por lotes, y retén la pull request de versión
 
@@ -158,7 +158,7 @@ Hasta la primera versión estable, `latest` es la versión provisional, así que
 
 ### Qué significa preparar una versión
 
-El staged publishing de npm, la publicación de versiones preparadas, «añade un paso de aprobación antes de que los paquetes se publiquen en el registro de npm». La CI ejecuta `npm stage publish`, que «no requiere 2FA», y la versión espera en una zona de preparación hasta que un mantenedor la aprueba: «Se te pedirá la verificación 2FA tanto si apruebas el paquete en la CLI como si lo haces en npmjs.com». Rechazar una versión preparada también exige el segundo factor. La dist-tag queda establecida cuando se prepara la versión: «La etiqueta es una propiedad inmutable del paquete preparado». La preparación necesita npm 11.15.0 o posterior; nuestro job de preparación usa el npm que incluye Node 26.13.1, que es npm 11.20.0, e imprime en su resumen la versión de npm con la que preparó.
+El staged publishing de npm, la publicación de versiones preparadas, «añade un paso de aprobación antes de que los paquetes se publiquen en el registro de npm». La CI ejecuta `npm stage publish`, que «no requiere 2FA», y la versión espera en una zona de preparación hasta que un mantenedor la aprueba: «Se te pedirá la verificación 2FA tanto si apruebas el paquete en la CLI como si lo haces en npmjs.com». Rechazar una versión preparada también exige el segundo factor. La dist-tag queda establecida cuando se prepara la versión: «La etiqueta es una propiedad inmutable del paquete preparado». La preparación necesita npm 11.15.0 o posterior; nuestro job de preparación usa el npm que incluye Node 26.13.1, que es npm 11.20.0, e imprime en su resumen la versión de npm que usó.
 
 npm empuja a todo el mundo en esta dirección. Su registro de cambios de septiembre de 2026 dice que «npm se ha fijado enero de 2027 como objetivo para eliminar la publicación directa mediante tokens que se saltan el 2FA», y ofrece los tokens que solo pueden preparar versiones como vía de migración para la automatización que todavía no puede pasar al trusted publishing. Nuestras ejecuciones de preparación muestran en el log el aviso de npm: «Los tokens de npm que se saltan el 2FA se están restringiendo para los cambios de cuenta y la publicación directa».
 
@@ -168,7 +168,7 @@ GitHub puede hacer que un job espere a un revisor mediante los entornos, y la gu
 
 ### Changesets todavía no prepara versiones, así que prepáralas a partir de su plan
 
-La guía de Changesets es explícita: «Por ahora, el Staged Publishing no funciona con Changesets, así que de momento deberías usar Trusted Publishing en su lugar». Su anuncio de la v3 dice que la preparación llegará en «la próxima actualización de funcionalidades». Hasta entonces, su acción de publicación ejecuta `npm publish`, que rechaza un trusted publisher autorizado solo a preparar versiones. Así que nuestro job de preparación hace lo que haría la acción, con un comando cambiado. Lee el plan de publicación que `changeset pack` escribe junto a los tarballs y prepara cada paquete con el acceso y la dist-tag que eligió Changesets: `beta` en el modo de prelanzamiento, `latest` en cualquier otro caso.
+La guía de Changesets es explícita: «Por ahora, el Staged Publishing no funciona con Changesets, así que de momento deberías usar Trusted Publishing en su lugar». Su anuncio de la v3 dice que la preparación llegará en «la próxima actualización de funcionalidades». Hasta entonces, su acción de publicación ejecuta `npm publish`, y un trusted publisher autorizado solo a preparar versiones lo rechaza. Así que nuestro job de preparación hace lo que haría la acción, con un comando cambiado. Lee el plan de publicación que `changeset pack` escribe junto a los tarballs y prepara cada paquete con el acceso y la dist-tag que eligió Changesets: `beta` en el modo de prelanzamiento, `latest` en cualquier otro caso.
 
 Para cada paquete de ese plan, el job pregunta primero a npm, con un `npm view` público que no necesita credenciales, si ya sirve esa versión exacta. Si no la sirve, ejecuta `npm stage publish` sobre el tarball empaquetado con el acceso y la dist-tag del plan y el flag `--json`, y lee el ID de preparación en la respuesta de npm. Cada paquete termina exactamente en uno de tres resultados, y eso es lo que permite volver a ejecutar el job sin riesgo, lo que importa porque un job de publicación es justo el que más quieres volver a lanzar cuando falla un runner:
 
@@ -204,11 +204,11 @@ En el lado de GitHub, el flujo de trabajo empieza con `permissions: {}`, y cada 
 | Preparar en npm                              | `contents: read` e `id-token: write`, un entorno protegido | Intercambia un token OIDC con npm y sube el bundle de plantillas |
 | Crear las etiquetas y las Releases           | `contents: write`                                          | Crea las etiquetas y las Releases                                |
 
-El job de preparación es el único que puede pedir un token OIDC, y el único que usa el entorno protegido. Ese entorno guarda las credenciales del almacenamiento de plantillas, y solo las ramas de publicación pueden desplegar en él. GitHub hace que los secretos de un entorno «solo estén disponibles para los jobs del flujo de trabajo que usan el entorno», así que ningún otro job, y ninguna ejecución del flujo de trabajo desde cualquier otra rama, puede leerlos.
+El job de preparación es el único que puede pedir un token OIDC, y el único que usa el entorno protegido. Ese entorno guarda las credenciales del almacenamiento de plantillas, y solo las ramas de publicación pueden desplegar en él. GitHub hace que los secretos de un entorno «solo estén disponibles para los jobs del flujo de trabajo que usan el entorno», así que ningún otro job, y ninguna ejecución del flujo de trabajo lanzada desde otra rama, puede leerlos.
 
 ### El token del checkout también es un permiso
 
-`actions/checkout` guarda el token del job en la configuración local de Git «para ejecutar comandos de git autenticados», salvo que establezcas `persist-credentials: false`. Lo pusimos a false en todos los jobs, y la primera pull request Version Packages nunca se abrió: cuando Changesets subió la rama de la versión, Git no pudo leer el nombre de usuario, «could not read Username for 'https://github.com'». La corrección devolvió el token a ese único job, el único que hace push. El mínimo privilegio es una propiedad de cada job, no un ajuste que se copia a lo largo de un archivo.
+`actions/checkout` guarda el token del job en la configuración local de Git «para ejecutar comandos de git autenticados», salvo que establezcas `persist-credentials: false`. Lo pusimos a false en todos los jobs, y la primera pull request Version Packages nunca se abrió: cuando Changesets subió la rama de la versión, Git no pudo leer el nombre de usuario, «could not read Username for 'https://github.com'». La corrección devolvió el token a ese único job, el único que hace push. El mínimo privilegio es una propiedad de cada job, no un ajuste que se copia por todo un archivo.
 
 ### El fallo que npm no supo explicar
 
@@ -233,19 +233,19 @@ En un repositorio público, el trusted publishing te da gratis la procedencia (p
 
 `saasyland init` genera un proyecto a partir de plantillas que no incluye. Después de comprobar la licencia, descarga el bundle de plantillas de su propia versión a través de la API de licencias del sitio web. Así, las plantillas de pago quedan fuera de un tarball público de npm, y cada versión recibe un segundo artefacto del que npm no sabe nada. De ahí salen dos reglas: el bundle que recibe un cliente tiene que ser exactamente aquel con el que se probó la versión, y tiene que existir antes de que nadie pueda instalarla.
 
-### Calcula el resumen del contenido, no de la compresión
+### Calcula el hash del contenido, no de la compresión
 
-El bundle se construye de forma determinista: las capas ordenadas por ID, los archivos por ruta, las claves en un orden fijo, y nada registrado del sistema de archivos salvo el contenido de cada archivo y su bit de ejecución. Su resumen es el SHA-256 del JSON que hay dentro del archivo comprimido, no de los bytes gzip, porque Node y Bun comprimen el mismo JSON en bytes distintos. Cuando lo medimos, los resúmenes de los archivos comprimidos diferían y los del contenido no. Un resumen del archivo comprimido identifica un compresor; se rompería la primera vez que un runtime actualizara su zlib, y a un cliente se le diría que su descarga está corrupta.
+El bundle se construye de forma determinista: las capas ordenadas por ID, los archivos por ruta, las claves en un orden fijo, y nada registrado del sistema de archivos salvo el contenido de cada archivo y su bit de ejecución. Su hash es el SHA-256 del JSON que hay dentro del archivo comprimido, no de los bytes gzip, porque Node y Bun comprimen el mismo JSON en bytes distintos. Cuando lo medimos, los hashes de los archivos comprimidos diferían y los del contenido no. Un hash del archivo comprimido identifica un compresor; se rompería la primera vez que un runtime actualizara su zlib, y a un cliente se le diría que su descarga está corrupta.
 
 ### Fija al versionar, verifica antes de subir, sube antes de preparar
 
-El resumen se fija en la pull request Version Packages. El script de versión ejecuta `changeset version`, después construye el bundle de la nueva versión y añade su resumen a un archivo de resúmenes fijados dentro de la CLI, así que quien revisa ve el salto de versión y el resumen fijado uno al lado del otro, y la versión lleva el resumen en su propio código. La fijación se niega a cambiar un resumen que ya está fijado. Cada CLI lleva también los resúmenes fijados de todas las versiones anteriores, porque `update`, cuando llegue, regenerará la versión a partir de la que se creó un proyecto como base de su fusión.
+El hash se fija en la pull request Version Packages. El script de versión ejecuta `changeset version`, después construye el bundle de la nueva versión y añade su hash a un archivo de hashes fijados dentro de la CLI, así que quien revisa ve el salto de versión y el hash fijado uno al lado del otro, y la versión lleva el hash en su propio código. La fijación se niega a cambiar un hash que ya está fijado. Cada CLI lleva también los hashes fijados de todas las versiones anteriores, porque `update`, cuando llegue, regenerará la versión a partir de la que se creó un proyecto como base de su fusión.
 
-Al publicar, el job de preparación reconstruye el bundle y falla si su resumen no es el fijado. Después sube el archivo comprimido, con el resumen como metadato del objeto, al almacenamiento que lee la API de licencias, y vuelve a leer cada objeto: su tamaño, su tipo de contenido, sus metadatos y el resumen de su contenido. Solo entonces prepara algo en npm, porque una CLI publicada nunca debe pedir un bundle que no está ahí. La subida rechaza cualquier archivo comprimido que no sea el bundle fijado, así que una nueva ejecución nunca puede cambiar lo que sirve una versión.
+Al publicar, el job de preparación reconstruye el bundle y falla si su hash no es el fijado. Después sube el archivo comprimido, con el hash como metadato del objeto, al almacenamiento que lee la API de licencias, y vuelve a leer cada objeto: su tamaño, su tipo de contenido, sus metadatos y el hash de su contenido. Solo entonces prepara algo en npm, porque una CLI publicada nunca debe pedir un bundle que no está ahí. La subida rechaza cualquier archivo comprimido que no sea el bundle fijado, así que una nueva ejecución nunca puede cambiar lo que sirve una versión.
 
 ### Comprueba dos veces, frente a dos fuentes
 
-El sitio web responde a una petición de bundle con una URL firmada de vida corta, válida durante <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />, y con el tamaño y el resumen del bundle, que lee de la cabecera del objeto guardado sin abrir el archivo comprimido:
+El sitio web responde a una petición de bundle con una URL firmada de vida corta, válida durante <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />, y con el tamaño y el hash del bundle, que lee de la cabecera del objeto guardado sin abrir el archivo comprimido:
 
 ```ts title="src/modules/license/license.api.ts"
 const storedBundle = async (version: string): Promise<StoredBundle> => {
@@ -266,13 +266,13 @@ const storedBundle = async (version: string): Promise<StoredBundle> => {
 }
 ```
 
-Un objeto sin su resumen no se sirve: la API responde `serviceUnavailable`, y el log nombra el objeto. Después, la CLI descarga el archivo comprimido, no lee más que el tamaño anunciado y lo rechaza salvo que su tamaño y su resumen coincidan con la respuesta de la API y el resumen coincida además con el que lleva fijado y compilado la versión. Una discrepancia termina con el código <RepositoryFact name="cliExitProtocol" /> y no escribe nada; incluso una descarga correcta se escribe en el directorio del proyecto de una sola vez, así que una ejecución interrumpida no deja nada atrás.
+Un objeto sin su hash no se sirve: la API responde `serviceUnavailable`, y el log nombra el objeto. Después, la CLI descarga el archivo comprimido, no lee más que el tamaño anunciado y lo rechaza salvo que su tamaño y su hash coincidan con la respuesta de la API y el hash coincida además con el que lleva fijado y compilado la versión. Una discrepancia termina con el código <RepositoryFact name="cliExitProtocol" /> y no escribe nada; incluso una descarga correcta se escribe en el directorio del proyecto de una sola vez, así que una ejecución interrumpida no deja nada atrás.
 
-¿Por qué las dos comprobaciones? El resumen de la API protege la descarga. El resumen fijado protege la versión de su propio servidor: haya lo que haya en el almacenamiento bajo la clave de una versión, una CLI publicada solo ejecuta las plantillas con las que se probó su versión. Cada fuente comprueba a la otra, y ninguna basta por sí sola. La documentación del sitio web describe al completo el endpoint y las reglas para publicar bundles, en [API de licencias de la CLI](/docs/features/cli-licence-api#publishing-bundles).
+¿Por qué las dos comprobaciones? El hash de la API protege la descarga. El hash fijado protege la versión de su propio servidor: haya lo que haya en el almacenamiento bajo la clave de una versión, una CLI publicada solo ejecuta las plantillas con las que se probó su versión. Cada fuente comprueba a la otra, y ninguna basta por sí sola. La documentación del sitio web describe al completo el endpoint y las reglas para publicar bundles, en [API de licencias de la CLI](/docs/features/cli-licence-api#publishing-bundles).
 
 ### La regla general
 
-Todo lo que tu CLI descarga en tiempo de ejecución, ya sean plantillas, esquemas, binarios o una lista de plugins, forma parte de la versión. Versiónalo junto con la publicación, fíjalo por contenido en el código que publicas, súbelo antes de que el paquete se pueda instalar, y conserva cada versión que todavía pueda pedir una versión con soporte.
+Todo lo que tu CLI descarga en tiempo de ejecución, ya sean plantillas, esquemas, binarios o una lista de plugins, forma parte de la versión. Versiónalo junto con la publicación, fíjalo por contenido en el código que publicas, súbelo antes de que el paquete se pueda instalar, y conserva cada una de sus versiones mientras una versión de la CLI con soporte pueda pedirla.
 
 ## Compila una vez y prueba lo que publicas
 
@@ -292,7 +292,7 @@ Los clientes ejecutan la CLI con Node y con Bun, en Linux, macOS y Windows. Las 
 
 Los nueve jobs son una sola matriz, tres sistemas por tres versiones de Node, empezando por el Node más antiguo que admite la CLI. Dos ajustes convierten esa matriz en una barrera. El job de preparación incluye en `needs` tanto el job de empaquetado como la matriz y no tiene un `if:` propio, así que GitHub lo omite salvo que todos ellos hayan terminado bien; una condición como `if: always()` en el job de preparación lo desharía sin que nadie lo notara. Y la matriz establece `fail-fast: false`, así que un fallo en una combinación no cancela las demás, y la ejecución muestra cada plataforma que se rompió, y no solo la primera.
 
-Una barrera que nunca has visto fallar es una esperanza, no una barrera. Antes de fiarnos de esta, ejecutamos el flujo de trabajo de publicación real en una rama temporal, desde un commit equivalente a una pull request Version Packages fusionada, con una combinación forzada a fallar a propósito: Windows con Node 26. Todos los demás jobs pasaron, y el job de preparación se omitió en cuanto terminó la última combinación. Esa ejecución de sondeo no podría haber publicado aunque la barrera estuviera mal, porque el entorno que necesita el job de preparación solo despliega desde las ramas de publicación; después, npm listaba las mismas versiones que antes, y no había aparecido ninguna etiqueta ni ninguna Release.
+Una barrera que nunca has visto fallar es una esperanza, no una barrera. Antes de fiarnos de esta, ejecutamos el flujo de trabajo de publicación real en una rama temporal, desde un commit equivalente a una pull request Version Packages fusionada, con una combinación que fallaba a propósito: Windows con Node 26. Todos los demás jobs pasaron, y el job de preparación se omitió en cuanto terminó la última combinación. Esa ejecución de sondeo no podría haber publicado aunque la barrera estuviera mal, porque el entorno que necesita el job de preparación solo despliega desde las ramas de publicación; después, npm listaba las mismas versiones que antes, y no había aparecido ninguna etiqueta ni ninguna Release.
 
 Pasar las ejecuciones de macOS y Windows de cada fusión a la propia publicación redujo entre un tercio y la mitad los minutos facturables de una fusión en `main`, según lo medimos cuando hicimos el cambio, a cambio de un coste que se paga una vez por publicación. Lo que la barrera no hace aparece cerca del final de este artículo: ejecuta `--version` y `--help`, no la generación completa de un proyecto, y compila en cada runner en lugar de instalar el tarball preparado.
 
@@ -317,19 +317,19 @@ La 0.1.0-beta.3 se preparó el 17 de noviembre y tres días después seguía esp
 
 Trasladamos las etiquetas y las Releases a un job aparte que pregunta primero al registro. Para cada paquete publicado comprueba tres cosas: que el `CHANGELOG.md` del paquete tiene una sección para la versión del checkout, algo que solo escribe una pull request Version Packages; que npm sirve exactamente esa versión, mediante un `npm view` público que no necesita token; y si la etiqueta ya existe. Solo cuando todos los paquetes pasan las dos primeras comprobaciones y falta alguna etiqueta ejecuta `changeset git-tag` a través de la acción de Changesets, que sube las etiquetas y crea una Release a partir de cada entrada del registro de cambios. Si no, no escribe nada, y su resumen dice por qué.
 
-Las dos comprobaciones son sencillas a propósito. Una versión cuenta como servida solo cuando `npm view` imprime exactamente esa versión, así que una versión que falta, un error de red y una respuesta inesperada cuentan todos como no servida, y no se etiqueta nada. Una etiqueta cuenta como existente solo cuando Git resuelve su referencia completa, así que una rama con el mismo nombre no puede pasar por ella. El kit de publicación del final de este artículo incluye una versión genérica de la comprobación para un solo paquete.
+Las dos comprobaciones son sencillas a propósito. Una versión cuenta como servida solo cuando `npm view` imprime exactamente esa versión, así que una versión que falta, un error de red y una respuesta inesperada cuentan todos como versión no servida, y no se etiqueta nada. Una etiqueta cuenta como existente solo cuando Git resuelve su referencia completa, así que una rama con el mismo nombre no puede pasar por ella. El kit de publicación del final de este artículo incluye una versión genérica de la comprobación para un solo paquete.
 
-El job se ejecuta de tres formas: justo después de la preparación, cuando normalmente encuentra la versión todavía en espera; a mano, que es lo que hace el agente principal en cuanto el propietario aprueba; y una vez al día como respaldo. Sus ejecuciones en una misma rama comparten un grupo de concurrencia y se ponen en cola en lugar de solaparse, así que dos ejecuciones nunca etiquetan a la vez, y antes de nada descarga todas las etiquetas, así que solo crea lo que falta y se puede ejecutar cualquier número de veces.
+El job se ejecuta de tres formas: justo después de la preparación, cuando normalmente encuentra la versión todavía en espera; a mano, que es lo que hace el agente principal en cuanto el propietario aprueba; y una vez al día como respaldo. Sus ejecuciones en una misma rama comparten un grupo de concurrencia y se ponen en cola en lugar de solaparse, así que dos ejecuciones nunca etiquetan a la vez, y antes de nada descarga todas las etiquetas, así que solo crea lo que falta y se puede ejecutar tantas veces como haga falta.
 
 La 0.1.0-beta.5 fue la primera versión que pasó por él. El job de registro de su ejecución de publicación se ejecutó a las 11:25 UTC y encontró que npm todavía no servía la versión. npm la sirvió a las 11:44:37; el agente principal lanzó el flujo de trabajo de registro a las 11:45:27, y las tres Releases aparecieron a las 11:45:51.
 
 ### Una ejecución programada es una red de seguridad, no un paso
 
-El respaldo diario nos enseñó dos cosas sobre el evento `schedule` de GitHub. La primera: «Los flujos de trabajo programados se ejecutan en el último commit de la rama predeterminada», y las etiquetas de una beta tienen que apuntar a un commit de `beta`. Así que el job programado no etiqueta nada por sí mismo: lee las ramas del propio disparador del flujo de trabajo de publicación y lanza el flujo de trabajo de registro en cada una de ellas con `workflow_dispatch`, para que cada ejecución etiquete su propia rama. La segunda: la programación es aproximada. GitHub dice que el evento «puede retrasarse durante los periodos de mucha carga» y que «algunos jobs en cola pueden descartarse». El nuestro está programado para primera hora de la mañana en UTC, y del 21 al 24 de noviembre arrancó con unas ocho a once horas de retraso. Un job programado puede detectar lo que una persona olvidó. Nunca debería ser el paso al que espera una publicación.
+El respaldo diario nos enseñó dos cosas sobre el evento `schedule` de GitHub. La primera: «Los flujos de trabajo programados se ejecutan en el último commit de la rama predeterminada», y las etiquetas de una beta tienen que apuntar a un commit de `beta`. Así que el job programado no etiqueta nada por sí mismo: lee las ramas del propio disparador del flujo de trabajo de publicación y lanza el flujo de trabajo de registro en cada una de ellas con `workflow_dispatch`, para que cada ejecución etiquete su propia rama. La segunda: la programación es aproximada. GitHub dice que el evento «puede retrasarse durante los periodos de mucha carga» y que «algunos jobs en cola pueden descartarse». El nuestro está programado para primera hora de la mañana en UTC, y del 21 al 24 de noviembre arrancó con entre ocho y once horas de retraso. Un job programado puede detectar lo que una persona olvidó. Nunca debería ser el paso al que espera una publicación.
 
 ### Señala lo que nunca se publicó
 
-Las etiquetas y las Releases de la 0.1.0-beta.3 se quedan donde están: borrarlas borraría la constancia de lo que se construyó y se preparó. En su lugar, el registro de cambios de cada paquete dice ahora bajo su encabezado 0.1.0-beta.3: «No se publicó en npm: la 0.1.0-beta.4 sustituyó a esta versión antes de que se aprobara, y todos los cambios de abajo se publicaron en la 0.1.0-beta.4». Las tres GitHub Releases llevan «(not published)» en el título, y las [notas de la versión](/docs/cli/releases) del sitio web dicen lo mismo. La política también ganó una regla: aprobar o rechazar una versión preparada antes de fusionar la siguiente pull request Version Packages.
+Las etiquetas y las Releases de la 0.1.0-beta.3 se quedan donde están: borrarlas borraría la constancia de lo que se construyó y se preparó. En su lugar, el registro de cambios de cada paquete dice ahora bajo su encabezado 0.1.0-beta.3: «No se publicó en npm: la 0.1.0-beta.4 sustituyó a esta versión antes de que se aprobara, y todos los cambios de abajo se publicaron en la 0.1.0-beta.4». Las tres GitHub Releases llevan «(not published)» en el título, y las [notas de la versión](/docs/cli/releases) del sitio web dicen lo mismo. La política sumó además una regla: aprobar o rechazar una versión preparada antes de fusionar la siguiente pull request Version Packages.
 
 ## El changeset vacío que bloqueó una versión
 
@@ -360,7 +360,7 @@ if (changesets.length > 0) {
 }
 ```
 
-Si hay algún changeset pendiente y todos están vacíos, el modo es `none`, y el plan de publicación, que habría descubierto que la 0.1.0-beta.5 faltaba en npm, nunca se calcula. En sus propios términos, es razonable: un changeset vacío significa «no publiques nada». Combinado con una pull request de versión fusionada antes de reconstruirse, supuso una versión que se generó y nunca se publicó.
+Si hay algún changeset pendiente y todos están vacíos, el modo es `none`, y el plan de publicación, que habría descubierto que la 0.1.0-beta.5 faltaba en npm, nunca se calcula. Según su propia lógica, es razonable: un changeset vacío significa «no publiques nada». Combinado con una pull request de versión fusionada antes de reconstruirse, supuso una versión que se generó y nunca se publicó.
 
 ### La corrección y las reglas
 
@@ -394,7 +394,7 @@ concurrency:
   queue: max
 ```
 
-Nuestro flujo de trabajo de publicación funciona así, de modo que cada push a una rama de publicación recibe su propia ejecución completa, en orden. La secuencia del changeset vacío muestra la otra cara de esa garantía: una ejecución en cola decide a partir de su propio commit, incluso cuando ese commit ya es historia en el momento en que se ejecuta. Poner en cola conserva todas las ejecuciones; no hace actual la decisión de una ejecución antigua.
+Nuestro flujo de trabajo de publicación funciona así, de modo que cada push a una rama de publicación recibe su propia ejecución completa, en orden. La secuencia del changeset vacío muestra la otra cara de esa garantía: una ejecución en cola decide a partir de su propio commit, incluso cuando ese commit ya es historia en el momento en que se ejecuta. Poner en cola conserva todas las ejecuciones; no pone al día la decisión de una ejecución antigua.
 
 ## Quién tiene cada llave
 
@@ -413,7 +413,7 @@ Los agentes llevan la publicación; el propietario tiene lo que no se puede desh
 
 El flujo de trabajo de publicación, la configuración de Changesets y los campos de los paquetes que deciden lo que llega a npm están en la lista de revisión humana del repositorio de la CLI, así que cada pull request que los cambia, como la que cambió cómo se registran las versiones, cita el visto bueno por escrito del propietario. El mismo archivo de instrucciones dice a los agentes que nunca publiquen ni ejecuten `npm trust`. Y ningún agente tiene una credencial de npm, porque no existe ninguna: todos los paquetes impiden publicar con tokens, y la única identidad automatizada que puede preparar versiones es el propio flujo de trabajo de publicación.
 
-La verificación no termina con la publicación. La suite del recorrido del cliente del sitio web se ejecuta con la programación <RepositoryFact name="journeySchedule" /> en UTC: compra cada plan en el sandbox de Polar sobre el despliegue de preview, y después lleva la CLI publicada, directamente desde npm, por la activación, los límites de máquinas, la desactivación y el reembolso que pone fin a la licencia:
+La verificación no termina con la publicación. La suite del recorrido del cliente del sitio web se ejecuta con la programación <RepositoryFact name="journeySchedule" /> en UTC: compra cada paquete en el sandbox de Polar, en el despliegue de preview, y después lleva la CLI publicada, directamente desde npm, por la activación, los límites de dispositivos, la desactivación y el reembolso que pone fin a la licencia:
 
 ```ts title="e2e/journey/cli.ts"
 const child = spawn("env", ["-i", ...variables, PACKAGE_MANAGER.NPM.exec, "--yes", CLI_PACKAGE_SPEC, ...inputs, "--json"], { cwd: home })
@@ -432,7 +432,7 @@ Una versión en npm es permanente, así que dar marcha atrás significa seguir a
 
 ## Lo que todavía no tenemos
 
-Fieles al espíritu del resto de la serie, aquí está dónde es débil nuestro propio proceso de publicación.
+Fieles al espíritu del resto de la serie, estos son los puntos débiles de nuestro propio proceso de publicación.
 
 - **Sin procedencia.** El repositorio es privado, así que los paquetes llevan la firma del registro de npm y ninguna atestación de procedencia.
 - **Todavía no hay canal estable.** `latest` sigue siendo la versión provisional, y cada comando que publicamos nombra la etiqueta <RepositoryFact name="cliReleaseChannel" />. La primera versión estable tiene que cambiar a la vez los README, las pruebas que los comprueban y los comandos del sitio web.
@@ -454,13 +454,13 @@ Fieles al espíritu del resto de la serie, aquí está dónde es débil nuestro 
 5. No queda ninguna versión preparada esperando aprobación.
 6. Fusiona la pull request de versión.
 7. Empaqueta una vez; ejecuta el programa compilado en cada sistema y runtime que admites; prepara la versión solo si todo ha pasado.
-8. Sube y vuelve a leer todo lo que vaya a descargar la CLI, y verifícalo frente al resumen fijado, antes de preparar.
+8. Sube y vuelve a leer todo lo que vaya a descargar la CLI, y verifícalo frente al hash fijado, antes de preparar.
 9. Aprueba todos los paquetes de la versión con autenticación de dos factores, o recházala.
 10. Crea las etiquetas y las Releases cuando el registro sirva todos los paquetes de la versión.
 11. Instala desde el registro en un directorio limpio y ejecuta la CLI.
 12. Publica las notas de la versión, y señala todo lo que se preparó y nunca se publicó.
 
-**Un job de preparación**, un ejemplo genérico escrito a partir de la documentación de npm para un repositorio sin Changesets, no el flujo de trabajo de la propia CLI. No necesita ningún token y se puede volver a ejecutar sin riesgo. Da por hecho un job `pack` que sube los tarballs como un artefacto llamado `tarballs`, un entorno llamado `release` y un trusted publisher en npmjs.com que nombra este archivo de flujo de trabajo, ese entorno y el permiso de solo preparar. Cada acción está fijada al commit de una release, con la etiqueta detrás, porque una etiqueta se puede mover y un job de publicación es el último sitio donde ejecutar código que no has revisado:
+**Un job de preparación**, un ejemplo genérico escrito a partir de la documentación de npm para un repositorio sin Changesets, no el flujo de trabajo de la propia CLI. No necesita ningún token y se puede volver a ejecutar sin riesgo. Da por hecho un job `pack` que sube los tarballs como un artefacto llamado `tarballs`, un entorno llamado `release` y un trusted publisher en npmjs.com que nombra este archivo de flujo de trabajo, ese entorno y el permiso de solo preparar. Cada acción está fijada al commit de una versión publicada, con la etiqueta detrás, porque una etiqueta se puede mover y un job de publicación es el último sitio donde ejecutar código que no has revisado:
 
 ```yaml
 stage:
@@ -526,7 +526,7 @@ git push origin "v$version"
 gh release create "v$version" --verify-tag --notes-file release-notes.md
 ```
 
-**Una descarga que se comprueba frente al servidor y frente al resumen fijado** antes de que nada la lea, un ejemplo genérico en TypeScript para Node:
+**Una descarga que se comprueba frente al servidor y frente al hash fijado** antes de que nada la lea, un ejemplo genérico en TypeScript para Node:
 
 ```ts
 import { createHash } from "node:crypto"
@@ -588,7 +588,7 @@ export const verifiedContent = (archive: Buffer, answer: BundleAnswer, pinned: s
   title="Lecciones de dirigir un equipo de agentes de programación con IA en una sola base de código"
   href="/blog/running-ai-coding-agents-in-parallel"
 >
-  El segundo artículo de esta serie: worktrees, una sola cola de merge, cómo hacerle un encargo a un agente y las primeras lecciones de
+  El segundo artículo de esta serie: worktrees, una sola merge queue, cómo hacerle un encargo a un agente y las primeras lecciones de
   publicar versiones de la CLI.
 </Card>
 
@@ -600,7 +600,7 @@ export const verifiedContent = (archive: Buffer, answer: BundleAnswer, pinned: s
 
 <Callout title="Lee las notas de la versión que hay detrás de este artículo">
 
-Las [notas de la versión](/docs/cli/releases) de la CLI recogen cada versión que se nombra aquí, incluida la 0.1.0-beta.3, en todos los idiomas, y la [guía de la CLI](/docs/cli) explica cómo ejecutar la actual. Para ver qué incluye una licencia, [compara los planes](/#pricing): un único pago desde <TierPrice tier="core" />, y cada tarjeta indica qué está disponible ya y qué está en camino.
+Las [notas de la versión](/docs/cli/releases) de la CLI recogen cada versión que se nombra aquí, incluida la 0.1.0-beta.3, en todos los idiomas, y la [guía de la CLI](/docs/cli) explica cómo ejecutar la actual. Para ver qué incluye una licencia, [compara los paquetes](/#pricing): un único pago desde <TierPrice tier="core" />, y cada tarjeta indica qué está disponible ya y qué está en camino.
 
 </Callout>
 

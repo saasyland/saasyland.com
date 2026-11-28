@@ -233,3 +233,31 @@ describe("check-content post dates", () => {
     expect(mdxProblems({ label: POST_LABEL, locale: "de-DE", source, target: source })).toEqual([])
   })
 })
+
+describe("check-content no-break spaces", () => {
+  const FRENCH_POST_LABEL = "blog/example.fr-FR.mdx"
+  const FRENCH_DOCS_LABEL = "docs/example.fr-FR.mdx"
+  const code = "\n\n```ts\nconst ok = flag ? 1 : 2\n```\n\n| Critère | Valeur |\n| :------ | -----: |\n| a | b |"
+  const source = page(`Run \`a ? b : c\` first.${code}`)
+  const french = (prose: string): string => page(`${prose}${code}`)
+
+  it.each([
+    { problems: [], prose: "Lancez `a ? b : c` d’abord : c’est rapide !" },
+    {
+      problems: [`${FRENCH_POST_LABEL} puts U+0020 before “:” where fr-FR needs a no-break space, U+00A0`],
+      prose: "Lancez `a ? b : c` d’abord : c’est rapide !",
+    },
+    {
+      problems: [`${FRENCH_POST_LABEL} puts U+0020 before “?” where fr-FR needs a no-break space, U+00A0`],
+      prose: "Lancez `a ? b : c` d’abord, vraiment\n?",
+    },
+  ])("checks the no-break spaces in the prose of a French post and never in its code or tables: $prose", ({ problems, prose }) => {
+    expect(mdxProblems({ label: FRENCH_POST_LABEL, locale: "fr-FR", source, target: french(prose) })).toEqual(problems)
+  })
+
+  it("leaves the French docs pages out until their copy is reviewed", () => {
+    const target = french("Lancez `a ? b : c` d’abord : c’est rapide !")
+
+    expect(mdxProblems({ label: FRENCH_DOCS_LABEL, locale: "fr-FR", source, target })).toEqual([])
+  })
+})

@@ -1,7 +1,10 @@
 import type { Locator, Page, Route } from "@playwright/test"
 
+import pricing from "../../messages/en-US/components.custom.pricing.json" with { type: "json" }
+import { MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
+import { PHONE_VIEWPORT, TEXT_LAYOUT_VIEWPORTS } from "../data/viewports"
 import { BADGE_INK_TOLERANCE_PX, META_ROW_TOLERANCE_PX, TITLE_GAP_TOLERANCE_PX, badgeLayout } from "../fixtures/badge-layout"
 import { expect, test } from "../fixtures/test"
 import { APP_NAVIGATION_WAIT_UNTIL } from "../pages/base-page"
@@ -26,6 +29,16 @@ const COURSE_BLOCK_VIEWPORTS = [
   { maxEmptyLines: 1, name: "desktop", viewport: { height: 720, width: 1280 } },
   { maxEmptyLines: 3, name: "phone", viewport: { height: 844, width: 390 } },
 ] as const
+
+const visibleTierBands = (page: Page): Promise<string[]> =>
+  page
+    .locator(`#${MARKETING_SECTION_IDS.PRICING} div.\\@container h3`)
+    .evaluateAll((names) =>
+      names.flatMap((name) => {
+        const band = name.parentElement?.previousElementSibling
+        return band instanceof HTMLElement && band.offsetHeight > 0 ? [band.textContent ?? ""] : []
+      }),
+    )
 
 const answerNoCourses = async (request: Route): Promise<void> => {
   const response = await request.fetch()
@@ -191,6 +204,37 @@ test.describe("landing page", () => {
         expect(Math.abs(gap - META_GAP_PX), label).toBeLessThanOrEqual(TITLE_GAP_TOLERANCE_PX)
       }
     }
+  })
+
+  test("each lesson in the course showcase shows its whole title, wrapping it rather than cutting it short", async ({ landingPage, page }) => {
+    for (const viewport of BADGE_VIEWPORTS) {
+      await page.setViewportSize(viewport)
+      await landingPage.goto()
+      const showcase = landingPage.courseShowcase()
+      await showcase.scrollIntoViewIfNeeded()
+      await expect(showcase.getByRole("link", { exact: true, name: TEST_COURSE.title["en-US"] })).toBeVisible()
+      await page.evaluate(async () => {
+        await document.fonts.ready
+      })
+
+      const cut = await showcase
+        .locator("[data-slot=lesson-title]")
+        .evaluateAll((titles) => titles.filter((title) => title.scrollWidth > title.clientWidth).map((title) => title.textContent))
+      expect(cut, `${String(viewport.width)}px`).toStrictEqual([])
+    }
+  })
+
+  test("the tier cards share the Recommended band's row in three columns, and on a phone only the recommended card opens with it", async ({
+    landingPage,
+    page,
+  }) => {
+    const [desktop] = TEXT_LAYOUT_VIEWPORTS
+    await page.setViewportSize(desktop)
+    await landingPage.goto()
+    expect(await visibleTierBands(page)).toStrictEqual(["", pricing.recommended, ""])
+
+    await page.setViewportSize(PHONE_VIEWPORT)
+    expect(await visibleTierBands(page)).toStrictEqual([pricing.recommended])
   })
 
   test("course tour plays in place from its poster", async ({ landingPage }) => {

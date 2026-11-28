@@ -3,7 +3,7 @@ title: "Módulos"
 description: "Um módulo é uma tabela do banco de dados: seu schema, suas constantes, seus schemas Zod, sua interface de tipos, seus casos de uso e os poucos arquivos de aspecto de que uma tabela pode precisar."
 ---
 
-`src/modules/<table>/` existe apenas para uma tabela real do banco de dados. A pasta espelha o schema do Drizzle, então criar uma pasta afirma que uma tabela existe. O código que atende a um recurso sem tabela própria vai para outro lugar: uma server function que lê o GitHub ou a coleção da documentação fica em `src/lib/<topic>.ts` ou na única rota que a usa, e a configuração de fornecedores fica em `src/integrations/<vendor>`.
+`src/modules/<table>/` existe apenas para uma tabela real do banco de dados. A pasta espelha o schema do Drizzle, então criar uma pasta afirma que uma tabela existe. O código que atende a um recurso sem tabela própria vai para outro lugar: uma função de servidor que lê o GitHub ou a coleção da documentação fica em `src/lib/<topic>.ts` ou na única rota que a usa, e a configuração de fornecedores fica em `src/integrations/<vendor>`.
 
 Os módulos são <RepositoryFact name="modules" />. `license` é dono de duas tabelas, `license` e `revoked_license_order`. `_core` não é um módulo: ele contém só a base sobre a qual todo módulo é construído, os códigos de erro, as constantes HTTP, os catálogos de locales, fusos horários, países e moedas, os campos Zod e as entradas de paginação, ordenação, busca e período. As constantes sobre as quais nenhum módulo é construído ficam em `src/data` e os helpers genéricos em `src/lib`.
 
@@ -19,7 +19,7 @@ Os módulos são <RepositoryFact name="modules" />. `license` é dono de duas ta
 | `<table>.types.ts`           | Uma interface com o nome do módulo                                                                          |
 | `<table>.utils.ts`           | Helpers da tabela, puros e seguros no navegador, a menos que leiam o ambiente do Worker                     |
 | `<table>.<concern>.ts`       | Mais um aspecto da tabela, como `lesson.access.ts` ou `video.delivery.ts`                                   |
-| `use-cases/<verb>-<noun>.ts` | Uma operação, com o nome da sua server function                                                             |
+| `use-cases/<verb>-<noun>.ts` | Uma operação, com o nome da sua função de servidor                                                          |
 | `__test__/`                  | Testes e fixtures dos arquivos acima                                                                        |
 
 ## Schema
@@ -107,7 +107,7 @@ export const COURSE_MUTATION_KEYS = {
 ```
 
 - Toda chave de query começa com o prefixo `ALL` do módulo, então um único `invalidateQueries({ queryKey: COURSE_QUERY_KEYS.ALL })` atualiza tudo o que o módulo serve. Veja [Busca de dados e cache](/docs/conventions/data-fetching).
-- As chaves de mutation são o nome do módulo e o nome da server function.
+- As chaves de mutation são o nome do módulo e o nome da função de servidor.
 - Os comprimentos de colunas e de entradas são nomeados aqui e compartilhados pelo schema e pelo schema Zod, como `VIDEO_TITLE_MAX_LENGTH` em `video.constants.ts`.
 - `<MODULE>_VALIDATION_PARAMS` contém os números que as mensagens de validação interpolam, como `{ slugTooLong: { max: SLUG_MAX_LENGTH } }`.
 - `scripts/repository-facts.ts` lê alguns arquivos de constantes, como `license.constants.ts`, enquanto o Vite carrega a própria configuração, quando o alias `~` ainda não é resolvido. Um arquivo assim importa outros arquivos do código-fonte por caminho relativo, como `license.constants.ts` importa `POLAR_WEBHOOK_EVENT` de `../../integrations/polar/polar.constants.ts`; as importações só de tipos são apagadas e podem manter o alias.
@@ -173,11 +173,11 @@ export interface Lesson {
 }
 ```
 
-As server functions, as mutation options e os formulários tipam a entrada como `Lesson["createLesson"]`. Ao adicionar um schema a `<table>.zod.ts`, adicione a chave dele aqui na mesma alteração. Nunca derive um tipo de entrada com `Parameters<typeof fn>[0]`, e nunca declare um alias local ou uma segunda interface `LessonInput`. Quando os componentes precisam da forma que uma leitura retorna, a interface também dá nome a ela, derivada da server function: `Course["listRow"]` é `Awaited<ReturnType<typeof getCourses>>["rows"][number]`.
+As funções de servidor, as mutation options e os formulários tipam a entrada como `Lesson["createLesson"]`. Ao adicionar um schema a `<table>.zod.ts`, adicione a chave dele aqui na mesma alteração. Nunca derive um tipo de entrada com `Parameters<typeof fn>[0]`, e nunca declare um alias local ou uma segunda interface `LessonInput`. Quando os componentes precisam da forma que uma leitura retorna, a interface também dá nome a ela, derivada da função de servidor: `Course["listRow"]` é `Awaited<ReturnType<typeof getCourses>>["rows"][number]`.
 
 ## Casos de uso
 
-Cada arquivo em `use-cases/` contém uma operação, com o nome da sua server function em kebab-case: `get-course-editor.ts` exporta `getCourseEditor` e `courseEditorQuery`, `update-course.ts` exporta `updateCourse` e `updateCourseMutation`. O padrão, o seu middleware e os seus erros estão em [Server functions e erros](/docs/conventions/server-functions). O [catálogo de módulos](/docs/reference/modules) e a [matriz de permissões](/docs/reference/permissions) mostram as tabelas de cada módulo, seus casos de uso e a chamada `authorized` de cada um, que `collectModuleTables` em `scripts/repository-facts.ts` lê do código no build, então um caso de uso novo aparece ali sem edição, e `src/__test__/module-tables.test.ts` falha quando o catálogo deixa de fora um arquivo de módulo fora do conjunto padrão.
+Cada arquivo em `use-cases/` contém uma operação, com o nome da sua função de servidor em kebab-case: `get-course-editor.ts` exporta `getCourseEditor` e `courseEditorQuery`, `update-course.ts` exporta `updateCourse` e `updateCourseMutation`. O padrão, o seu middleware e os seus erros estão em [Funções de servidor e erros](/docs/conventions/server-functions). O [catálogo de módulos](/docs/reference/modules) e a [matriz de permissões](/docs/reference/permissions) mostram as tabelas de cada módulo, seus casos de uso e a chamada `authorized` de cada um, que `collectModuleTables` em `scripts/repository-facts.ts` lê do código no build, então um caso de uso novo aparece ali sem edição, e `src/__test__/module-tables.test.ts` falha quando o catálogo deixa de fora um arquivo de módulo fora do conjunto padrão.
 
 Um caso de uso que roda apenas no servidor, chamado por um hook do Better Auth ou por um webhook da Polar, e não pelo navegador, é uma função `async` comum em um arquivo que começa com `import "@tanstack/react-start/server-only"`, como `license/use-cases/grant-license.ts` e os remetentes de e-mail `send-verify-email.ts`, `send-reset-password-email.ts` e `send-change-email-confirmation-email.ts`.
 
@@ -227,6 +227,6 @@ Siga [Adicionar um módulo](/docs/guides/add-a-module) passo a passo, partindo d
 
 ## Páginas relacionadas
 
-- [Server functions e erros](/docs/conventions/server-functions)
+- [Funções de servidor e erros](/docs/conventions/server-functions)
 - [Catálogo de módulos](/docs/reference/modules)
 - [Núcleo compartilhado](/docs/architecture/core)

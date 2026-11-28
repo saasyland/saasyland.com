@@ -38,6 +38,11 @@ const DOCS_TABLE_OF_CONTENTS = "#nd-toc"
 const DOCS_PAGE = `${ROUTES.DOCS.INDEX}/features/authentication`
 const BLOG_POST = `${ROUTES.BLOG.INDEX}/better-t-stack-vs-saas-starter-kit`
 const TAGGED_POST = "ai-coding-agents-repository-readiness"
+const LONG_HEADING_PAGES = [
+  { locale: "de-DE", path: `${ROUTES.BLOG.INDEX}/vercel-vs-cloudflare` },
+  { locale: "ja-JP", path: `${ROUTES.BLOG.INDEX}/ai-coding-agents-repository-readiness` },
+  { locale: "ja-JP", path: `${ROUTES.DOCS.INDEX}/architecture/providers` },
+] as const satisfies readonly { locale: SupportedLocale; path: string }[]
 const DOCS_MENU = "nd-sidebar-mobile"
 const SONNER_HOTKEY = "alt+T"
 const STICKY_BARS = 2
@@ -350,5 +355,20 @@ test.describe("docs on a phone", () => {
     await expect(page.getByRole("contentinfo")).toHaveCount(1)
     await page.getByRole("contentinfo").scrollIntoViewIfNeeded()
     await expect(page.getByRole("contentinfo")).toBeVisible()
+  })
+
+  test("keep a docs page or post inside the screen when a heading holds a German word or a Japanese phrase wider than the column", async ({
+    page,
+  }) => {
+    for (const { locale, path } of LONG_HEADING_PAGES) {
+      const pathname = localizePathname({ locale, pathname: path })
+      await page.goto(pathname, { waitUntil: APP_NAVIGATION_WAIT_UNTIL })
+      await new BasePage(page).waitForAppReady()
+      await page.evaluate(async () => {
+        await document.fonts.ready
+      })
+
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), pathname).toBeLessThanOrEqual(0)
+    }
   })
 })

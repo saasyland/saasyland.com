@@ -49,3 +49,5 @@ export const CONSULTING_HOURLY_RATE = 149
 export const ILLUSTRATIVE_HOURLY_RATE = 150
 
 export const AUTH_COST_PER_USER = 0
+
+export const FIRST_REVENUE_MILESTONE = 100

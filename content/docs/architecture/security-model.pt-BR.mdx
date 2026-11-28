@@ -1,6 +1,6 @@
 ---
 title: "Autenticação e segurança"
-description: "Como o acesso é garantido nas rotas e nas server functions, e como sessões, rate limits e erros são protegidos."
+description: "Como o acesso é garantido nas rotas e nas funções de servidor, e como sessões, rate limits e erros são protegidos."
 ---
 
 ## Duas camadas de controle de acesso
@@ -15,7 +15,7 @@ description: "Como o acesso é garantido nas rotas e nas server functions, e com
 | `redirectIfVerified` | `/auth/verify-email`           | Envia uma sessão com endereço confirmado para `redirect` ou, conforme o papel, para `/admin` ou `/app` |
 | `redirectAfterAuth`  | `/auth/callback`               | Envia o usuário para `redirect` ou, conforme o papel, para `/admin` ou `/app` depois da autenticação   |
 
-Os guards só decidem o que o usuário vê. Quem protege os dados é o **middleware das server functions**, em `auth.middleware.ts`, porque qualquer server function pode ser chamada sem passar pela sua página:
+Os guards só decidem o que o usuário vê. Quem protege os dados é o **middleware das funções de servidor**, em `auth.middleware.ts`, porque qualquer função de servidor pode ser chamada sem passar pela sua página:
 
 - `authorized()` carrega a sessão da requisição e lança `UNAUTHORIZED` quando não há sessão.
 - `authorized({ user: ["ban"] })` também verifica as permissões do papel, que `auth.access.ts` declara, e lança `FORBIDDEN`.
@@ -26,7 +26,7 @@ Os guards só decidem o que o usuário vê. Quem protege os dados é o **middlew
 - O Better Auth armazena as sessões no D1 e usa o prefixo de cookie `saasyland`, com cookies seguros fora dos builds de desenvolvimento e de teste.
 - `getRequestSession` ignora o cache de cookie e memoiza a sessão pelo restante da requisição.
 - A sessão enviada ao navegador não inclui o token.
-- `tanstackStartCookies` é o último plugin do Better Auth, para que os cookies definidos durante uma server function cheguem à resposta.
+- `tanstackStartCookies` é o último plugin do Better Auth, para que os cookies definidos durante uma função de servidor cheguem à resposta.
 - Os hosts permitidos são fixos por modo de build: `saasyland.com` em produção, `preview.saasyland.com` em preview, `localhost:3000` e `127.0.0.1:3000` em desenvolvimento e, em teste, também `localhost` e `127.0.0.1` nas portas <RepositoryFact name="testServerFirstPort" /> a <RepositoryFact name="testServerLastPort" />, para que vários worktrees possam rodar a suíte de navegador ao mesmo tempo.
 
 O Better Auth também cuida da verificação de e-mail (uma conta nova entra na hora; a chave de licença, o portal do cliente, as aulas pagas e um login posterior com senha esperam o endereço confirmado), da redefinição de senha (que revoga as sessões existentes), do OAuth com GitHub e Google (com os tokens criptografados em repouso), da autenticação de dois fatores e da personificação de usuários pelo admin. Os identificadores de verificação são armazenados como hash.
@@ -51,11 +51,11 @@ Os pacotes de templates da CLI também ficam em um bucket R2 privado. A API de l
 
 ## Erros e entrada
 
-- Server functions que recebem entrada a analisam com um schema Zod antes de o handler rodar.
+- As funções de servidor que recebem entrada a analisam com um schema Zod antes de o handler rodar.
 - Os endpoints do próprio Better Auth seguem as mesmas regras dos formulários: `enforceInputPolicy` em `auth.hooks.ts` roda antes de todo endpoint que aceita uma senha, um nome, um e-mail ou uma imagem e responde `400` com `VALIDATION_ERROR` quando o body não passa no schema.
 - `withRequest` transforma erros inesperados em `INTERNAL_ERROR` e registra o erro original no servidor, para que detalhes internos nunca cheguem ao cliente.
 - Os webhooks da Polar são verificados com `POLAR_WEBHOOK_SECRET` antes de qualquer alteração de licença.
-- Os secrets são lidos de `cloudflare:workers` apenas por código de servidor: módulos exclusivos do servidor, handlers de server functions e helpers que só eles importam. `scripts/verify-build.ts` faz o build falhar quando um asset do cliente importa `cloudflare:workers`.
+- Os secrets são lidos de `cloudflare:workers` apenas por código de servidor: módulos exclusivos do servidor, handlers de funções de servidor e helpers que só eles importam. `scripts/verify-build.ts` faz o build falhar quando um asset do cliente importa `cloudflare:workers`.
 - As áreas privadas (`/admin`, `/app`, `/auth`, `/newsletter`) nunca são pré-renderizadas, nem as páginas de cursos, que mostram os bloqueios e o progresso de cada espectador.
 
 ## Páginas relacionadas

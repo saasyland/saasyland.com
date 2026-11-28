@@ -1,6 +1,7 @@
 import type { JSX } from "react"
 
 import { ADMIN_DASHBOARD_PREVIEW_PAGINATION, DASHBOARD_COLUMN_SIZES } from "~/src/data/admin"
+import { COURSE_PROGRESS_COLUMN_SIZES } from "~/src/data/admin-courses"
 
 import { Skeleton } from "~/src/presentation/components/shadcn/skeleton"
 
@@ -13,7 +14,7 @@ const COLUMNS = [
   ...COUNTED.map((count) => ({
     cell: <Skeleton className="ml-auto h-lh w-6 scale-y-70 text-sm" />,
     id: count,
-    width: DASHBOARD_COLUMN_SIZES.count,
+    width: COURSE_PROGRESS_COLUMN_SIZES[count],
   })),
 ]
 

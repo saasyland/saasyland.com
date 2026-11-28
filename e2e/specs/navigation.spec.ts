@@ -9,6 +9,7 @@ import blog from "../../messages/en-US/pages.blog.json" with { type: "json" }
 import courses from "../../messages/en-US/pages.courses.json" with { type: "json" }
 import { localizePathname } from "../../src/integrations/use-intl/i18n.paths"
 import { DOCS_CONTENT_ID, MARKETING_SECTION_IDS } from "../../src/data/navigation.constants"
+import { MILLISECONDS_PER_DAY } from "../../src/lib/duration"
 import { ROUTES } from "../../src/routes"
 import { TEST_COURSE, TEST_LESSONS } from "../data/courses"
 import { expect, test } from "../fixtures/test"
@@ -562,6 +563,12 @@ const waitForHeaderPreloads = async (page: Page, path: string): Promise<void> =>
   await Promise.all(HEADER_DESTINATIONS.map(async (to) => expect.poll(() => isPreloaded(page, to)).toBe(true)))
 }
 
+const BUILD_AGE_DAYS = 7
+const BUILD_AGES = [
+  { age: 0, when: "just after the build" },
+  { age: BUILD_AGE_DAYS * MILLISECONDS_PER_DAY, when: `${String(BUILD_AGE_DAYS)} days after the build prerendered the page` },
+]
+
 const holdServerFunctions = async (page: Page): Promise<() => void> => {
   const held = Promise.withResolvers<void>()
   await page.route(SERVER_FUNCTION, async (route) => {
@@ -596,15 +603,18 @@ test.describe("the header's pages", () => {
     release()
   })
 
-  test("are not loaded ahead of a click for a visitor who has turned on data saver", async ({ page }) => {
-    const requests = serverFunctionRequests(page)
-    await page.addInitScript(turnOnDataSaver)
+  for (const { age, when } of BUILD_AGES) {
+    test(`are not loaded ahead of a click for a visitor who has turned on data saver, ${when}`, async ({ page }) => {
+      const requests = serverFunctionRequests(page)
+      await page.addInitScript(turnOnDataSaver)
+      await page.clock.setSystemTime(Date.now() + age)
 
-    await visit(page, ROUTES.HOME)
-    await page.waitForLoadState("networkidle")
+      await visit(page, ROUTES.HOME)
+      await page.waitForLoadState("networkidle")
 
-    expect(requests).toEqual([])
-  })
+      expect(requests).toEqual([])
+    })
+  }
 })
 
 test.describe("a link preloaded on hover", () => {

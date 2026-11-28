@@ -1,16 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vite-plus/test"
 
 import { MotionProvider } from "~/src/providers/motion-provider"
 
 import { HighlightGroup, HighlightItem } from "~/src/presentation/components/custom/highlight"
 
+const glowOf = (item: Element): Element | null => item.querySelector(":scope > [aria-hidden]")
+
 describe("group highlights", () => {
   it.each([
     { element: "div", item: "DIV" },
     { element: "dl", item: "DIV" },
     { element: "ul", item: "LI" },
-  ] as const)("moves and clears the highlight in a $element group", ({ element, item }) => {
+  ] as const)("moves the highlight in a $element group without lifting the item it lights, and clears it", async ({ element, item }) => {
     const { container } = render(
       <MotionProvider>
         <HighlightGroup className="group" element={element} name="specifications">
@@ -28,16 +30,18 @@ describe("group highlights", () => {
     if (!first || !second) {
       throw new Error("Highlight items missing")
     }
-    expect(container.querySelector(`${element}.group`)).toBeInTheDocument()
+    expect(container.querySelector(`${element}.group`)).toHaveClass("isolate")
     expect(first.tagName).toBe(item)
-    expect(first).not.toHaveClass("z-10")
+    expect(glowOf(first)).toBeNull()
     fireEvent.mouseEnter(first)
-    expect(first).toHaveClass("z-10")
+    expect(glowOf(first)).toHaveClass("z-10")
     fireEvent.mouseEnter(second)
-    expect(second).toHaveClass("z-10")
-    expect(first).not.toHaveClass("z-10")
+    expect(glowOf(second)).toHaveClass("z-10")
+    expect([...second.classList].filter((name) => name.startsWith("z-"))).toStrictEqual([])
     fireEvent.mouseLeave(second)
-    expect(second).not.toHaveClass("z-10")
+    await waitFor(() => {
+      expect(glowOf(second)).toBeNull()
+    })
   })
 
   it("allows a standalone item without adding hover state", () => {
@@ -48,6 +52,6 @@ describe("group highlights", () => {
     )
     const item = screen.getByText("Standalone")
     fireEvent.mouseEnter(item)
-    expect(item.closest(".item")).not.toHaveClass("z-10")
+    expect(item.closest(".item")?.querySelector(":scope > [aria-hidden]")).toBeNull()
   })
 })

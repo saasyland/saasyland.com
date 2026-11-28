@@ -46,7 +46,7 @@ const t = useTranslations("pages.admin.courses.form")
 
 - キーはキャメルケースの名前を持つ入れ子の JSON オブジェクトで、画面の構成に合わせてグループ化します（`table.headers.course`、`delete.confirm`）。
 - 複数形、数値、日付には、コード内での文字列連結ではなく、メッセージ内の ICU 構文を使います（`"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`）。
-- `scripts/check-message-formats.ts` は、すべてのロケールで同じ ICU 引数とタグを要求し、英語のメッセージにあるファイルパスと `bun run`、`bunx`、`npx`、`vp` のコマンドはすべてそのまま残すことを求めます。ほかのロケールに残った英語のテキスト、メッセージでは描画されない Markdown のバッククォート、ロケールが使わない[文体](#one-form-of-address)は拒否します。
+- `scripts/check-message-formats.ts` は、すべてのロケールで同じ ICU 引数とタグを要求し、英語のメッセージにあるファイルパスと `bun run`、`bunx`、`npx`、`vp` のコマンドはすべてそのまま残すことを求めます。ほかのロケールに残った英語のテキスト、メッセージでは描画されない Markdown のバッククォート、ロケールが使わない[文体](#one-form-of-address)は拒否します。ロケールが[ノーブレークスペース](#no-break-spaces)を求める位置に通常のスペースがある場合も失敗します。
 - 数値、日付、通貨は、use-intl の `useFormatter` を使って読者のロケールに合わせてフォーマットし、手作業でフォーマットしてはいけません。日付には `I18N.FORMATS` の名前付きフォーマット（`date`、`time`、`calendarDate`）を使うため、タイムゾーンとその表記が一貫します。名前付きフォーマットは日付か時刻のどちらか一方だけを持ちます。エンジンによって 2 つのつなぎ方が異なり、サーバーが「Jan 1, 2025, 7:00 AM」と書くところを Safari は「Jan 1, 2025 at 7:00 AM」と書くため、時刻付きの日付は `t("common.dateTime", { value })` のように `common.dateTime` メッセージで表示します。相対時間は、データを読み込んだ時点、つまりクエリの `dataUpdatedAt` から `format.relativeTime(session.updatedAt, dataUpdatedAt)` のように数えます。サーバーとブラウザは別々の時点で読むため、`new Date()` から数えてはいけません。価格も数値です。`TierPrice` と同じように、`format.number(TIER_PRICES[tier], CURRENCY_FORMAT)` がストアの通貨で表示します。
 - モジュールのスキーマにある Zod のメッセージは、そのモジュールの `<table>.validations` 名前空間のキー（`"slugInvalid"`）で、メッセージに含まれる数値は `<MODULE>_VALIDATION_PARAMS` から取ります。[フォームとテーブル](/docs/conventions/forms-and-tables)を参照してください。
 - データベースに保存し、訪問者が複数の言語で読むテキストは `LocalizedText` カラムにします。英語は必須で、翻訳がない場合に `localize(text, locale)` が返すフォールバックになります。
@@ -66,6 +66,14 @@ const t = useTranslations("pages.admin.courses.form")
 - **節の頭で使わない語** の語は、行、見出し、箇条書きの項目、文の先頭、コロンやセミコロンの後、そしてそのロケールの **節を始める語** の後に来ると失敗します。そこから始まる節は主節で、その形は命令形にしかならないためです。`Ejecuta la suite` に対する `Ejecute la suite` がその例です。
 
 ドイツ語は Duden が推奨する小文字の du で語りかけ、法的ページも同じです。呼びかけの形に法的な効果はありません。ポーランド語は敬意を示すために Ty と Twój を大文字で書きます。日本語の文は です・ます で終わり、見出し、箇条書きの項目、表のセル、キャッチコピーは名詞や動詞の普通形で終わってもかまいませんが、普通体のコピュラで終わることはありません。チェックが見つけるのは、曖昧さのない代名詞、語尾、命令形です。文の意味によってしか区別できない動詞の形は、レビューで確認します。たとえばスペイン語の `espera a que arranque y ejecute la suite` の `ejecute` は、サーバーがスイートを実行するなら接続法、読み手が実行するなら丁寧な命令形です。
+
+## ノーブレークスペース [#no-break-spaces]
+
+フランス語は一部の句読点の前と引用符の内側にスペースを入れます。このスペースはノーブレークスペース（U+00A0）でなければならず、そうでないと記号だけが次の行の先頭に送られることがあります。`src/lib/no-break-spaces.ts` の `NO_BREAK_SPACES` は、ロケールごとに前後へこのスペースを置く記号を列挙し、`scripts/check-message-formats.ts` は、そこに通常のスペースか、サイトの書体 Geist にグリフがない狭いノーブレークスペース（U+202F）を置いたメッセージで失敗します。
+
+<RepositoryTable name="noBreakSpaces" columns={["ロケール", "前", "後"]} />
+
+このチェックが読むのはメッセージだけです。ドキュメントのページ、ブログ記事、変更履歴のエントリーは、フランス語のテキストを見直すまで対象外のため、これらの記号の前に通常のスペースが残っているものもあります。
 
 ## 数値は手入力せず計測する
 

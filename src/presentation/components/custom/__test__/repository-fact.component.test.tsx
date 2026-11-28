@@ -41,6 +41,7 @@ import { MILLISECONDS_PER_HOUR, MILLISECONDS_PER_MINUTE, MILLISECONDS_PER_SECOND
 import { FORMS_OF_ADDRESS } from "~/src/lib/forms-of-address"
 import { STAR_COUNT_FETCH_TIMEOUT_MS, STAR_COUNT_REFRESH_AFTER_MS } from "~/src/lib/github"
 import { IDLE_FALLBACK_DELAY_MS } from "~/src/lib/idle-preload"
+import { NO_BREAK_SPACES } from "~/src/lib/no-break-spaces"
 import { REPOSITORY_FACTS } from "~/src/lib/repository-facts"
 
 import { tableRows } from "~/src/presentation/components/custom/__test__/fixtures/repository-table"
@@ -285,6 +286,16 @@ describe("RepositoryTable", () => {
         new Intl.ListFormat("pl-PL").format(countries),
       ]),
     )
+  })
+
+  it("prints the marks that take a no-break space in the locales that have any", () => {
+    const columns = ["Locale", "Before", "After"]
+
+    renderInLocale("en-US", <RepositoryTable columns={columns} name="noBreakSpaces" />)
+
+    expect(tableRows().slice(1)).toEqual([
+      ["fr-FR", englishList(NO_BREAK_SPACES["fr-FR"].before), englishList(NO_BREAK_SPACES["fr-FR"].after)],
+    ])
   })
 
   it("prints the form of address of every translated locale with the forms its check rejects", () => {

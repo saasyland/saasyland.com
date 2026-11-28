@@ -46,7 +46,7 @@ A word used only elsewhere, such as a glossary term or a string inside another c
 
 - Keys are nested JSON objects with camelCase names, grouped the way the screen is: `table.headers.course`, `delete.confirm`.
 - Plurals, numbers and dates use ICU syntax inside the message, never string concatenation in code: `"{e2eSpecs, plural, one {# Playwright suite} other {# Playwright suites}}"`.
-- `scripts/check-message-formats.ts` requires the same ICU arguments and tags in every locale, and the English message's file paths and `bun run`, `bunx`, `npx` or `vp` commands character for character. It rejects English text left in another locale, Markdown backticks, which messages do not render, and a [form of address](#one-form-of-address) that the locale does not use.
+- `scripts/check-message-formats.ts` requires the same ICU arguments and tags in every locale, and the English message's file paths and `bun run`, `bunx`, `npx` or `vp` commands character for character. It rejects English text left in another locale, Markdown backticks, which messages do not render, and a [form of address](#one-form-of-address) that the locale does not use. It also fails an ordinary space where the locale needs a [no-break space](#no-break-spaces).
 - Format numbers, dates and currencies for the reader's locale with `useFormatter` from use-intl, never by hand. Dates use a named format from `I18N.FORMATS` (`date`, `time`, `calendarDate`), so the time zone and the zone label stay consistent. A named format holds a date or a time, never both: engines join the two differently, and Safari writes “Jan 1, 2025 at 7:00 AM” where the server writes “Jan 1, 2025, 7:00 AM”, so a date with its time is the `common.dateTime` message, as in `t("common.dateTime", { value })`. A relative time counts from when its data was read, the `dataUpdatedAt` of its query, as in `format.relativeTime(session.updatedAt, dataUpdatedAt)`, never from `new Date()`, which the server and the browser read at different moments. A price is a number too: `format.number(TIER_PRICES[tier], CURRENCY_FORMAT)` prints it in the store's currency, as `TierPrice` does.
 - Zod messages in a module's schemas are keys of its `<table>.validations` namespace (`"slugInvalid"`), and the numbers they mention come from `<MODULE>_VALIDATION_PARAMS`. See [Forms and tables](/docs/conventions/forms-and-tables).
 - Text stored in the database that visitors read in several languages is a `LocalizedText` column. English is required and is the fallback that `localize(text, locale)` returns for a missing translation.
@@ -66,6 +66,14 @@ Every locale addresses the reader one way, in every message, email, legal page, 
 - A word under **Never starting a clause** fails at the start of a line, a heading, a list item or a sentence, after a colon or a semicolon, and after one of the locale's **Clause openers**. A clause that starts there is a main clause, where the form can only be an imperative, as in `Ejecute la suite` for `Ejecuta la suite`.
 
 German says du, in lowercase as Duden recommends, and the legal pages do too: the form of address has no legal effect. Polish capitalises Ty and Twój as a courtesy. Japanese ends its sentences in です・ます, while headings, list items, table cells and taglines may end in a noun or a plain verb, never in the plain copula. The check finds the pronouns, endings and imperatives that are unambiguous; a verb form that only the meaning of the sentence tells apart is for the reviewer, such as Spanish `ejecute` in `espera a que arranque y ejecute la suite`, a subjunctive when the server runs the suite and a formal imperative when the reader does.
+
+## No-break spaces
+
+French puts a space before some punctuation marks and inside its quotation marks, and that space has to be a no-break space, U+00A0, or the mark can start the next line on its own. `NO_BREAK_SPACES` in `src/lib/no-break-spaces.ts` lists the marks of each locale that take one before or after them, and `scripts/check-message-formats.ts` fails a message that puts an ordinary space there, or the narrow no-break space, U+202F, which Geist, the site's typeface, has no glyph for.
+
+<RepositoryTable name="noBreakSpaces" columns={["Locale", "Before", "After"]} />
+
+The check reads the messages only. Docs pages, blog posts and changelog entries are left out of it until their French copy is reviewed, so some of them still put an ordinary space before these marks.
 
 ## Numbers are measured, not typed
 

@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { executeMutation } from "~/src/platform/testing/lib/query"
 import { getSentEmails } from "~/src/platform/testing/mocks/resend"
 
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
+
 import { ERROR_CODES } from "~/src/modules/_core/constants/errors"
 import {
   NEWSLETTER_EMAIL_PURPOSE,
@@ -16,6 +18,7 @@ import {
   confirmNewsletterSubscriptionMutation,
 } from "~/src/modules/newsletter-subscriber/use-cases/confirm-newsletter-subscription"
 
+import notificationMessages from "~/messages/en-US/emails.newsletter-notification-email.json"
 import { CONTACT_EMAIL, NOTIFICATIONS_EMAIL } from "~/src/presentation/branding"
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex")
@@ -24,6 +27,7 @@ const HEADERS = new Headers()
 
 const TOKEN = "d".repeat(NEWSLETTER_TOKEN_LENGTH)
 const ADDRESS = "ada@example.com"
+const POLISH: SupportedLocale = "pl-PL"
 
 const dbMocks = vi.hoisted(() => {
   const returning = vi.fn<() => Promise<{ email: string; locale: string }[]>>()
@@ -69,6 +73,19 @@ describe("confirm-newsletter-subscription", () => {
         to: [CONTACT_EMAIL],
       }),
     ])
+  })
+
+  it("writes the owner notification in the default language and names the language the subscriber chose", async () => {
+    expect.hasAssertions()
+    mockMatchingToken()
+    dbMocks.returning.mockResolvedValue([{ email: ADDRESS, locale: POLISH }])
+
+    await confirmNewsletterSubscription({ data: { token: TOKEN } })
+
+    const [notification] = getSentEmails(CONTACT_EMAIL)
+    expect(notification?.subject).toBe(notificationMessages.subject)
+    expect(notification?.html).toContain(`lang="${I18N.DEFAULT_LOCALE}"`)
+    expect(notification?.html).toContain(`${ADDRESS} confirmed a subscription from the ${POLISH} landing page.`)
   })
 
   it("burns the token so the link works once", async () => {

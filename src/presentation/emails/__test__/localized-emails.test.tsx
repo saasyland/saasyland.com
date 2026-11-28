@@ -3,7 +3,7 @@ import { createTranslator } from "use-intl"
 import { expect, it } from "vite-plus/test"
 
 import { AUTH_PROVIDER, EMAIL_LINK_LIFETIME_HOURS } from "~/src/integrations/better-auth/auth.constants"
-import { I18N } from "~/src/integrations/use-intl/i18n.config"
+import { I18N, type SupportedLocale } from "~/src/integrations/use-intl/i18n.config"
 import { loadNamespace } from "~/src/integrations/use-intl/i18n.messages"
 
 import { WITHDRAWAL_CHANNELS, WITHDRAWAL_ELIGIBILITIES } from "~/src/modules/withdrawal/withdrawal.constants"
@@ -12,6 +12,7 @@ import { CLI_SETUP_LINES } from "~/src/data/cli"
 
 import type changeEmailMessages from "~/messages/en-US/emails.change-email-confirmation-email.json"
 import type existingAccountMessages from "~/messages/en-US/emails.existing-account-email.json"
+import type newsletterNotificationMessages from "~/messages/en-US/emails.newsletter-notification-email.json"
 import type passwordChangedMessages from "~/messages/en-US/emails.password-changed-email.json"
 import type purchaseConfirmationMessages from "~/messages/en-US/emails.purchase-confirmation-email.json"
 import type resetPasswordMessages from "~/messages/en-US/emails.reset-password-email.json"
@@ -22,6 +23,7 @@ import type withdrawalNotificationMessages from "~/messages/en-US/emails.withdra
 import { APP_NAME, CONTACT_EMAIL } from "~/src/presentation/branding"
 import { ChangeEmailConfirmationEmail } from "~/src/presentation/emails/change-email-confirmation-email"
 import { EXISTING_ACCOUNT_EMAIL_NAMESPACE, ExistingAccountEmail } from "~/src/presentation/emails/existing-account-email"
+import { NEWSLETTER_NOTIFICATION_NAMESPACE, NewsletterNotificationEmail } from "~/src/presentation/emails/newsletter-notification-email"
 import { PASSWORD_CHANGED_EMAIL_NAMESPACE, PasswordChangedEmail } from "~/src/presentation/emails/password-changed-email"
 import { PURCHASE_CONFIRMATION_EMAIL_NAMESPACE, PurchaseConfirmationEmail } from "~/src/presentation/emails/purchase-confirmation-email"
 import { ResetPasswordEmail } from "~/src/presentation/emails/reset-password-email"
@@ -201,6 +203,24 @@ it.each(I18N.SUPPORTED_LOCALES)(
     for (const value of ["ord_unmatched", "Agency", "guest@example.test", "Grace Hopper", `href="${polarUrl}"`]) {
       expect(html).toContain(value)
     }
+    expect(html).not.toMatch(/\{\w+\}/u)
+  },
+)
+
+const SUBSCRIBER_LOCALE: SupportedLocale = "uk-UA"
+
+it.each(I18N.SUPPORTED_LOCALES)(
+  "renders the newsletter notification in %s with the subscriber's address and the language they chose",
+  async (locale) => {
+    const messages = await loadNamespace<typeof newsletterNotificationMessages>({ locale, namespace: NEWSLETTER_NOTIFICATION_NAMESPACE })
+
+    const html = await render(
+      <NewsletterNotificationEmail email="ada@example.test" locale={locale} messages={messages} subscriberLocale={SUBSCRIBER_LOCALE} />,
+    )
+
+    expect(html).toContain(`lang="${locale}"`)
+    expect(html).toContain(messages.heading)
+    expect(html).toContain(createTranslator({ locale, messages })("body", { email: "ada@example.test", locale: SUBSCRIBER_LOCALE }))
     expect(html).not.toMatch(/\{\w+\}/u)
   },
 )

@@ -49,16 +49,19 @@ export const confirmNewsletterSubscription = createServerFn({ method: "POST" })
     }
 
     try {
-      const messages = await loadNamespace<typeof notificationMessages>({
-        locale: I18N.DEFAULT_LOCALE,
-        namespace: NEWSLETTER_NOTIFICATION_NAMESPACE,
-      })
+      const locale = I18N.DEFAULT_LOCALE
+      const messages = await loadNamespace<typeof notificationMessages>({ locale, namespace: NEWSLETTER_NOTIFICATION_NAMESPACE })
 
       await sendEmail({
         from: NOTIFICATIONS_EMAIL,
         idempotency: { purpose: NEWSLETTER_EMAIL_PURPOSE.NEWSLETTER_NOTIFICATION, token },
-        react: createElement(NewsletterNotificationEmail, { email: confirmed.email, locale: confirmed.locale, messages }),
-        subject: createTranslator({ locale: I18N.DEFAULT_LOCALE, messages })("subject"),
+        react: createElement(NewsletterNotificationEmail, {
+          email: confirmed.email,
+          locale,
+          messages,
+          subscriberLocale: confirmed.locale,
+        }),
+        subject: createTranslator({ locale, messages })("subject"),
         to: CONTACT_EMAIL,
       })
     } catch (error) {

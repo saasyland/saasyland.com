@@ -1,6 +1,6 @@
 ---
 title: "認証フロー"
-description: "サインイン、メール認証を伴うサインアップ、パスワードリセット、二要素認証、OAuth、サインアウトの仕組みを説明します。"
+description: "サインイン、メール認証を伴うサインアップ、パスワードリセット、二段階認証、OAuth、サインアウトの仕組みを説明します。"
 ---
 
 Better Auth（`src/integrations/better-auth/auth.server.ts`）は、ユーザー、セッション、検証トークンを D1 に保存し、そのエンドポイントを `/api/auth` 配下で提供します。認証ページは `/auth` レイアウトの下にあり、そのフォームは `src/presentation/components/custom/auth/` にあります。
@@ -23,7 +23,7 @@ Better Auth（`src/integrations/better-auth/auth.server.ts`）は、ユーザー
 
 1. `SignInForm` が、Better Auth クライアントの `signIn.email` を呼び出します。
 2. 拒否されたときのメッセージは、次の試行までボタンの上に表示されたままになります。メールアドレスまたはパスワードが違う場合は、入力したアドレスと `redirect` を付けた `/auth/forgot-password` へのリンクと、GitHub と Google を案内します。アドレスが未確認のアカウントには `EMAIL_NOT_VERIFIED` が返されます。Better Auth はサインインページのロケールとその `redirect` で新しい認証リンクを送信し（`sendOnSignIn`）、フォームはメールアドレス、`redirect`、`unverified` を付けて `/auth/verify-email` を開きます。
-3. 二要素認証が有効なアカウントは `twoFactorRedirect` を受け取り、`SignInForm` が `redirect` を保持したまま `/auth/two-factor` を開きます。
+3. 二段階認証が有効なアカウントは `twoFactorRedirect` を受け取り、`SignInForm` が `redirect` を保持したまま `/auth/two-factor` を開きます。
 4. 成功すると、`useAuthRedirect` の `finishSignIn` がクエリキャッシュから前のユーザーのデータを削除し、ルーターのキャッシュをクリアして `/auth/callback` に遷移し、そこから `redirect`、またはロールに応じたワークスペースへ進みます。
 
 Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` の `?error=` として届き、`auth.errors` のメッセージで表示されます。
@@ -43,7 +43,7 @@ Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` �
 2. Better Auth が `sendResetPasswordEmail` を呼び出します。これは 1 つのアドレスに 1 時間あたり最大 <RepositoryFact name="recipientEmailsPerHour" /> 通までリセットメールを送信します。メールで送られたリンクは Better Auth を経由して `/auth/reset-password?token=…` にリダイレクトされます。トークンが無効または期限切れの場合は、`error` 付きでリダイレクトされます。
 3. `ResetPasswordForm` が `resetPasswordMutation` を通じて新しいパスワードを送信します。Better Auth は既存のすべてのセッションを無効化し（`revokeSessionsOnPasswordReset: true`）、`onPasswordReset` がパスワード変更の通知をメールで送信し、フォームは `redirect` を保持したままサインインページに遷移します。
 
-## 二要素認証
+## 二段階認証
 
 - 有効化（管理画面または顧客ワークスペースの設定の「セキュリティ」タブ）：`TwoFactorDialog` がパスワードを求め（`enableTwoFactorMutation`）、認証アプリに追加する TOTP シークレットを表示し、コードを 1 つ確認して（`verifyTotpMutation`）から、バックアップコードを表示します。`disableTwoFactorMutation` で無効化できます。
 - サインイン時：`/auth/two-factor` は、認証アプリのコード（`verifyTotpMutation`）またはバックアップコード（`verifyBackupCodeMutation`）を受け付けます。どちらもレート制限付きで、デバイスを信頼するオプションもあります。成功すると `finishSignIn` が実行されます。
@@ -67,7 +67,7 @@ Better Auth がリダイレクトで報告するエラーは、`/auth/sign-in` �
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `redirect`               | サインイン後に移動するページ。リンクや認証ページ間のナビゲーションに使います                                                                                                               |
 | `hrefWithRedirect(page)` | `redirect` を保持した、`/auth/callback`、`/auth/sign-in`、`/auth/reset-password` へのローカライズされた URL。Better Auth に `callbackURL`、`errorCallbackURL`、`redirectTo` として渡します |
-| `finishSignIn()`         | サインインまたは二要素認証の確認の後、クエリキャッシュから前のユーザーのデータを削除し、ルーターのキャッシュをクリアして `/auth/callback` へ進みます                                       |
+| `finishSignIn()`         | サインインまたは二段階認証の確認の後、クエリキャッシュから前のユーザーのデータを削除し、ルーターのキャッシュをクリアして `/auth/callback` へ進みます                                       |
 
 ## サインアウト
 

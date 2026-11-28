@@ -1,6 +1,6 @@
 ---
 title: "Como lançar uma CLI paga com segurança quando agentes de IA fazem o trabalho"
-description: "Como lançar uma CLI paga no npm com segurança: staged publishing com aprovação por 2FA, trusted publishing sem tokens, downloads fixados, um gate em cada plataforma e tags só depois que o npm serve a versão."
+description: "Como lançar uma CLI paga no npm com segurança: staged publishing com aprovação por 2FA, trusted publishing sem tokens, downloads fixados, um gate em cada plataforma e tags só quando o npm já serve a versão."
 excerpt: "Uma versão no npm é permanente, e uma CLI paga também baixa o que gera e conversa com um servidor de licenças. Este guia mostra o pipeline de release que deixa os agentes de IA fazerem tudo até o registro do npm, enquanto uma pessoa aprova o único passo que não pode ser desfeito, com os incidentes que o moldaram."
 author: piotr-borowiecki
 date: 2026-11-25
@@ -30,8 +30,8 @@ faq:
       Só a partir de um repositório público. O npm gera atestados de procedência (provenance)
       automaticamente no trusted publishing quando tanto o repositório de origem quanto o pacote são
       públicos, e não para repositórios privados. Um pacote construído a partir de um repositório
-      privado continua levando a assinatura de registro do npm, que o npm audit signatures
-      verifica, mas nenhuma procedência.
+      privado continua levando a assinatura do registro do npm, que o npm audit signatures
+      verifica, mas não tem procedência.
   - question: Quando um workflow de release deve criar tags do Git e GitHub Releases?
     answer: >-
       Depois que o registro do npm serve a versão, e não quando a CI a coloca em staging ou a
@@ -55,7 +55,7 @@ faq:
       request de versão quando ele tiver sido gerado a partir do head atual da branch.
   - question: O que fazer quando uma versão publicada no npm está quebrada?
     answer: >-
-      Marque-a como obsoleta com uma mensagem que nomeia a versão corrigida, e lance a correção como
+      Marque-a como obsoleta com uma mensagem que indique a versão corrigida, e lance a correção como
       um novo patch pelo pipeline normal. Não a despublique: o npm nunca deixa um nome e uma versão
       serem usados de novo, e todo projeto que fixou a versão quebra. Uma versão que só está em
       staging pode ser rejeitada em vez disso.
@@ -85,13 +85,13 @@ _Última verificação em 25 de novembro de 2026. O que o npm, o GitHub Actions 
 
 ## A resposta curta
 
-Trate a release como o único passo que não é um merge. Tudo o que vem antes do registro do npm pode ser automatizado e repetido: o versionamento a partir dos changesets, o build, o empacotamento feito uma única vez, a execução do programa construído em cada plataforma que você suporta, o upload de tudo o que a CLI vai baixar. O passo que não pode ser desfeito, uma versão aparecendo no npm, ganha uma segunda chave que nenhum workflow tem. Coloque a release em staging a partir da CI com o trusted publishing do npm, que usa um token OIDC de curta duração em vez de um token armazenado, e faça um mantenedor aprovar a versão em staging com autenticação de dois fatores. Fixe por conteúdo tudo o que a CLI busca em tempo de execução e confira contra duas fontes. Crie tags do Git e GitHub Releases só depois que o npm serve a versão, porque uma versão em staging pode nunca ser publicada. E fique atento aos momentos em que uma ferramenta de release decide, pelas próprias regras, que não há nada a fazer: um changeset vazio já impediu que uma das nossas betas sequer entrasse em staging, com todos os jobs verdes.
+Trate a release como o único passo que não é um merge. Tudo o que vem antes do registro do npm pode ser automatizado e repetido: o versionamento a partir dos changesets, o build, o empacotamento feito uma única vez, a execução do programa construído em cada plataforma que você suporta, o upload de tudo o que a CLI vai baixar. O passo que não pode ser desfeito, uma versão aparecendo no npm, ganha uma segunda chave que nenhum workflow tem. Coloque a release em staging a partir da CI com o trusted publishing do npm, que usa um token OIDC de curta duração em vez de um token armazenado, e faça um mantenedor aprovar a versão em staging com autenticação de dois fatores. Fixe por conteúdo tudo o que a CLI busca em tempo de execução e confira com duas fontes. Crie tags do Git e GitHub Releases só depois que o npm passar a servir a versão, porque uma versão em staging pode nunca ser publicada. E fique atento aos momentos em que uma ferramenta de release decide, pelas próprias regras, que não há nada a fazer: um changeset vazio já impediu que uma das nossas betas sequer entrasse em staging, com todos os jobs verdes.
 
 ## Por que uma release não é um merge
 
 Um merge pode ser revertido com outro merge. Uma release, não, por três motivos.
 
-**O número da versão fica gasto.** A política de unpublish do npm é direta: “Depois que `package@version` foi usado, você nunca mais pode usá-lo.” E acrescenta: “Isso vale mesmo que esse pacote tenha sido despublicado.” A própria despublicação só é permitida nas primeiras 72 horas se nenhum outro pacote do registro depender do seu, e depois disso só em condições mais rígidas; para todo o resto, o npm recomenda marcar a versão como obsoleta (deprecate). Uma release ruim se corrige para a frente, com uma nova versão, e a ruim fica no registro para todos que a fixaram.
+**O número da versão fica queimado.** A política de unpublish do npm é direta: “Depois que `package@version` foi usado, você nunca mais pode usá-lo.” E acrescenta: “Isso vale mesmo que esse pacote tenha sido despublicado.” A própria despublicação só é permitida nas primeiras 72 horas se nenhum outro pacote do registro depender do seu, e depois disso só em condições mais rígidas; para todo o resto, o npm recomenda marcar a versão como obsoleta (deprecate). Uma release ruim se corrige com uma versão nova, e a ruim fica no registro para todos que a fixaram.
 
 **Os clientes escrevem scripts em cima dela.** A interface pública de uma CLI é mais ampla do que os exports de uma biblioteca: os comandos, as flags e os valores padrão, os códigos de saída, a saída legível por máquina, os arquivos que ela escreve e os runtimes em que ela inicia. Um valor padrão alterado ou um código de saída novo quebra um job de CI que você nunca vai ver.
 
@@ -99,7 +99,7 @@ Um merge pode ser revertido com outro merge. Uma release, não, por três motivo
 
 Os agentes de IA mudam o lugar onde o risco está. Eles são rápidos e minuciosos nas partes reversíveis: escrever changesets, manter um pull request de versão atualizado, editar workflows, escrever notas de versão em <RepositoryFact name="languages" /> idiomas, conferir o registro depois. E demonstram exatamente a mesma confiança na parte irreversível que em todo o resto. Por isso, o princípio de design deste post é simples: deixe os agentes fazerem tudo até o registro, torne cada passo antes dele seguro para rodar duas vezes e coloque uma chave humana no único passo que não é nem reversível nem repetível.
 
-Uma palavra sobre a configuração, para você compará-la com a sua. A CLI do SaaSy Land são três pacotes npm, `saasyland`, `create-saasyland` e `@saasyland/stack`, lançados a partir de um repositório privado no GitHub com o Changesets 3 e o GitHub Actions. Em 25 de novembro de 2026, as prévias saem na tag <RepositoryFact name="cliReleaseChannel" /> do npm, sendo a mais recente a 0.1.0-beta.5, de 20 de novembro, e os clientes rodam <RepositoryFact name="cliPackageSpec" />; `latest` ainda contém a versão provisória `0.0.0` que reservou os nomes. Os agentes são sessões do Claude Code, um líder e os executores que ele orienta com briefings, e eles cuidam da CLI de ponta a ponta. Quando o dono a entregou a eles, pediu “versionamento, changelog e tudo o mais profissional possível”, com releases “em lotes que façam sentido de verdade”. Ele aprova cada publicação.
+Um pouco sobre a configuração, para você compará-la com a sua. A CLI do SaaSy Land é formada por três pacotes npm, `saasyland`, `create-saasyland` e `@saasyland/stack`, lançados a partir de um repositório privado no GitHub com o Changesets 3 e o GitHub Actions. Em 25 de novembro de 2026, as prévias saem na tag <RepositoryFact name="cliReleaseChannel" /> do npm, sendo a mais recente a 0.1.0-beta.5, de 20 de novembro, e os clientes rodam <RepositoryFact name="cliPackageSpec" />; `latest` ainda contém a versão provisória `0.0.0` que reservou os nomes. Os agentes são sessões do Claude Code, um líder e os executores que ele orienta com briefings, e eles cuidam da CLI de ponta a ponta. Quando o dono a entregou a eles, pediu “versionamento, changelog e tudo o mais profissional possível”, com releases “em lotes que façam sentido de verdade”. Ele aprova cada publicação.
 
 ## O pipeline em resumo
 
@@ -125,21 +125,21 @@ O versionamento semântico só ajuda se você tiver definido por escrito qual é
 
 - um comando, uma flag ou um valor de flag removido ou renomeado, ou um valor padrão alterado;
 - um código de saída diferente para a mesma situação;
-- um campo da saída `--json` removido, renomeado ou com outro tipo, enquanto um campo novo não é uma mudança incompatível;
+- um campo da saída `--json` removido, renomeado ou com outro tipo, mas um campo novo não conta como mudança incompatível;
 - uma mudança no manifesto do projeto que uma CLI mais antiga não consegue ler;
 - uma versão mínima do Node mais alta;
 - um export do pacote compartilhado removido ou alterado;
 - uma mudança que as próprias regras da API de licenças chamam de incompatível.
 
-Antes da 1.0, uma versão minor traz funcionalidades novas ou uma quebra, e uma patch traz só correções. A API de licenças segue a mesma disciplina na sua própria fronteira. Dentro da `v1`, o site pode adicionar um campo de resposta, um endpoint ou um código de erro, e a CLI ignora os campos que não conhece; qualquer outra coisa exige uma `v2` servida ao lado da `v1` enquanto uma CLI suportada ainda a chamar. [O primeiro post desta série](/blog/ai-coding-agent-guardrails) conta como uma CLI publicada chegou a enviar um campo que o site no ar ainda não aceitava, e por que uma mudança de contrato agora vai primeiro para o servidor.
+Antes da 1.0, uma versão minor traz funcionalidades novas ou uma mudança incompatível, e uma versão patch traz só correções. A API de licenças segue a mesma disciplina na sua própria fronteira. Dentro da `v1`, o site pode adicionar um campo de resposta, um endpoint ou um código de erro, e a CLI ignora os campos que não conhece; qualquer outra coisa exige uma `v2` servida ao lado da `v1` enquanto uma CLI suportada ainda a chamar. [O primeiro post desta série](/blog/ai-coding-agent-guardrails) conta como uma CLI publicada chegou a enviar um campo que o site no ar ainda não aceitava, e por que uma mudança de contrato agora vai primeiro para o servidor.
 
 ### Um changeset é uma nota de versão para os clientes
 
 Todo pull request que altera um pacote publicado adiciona um changeset, e a CI recusa o que não adiciona: `changeset status --since=origin/<base>` falha quando um pacote mudou sem changeset. A regra que importa mais é sobre o conteúdo. Um changeset é a nota de versão do cliente: uma ou duas frases simples sobre o que muda para ele e o que ele precisa fazer, com comandos e flags escritos do jeito que ele os digita. “Corrige bug no parser de flags” não diz nada a um cliente. Esta é a nota da 0.1.0-beta.5, como a imprimem as [notas de versão](/docs/cli/releases) públicas:
 
-> **Mudança incompatível:** `--billing lemonsqueezy` foi removido, porque o Lemon Squeezy está encerrando as atividades: ele não aceita novos cadastros desde 16 de novembro de 2026 e será desativado em 31 de março de 2027. `--billing polar` e `--billing stripe` continuam sendo valores que `--billing` conhece, e o `init` ainda recusa os dois com o código <RepositoryFact name="cliExitNotAvailable" />, porque os projetos gerados ainda não têm cobrança. `init --billing lemonsqueezy` agora encerra com o código <RepositoryFact name="cliExitUsage" />, como qualquer outro valor que `--billing` não tem.
+> **Mudança incompatível:** `--billing lemonsqueezy` foi removido, porque a Lemon Squeezy está encerrando as atividades: ele não aceita novos cadastros desde 16 de novembro de 2026 e será desativado em 31 de março de 2027. `--billing polar` e `--billing stripe` continuam sendo valores que `--billing` conhece, e o `init` ainda recusa os dois com o código <RepositoryFact name="cliExitNotAvailable" />, porque os projetos gerados ainda não têm cobrança. `init --billing lemonsqueezy` agora encerra com o código <RepositoryFact name="cliExitUsage" />, como qualquer outro valor que `--billing` não tem.
 
-O jeito como a regra está escrita decide o que os agentes produzem. Quando só lhe dizem para “adicionar um changeset”, um agente tende a escrever “Refatora o parser de flags”. Quando lhe dizem que o changeset é o que um cliente lê no changelog, ele escreve a nota acima. Uma mudança que os clientes não conseguem perceber, como uma refatoração ou um teste novo, leva um changeset vazio. Essa válvula de escape é a origem do segundo incidente deste post.
+O jeito como a regra está escrita decide o que os agentes produzem. Quando a instrução diz só “adicione um changeset”, um agente tende a escrever “Refatora o parser de flags”. Quando ela diz que o changeset é o que um cliente lê no changelog, ele escreve a nota acima. Uma mudança que os clientes não conseguem perceber, como uma refatoração ou um teste novo, leva um changeset vazio. Essa válvula de escape é a origem do segundo incidente deste post.
 
 ### Uma única versão para pacotes que saem juntos
 
@@ -165,7 +165,7 @@ O npm está levando todo mundo nessa direção. O changelog de setembro de 2026 
 
 ### Por que o gate fica no npm e não na CI
 
-O GitHub consegue fazer um job esperar por um revisor por meio de ambientes (environments), e o guia do Changesets sugere “criar um ambiente com revisores obrigatórios para aprovar a execução do job de publicação”. Nós colocamos a chave no npm, por dois motivos. Ela protege a própria coisa irreversível: independentemente do que um workflow faça e do que um agente mescle, nada fica público até que um mantenedor aprove exatamente aquela versão em staging. E ela depende do segundo fator do mantenedor no npm, que nenhum workflow, agente ou token do GitHub consegue ter. Uma aprovação na CI protege um job e, depois de dada, esse job pode publicar o que tiver construído. Além disso, o GitHub só oferece revisores obrigatórios em repositórios privados nos planos Enterprise, então, para muitas equipes, o registro do npm é o único lugar onde um gate assim está disponível.
+O GitHub consegue fazer um job esperar por um revisor por meio de ambientes (environments), e o guia do Changesets sugere “criar um ambiente com revisores obrigatórios para aprovar a execução do job de publicação”. Nós preferimos colocar a chave no npm, por dois motivos. Ela protege diretamente o que é irreversível: independentemente do que um workflow faça e do que um agente mescle, nada fica público até que um mantenedor aprove exatamente aquela versão em staging. E ela depende do segundo fator do mantenedor no npm, que nenhum workflow, agente ou token do GitHub consegue ter. Uma aprovação na CI protege um job e, depois de dada, esse job pode publicar o que tiver construído. Além disso, o GitHub só oferece revisores obrigatórios em repositórios privados nos planos Enterprise, então, para muitas equipes, o registro do npm é o único lugar onde um gate assim está disponível.
 
 ### O Changesets ainda não faz staging, então faça o staging a partir do plano dele
 
@@ -192,7 +192,7 @@ O trusted publishing permite que a CI publique “usando tokens de curta duraç�
 - **O publicador confiável pode fazer staging e nada mais.** Com a CLI do npm, isso é `npm trust github <package> --file release.yml --repo <owner>/<repo> --env release --allow-stage-publish`, deixando `--allow-publish` de fora. Para um publicador confiável, diz a documentação do npm, “`npm stage publish` é sempre permitido”, enquanto a publicação direta e as mudanças de dist-tag são opções separadas, desligadas a menos que um mantenedor as ligue.
 - **O acesso de publicação exige autenticação de dois fatores e não permite tokens.** O npm observa que isso “só afeta a autenticação tradicional por token”, então o publicador confiável continua funcionando enquanto nenhum token, guardado onde for, consegue publicar.
 
-Um publicador confiável é configurado nas configurações de um pacote no npmjs.com, então um nome de pacote novo custa um passo manual: o dono publica à mão uma versão provisória `0.0.0`, com autenticação de dois fatores, e depois adiciona o publicador confiável e a configuração de acesso. É por isso que `latest` contém `0.0.0` hoje.
+Um publicador confiável é definido nas configurações de um pacote no npmjs.com, então um nome de pacote novo custa um passo manual: o dono publica à mão uma versão provisória `0.0.0`, com autenticação de dois fatores, e depois adiciona o publicador confiável e a configuração de acesso. É por isso que `latest` contém `0.0.0` hoje.
 
 Do lado do GitHub, o workflow começa com `permissions: {}`, e cada job pede o que precisa. O guia do Changesets diz isso com todas as letras: “garanta que o `id-token: write` só seja definido no job que precisa publicar.”
 
@@ -226,7 +226,7 @@ A lição vai além do npm. Quando uma camada de autenticação falha, a mensage
 
 ### Os atestados de procedência exigem um repositório público
 
-Em um repositório público, o trusted publishing dá a você atestados de procedência (provenance) de graça: o npm “gera e publica automaticamente atestados de procedência”, mas só quando você está “Publicando a partir de um repositório público” e “Publicando um pacote público”, e “A geração de procedência não é suportada para repositórios privados”. A nossa CLI é comercial e o repositório dela é privado, então os pacotes dela não trazem nenhum atestado de procedência. O que eles trazem é a assinatura de registro do npm, que qualquer pessoa pode verificar: em um diretório limpo com `saasyland@0.1.0-beta.5` instalado, `npm audit signatures` informa “1 package has a verified registry signature”, isto é, que um pacote tem uma assinatura de registro verificada. Se o seu código-fonte é público, ative a procedência e diga aos seus usuários como verificá-la. Se é privado, diga isso, em vez de deixar que “trusted publishing” sugira uma garantia que você não tem.
+Em um repositório público, o trusted publishing dá a você atestados de procedência (provenance) de graça: o npm “gera e publica automaticamente atestados de procedência”, mas só quando você está “Publicando a partir de um repositório público” e “Publicando um pacote público”, e “A geração de procedência não é suportada para repositórios privados”. A nossa CLI é comercial e o repositório dela é privado, então os pacotes dela não trazem nenhum atestado de procedência. O que eles trazem é a assinatura do registro do npm, que qualquer pessoa pode verificar: em um diretório limpo com `saasyland@0.1.0-beta.5` instalado, `npm audit signatures` informa “1 package has a verified registry signature”, isto é, que um pacote tem uma assinatura do registro verificada. Se o seu código-fonte é público, ative a procedência e diga aos seus usuários como verificá-la. Se é privado, diga isso, em vez de deixar que “trusted publishing” sugira uma garantia que você não tem.
 
 ## Fixe tudo o que a CLI baixa
 
@@ -244,9 +244,9 @@ A fixação é gravada no pull request Version Packages. O script de versão rod
 
 Na hora da release, o job de staging constrói o pacote de templates de novo e falha a menos que o digest seja o fixado. Depois, ele faz o upload do arquivo compactado, com o digest como metadado do objeto, para o armazenamento que a API de licenças lê, e lê cada objeto de volta: o tamanho, o tipo de conteúdo, os metadados e o digest do conteúdo. Só então ele coloca algo em staging no npm, porque uma CLI publicada nunca pode pedir um pacote de templates que não está lá. O upload recusa qualquer arquivo compactado que não seja o pacote de templates fixado, então uma nova execução nunca consegue mudar o que uma release serve.
 
-### Confira duas vezes, contra duas fontes
+### Confira duas vezes, com duas fontes
 
-O site responde a um pedido de pacote de templates com uma URL assinada de curta duração, válida por <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />, e com o tamanho e o digest do pacote, que ele lê do cabeçalho do objeto armazenado sem abrir o arquivo compactado:
+O site responde a uma requisição do pacote de templates com uma URL assinada de curta duração, válida por <RepositoryFact name="cliApiBundleUrlTtlSeconds" unit="second" />, e com o tamanho e o digest do pacote, que ele lê do cabeçalho do objeto armazenado sem abrir o arquivo compactado:
 
 ```ts title="src/modules/license/license.api.ts"
 const storedBundle = async (version: string): Promise<StoredBundle> => {
@@ -267,9 +267,9 @@ const storedBundle = async (version: string): Promise<StoredBundle> => {
 }
 ```
 
-Um objeto sem o seu digest não é servido: a API responde `serviceUnavailable`, e o log nomeia o objeto. A CLI então baixa o arquivo compactado, não lê mais do que o tamanho anunciado e o recusa a menos que o tamanho e o digest correspondam à resposta da API e que o digest também corresponda ao digest fixado compilado na release. Uma divergência encerra com o código <RepositoryFact name="cliExitProtocol" /> e não grava nada; mesmo um download correto é gravado no diretório do projeto de uma só vez, então uma execução interrompida não deixa nada para trás.
+Um objeto sem o seu digest não é servido: a API responde `serviceUnavailable`, e o log registra o nome do objeto. A CLI então baixa o arquivo compactado, não lê mais do que o tamanho anunciado e o recusa a menos que o tamanho e o digest correspondam à resposta da API e que o digest também corresponda ao digest fixado compilado na release. Uma divergência encerra com o código <RepositoryFact name="cliExitProtocol" /> e não grava nada; mesmo um download correto é gravado no diretório do projeto de uma só vez, então uma execução interrompida não deixa nada para trás.
 
-Por que as duas verificações? O digest da API protege o download. A fixação protege a release do próprio servidor: seja o que for que estiver no armazenamento sob a chave de uma versão, uma CLI publicada só roda os templates com que a release dela foi testada. Cada fonte confere a outra, e nenhuma é confiável sozinha. A documentação do site descreve por completo o endpoint e as regras de publicação dos pacotes de templates, em [API de licenças da CLI](/docs/features/cli-licence-api#publishing-bundles).
+Por que as duas verificações? O digest da API protege o download. A fixação protege a release do próprio servidor: o que quer que esteja no armazenamento sob a chave de uma versão, uma CLI publicada só roda os templates com que a release dela foi testada. Cada fonte confere a outra, e nenhuma é confiável sozinha. A documentação do site descreve por completo o endpoint e as regras de publicação dos pacotes de templates, em [API de licenças da CLI](/docs/features/cli-licence-api#publishing-bundles).
 
 ### A regra geral
 
@@ -293,7 +293,7 @@ Os clientes rodam a CLI no Node e no Bun, no Linux, no macOS e no Windows. Os pu
 
 Os nove jobs são uma única matriz, três sistemas por três versões do Node, a partir do Node mais antigo que a CLI suporta. Duas configurações transformam essa matriz em um gate. O job de staging lista tanto o job de empacotamento quanto a matriz em `needs` e não tem um `if:` próprio, então o GitHub o pula a menos que todos eles tenham terminado com sucesso; uma condição como `if: always()` no job de staging desfaria isso sem ninguém perceber. E a matriz define `fail-fast: false`, então uma falha em uma combinação não cancela as outras, e a execução mostra cada plataforma que quebrou, em vez de só a primeira.
 
-Um gate que você nunca viu falhar é uma esperança, e não um gate. Antes de confiarmos neste, rodamos o workflow de release real em uma branch temporária, a partir de um commit equivalente a um pull request Version Packages mesclado, com uma combinação feita para falhar de propósito: Windows no Node 26. Todos os outros jobs passaram, e o job de staging foi pulado assim que a última combinação terminou. A sondagem não teria conseguido publicar nem se o gate estivesse errado, porque o ambiente de que o job de staging precisa só faz deploy a partir das branches de release; depois, o npm listava as mesmas versões de antes, e nenhuma tag ou Release tinha aparecido.
+Um gate que você nunca viu falhar é uma esperança, e não um gate. Antes de confiarmos neste, rodamos o workflow de release real em uma branch temporária, a partir de um commit equivalente a um pull request Version Packages mesclado, com uma combinação feita para falhar de propósito: Windows no Node 26. Todos os outros jobs passaram, e o job de staging foi pulado assim que a última combinação terminou. Esse teste não teria conseguido publicar nem se o gate estivesse errado, porque o ambiente de que o job de staging precisa só faz deploy a partir das branches de release; depois, o npm listava as mesmas versões de antes, e nenhuma tag ou Release tinha aparecido.
 
 Levar as execuções de macOS e Windows de cada merge para a própria release reduziu os minutos faturáveis de um merge na `main` entre um terço e metade, conforme medimos quando fizemos a mudança, a um custo pago uma vez por release. O que o gate não faz está listado perto do fim deste post: ele roda `--version` e `--help`, e não a geração completa de um projeto, e faz o build em cada runner em vez de instalar o tarball que está em staging.
 
@@ -318,7 +318,7 @@ A 0.1.0-beta.3 entrou em staging em 17 de novembro e ainda esperava aprovação 
 
 Levamos as tags e as Releases para um job separado que consulta o registro do npm primeiro. Para cada pacote publicado, ele verifica três coisas: que o `CHANGELOG.md` do pacote tem uma seção para a versão do checkout, que só um pull request Version Packages escreve; que o npm serve exatamente essa versão, por meio de um `npm view` público que não precisa de token; e se a tag já existe. Só quando todos os pacotes passam nas duas primeiras verificações e falta uma tag é que ele roda `changeset git-tag` por meio da action do Changesets, que faz push das tags e cria uma Release a partir de cada entrada do changelog. Caso contrário, ele não grava nada, e o resumo dele diz por quê.
 
-As duas verificações são simples de propósito. Uma versão só conta como servida quando `npm view` imprime exatamente essa versão, então uma versão ausente, um erro de rede e uma resposta inesperada contam todos como não servida, e nenhuma tag é criada. Uma tag só conta como existente quando o Git resolve a referência completa dela, então uma branch com o mesmo nome não passa por ela. O kit de release no fim deste post traz uma versão genérica da verificação para um único pacote.
+As duas verificações são simples de propósito. Uma versão só conta como servida quando `npm view` imprime exatamente essa versão, então uma versão ausente, um erro de rede e uma resposta inesperada contam todos como não servida, e nenhuma tag é criada. Uma tag só conta como existente quando o Git resolve a referência completa dela, então uma branch com o mesmo nome não consegue se passar por ela. O kit de release no fim deste post traz uma versão genérica da verificação para um único pacote.
 
 O job roda de três jeitos: logo depois do staging, quando normalmente encontra a versão ainda esperando; à mão, o que o agente líder faz assim que o dono aprova; e uma vez por dia, como reserva. As execuções dele em uma mesma branch compartilham um grupo de concorrência e entram na fila em vez de se sobrepor, então duas execuções nunca criam tags ao mesmo tempo, e ele busca todas as tags primeiro, então cria só o que falta e pode rodar quantas vezes for preciso.
 
@@ -401,20 +401,20 @@ O nosso workflow de release funciona assim, então cada push em uma branch de re
 
 Os agentes conduzem a release; o dono guarda o que não pode ser desfeito.
 
-| Tarefa                                    | Agentes                                                                                | Dono                                                                               |
-| ----------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Changesets e o pull request de versão     | Escrevem, revisam as notas e fazem o merge quando o lote está completo                 | Nada                                                                               |
-| Workflows de release                      | Escrevem a mudança e a comprovam, por exemplo com uma execução de sondagem             | Aprova cada mudança nos arquivos que decidem o que chega ao npm, com um sim citado |
-| Build, testes, empacotamento e staging    | Nada: a CI faz isso no commit de merge                                                 | Nada                                                                               |
-| Aprovar ou rejeitar uma versão em staging | Entregam os ids de staging exatos                                                      | Aprova ou rejeita com autenticação de dois fatores                                 |
-| Tags e GitHub Releases                    | Iniciam o workflow de registros logo depois da aprovação                               | Nada                                                                               |
-| Um nome de pacote novo                    | Preparam-no na `main` e escrevem os passos exatos                                      | Publica a versão provisória e configura o publicador confiável dela                |
-| Uma versão ruim                           | Escrevem a mensagem de descontinuação e a correção                                     | Roda `npm deprecate` com autenticação de dois fatores                              |
-| Notas de versão e verificação             | Instalam a partir do npm em um diretório limpo e escrevem as notas em todos os idiomas | Revisa                                                                             |
+| Tarefa                                    | Agentes                                                                                | Dono                                                                                 |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Changesets e o pull request de versão     | Escrevem, revisam as notas e fazem o merge quando o lote está completo                 | Nada                                                                                 |
+| Workflows de release                      | Escrevem a mudança e a comprovam, por exemplo com uma execução de teste                | Aprova cada mudança nos arquivos que decidem o que chega ao npm, com um “sim” citado |
+| Build, testes, empacotamento e staging    | Nada: a CI faz isso no commit de merge                                                 | Nada                                                                                 |
+| Aprovar ou rejeitar uma versão em staging | Entregam os ids de staging exatos                                                      | Aprova ou rejeita com autenticação de dois fatores                                   |
+| Tags e GitHub Releases                    | Iniciam o workflow de registros logo depois da aprovação                               | Nada                                                                                 |
+| Um nome de pacote novo                    | Preparam-no na `main` e escrevem os passos exatos                                      | Publica a versão provisória e configura o publicador confiável dela                  |
+| Uma versão ruim                           | Escrevem a mensagem de descontinuação e a correção                                     | Roda `npm deprecate` com autenticação de dois fatores                                |
+| Notas de versão e verificação             | Instalam a partir do npm em um diretório limpo e escrevem as notas em todos os idiomas | Revisa                                                                               |
 
 O workflow de release, a configuração do Changesets e os campos dos pacotes que decidem o que chega ao npm estão na lista de revisão humana do repositório da CLI, então todo pull request que os altera, como o que mudou a forma como as releases são registradas, cita o sinal verde do dono por escrito. O mesmo arquivo de instruções diz aos agentes que nunca publiquem nem rodem `npm trust`. E nenhum agente tem uma credencial do npm, porque não existe nenhuma: todos os pacotes proíbem publicar com tokens, e a única identidade automatizada que consegue fazer staging é o próprio workflow de release.
 
-A verificação não termina na release. A suíte da jornada do cliente do site roda no agendamento <RepositoryFact name="journeySchedule" /> em UTC: ela compra cada plano no sandbox da Polar no deploy de preview e depois conduz a CLI publicada, direto do npm, pela ativação, pelos limites de dispositivos, pela desativação e pelo reembolso que encerra a licença:
+A verificação não termina na release. A suíte da jornada do cliente do site roda no agendamento <RepositoryFact name="journeySchedule" /> em UTC: ela compra uma licença de cada pacote no sandbox da Polar no deploy de preview e depois conduz a CLI publicada, direto do npm, pela ativação, pelos limites de máquinas, pela desativação e pelo reembolso que encerra a licença:
 
 ```ts title="e2e/journey/cli.ts"
 const child = spawn("env", ["-i", ...variables, PACKAGE_MANAGER.NPM.exec, "--yes", CLI_PACKAGE_SPEC, ...inputs, "--json"], { cwd: home })
@@ -429,13 +429,13 @@ Uma versão no npm é permanente, então um rollback significa seguir em frente.
 - **Marque como obsoleta, depois lance um patch.** `npm deprecate` com uma mensagem que nomeia a correção, por exemplo “Quebra o init no Windows. Use a 1.4.1 ou posterior.”, rodado pelo dono com autenticação de dois fatores. A correção passa pelo mesmo pipeline que qualquer release. Uma correção de segurança ou de perda de dados é lançada na hora, sem esperar o seu lote.
 - **Nunca despublique.** Isso quebra todo projeto e todo script que fixou a versão, e o número da versão nunca mais pode ser usado.
 - **Rejeite o que está só em staging.** `npm stage reject <stage id>` remove uma versão em staging sem publicá-la, de novo com autenticação de dois fatores.
-- **Cuidado com a versão que você rejeitou.** Uma versão rejeitada continua sendo a versão no repositório, e continua faltando no npm, então o próximo push sem um changeset pendente a coloca em staging de novo. Faça entrar a correção, com o changeset dela, antes de qualquer outra coisa.
+- **Cuidado com a versão que você rejeitou.** Uma versão rejeitada continua sendo a versão no repositório, e continua faltando no npm, então o próximo push sem um changeset pendente a coloca em staging de novo. Faça o merge da correção, com o changeset dela, antes de qualquer outra coisa.
 
 ## O que ainda não temos
 
 No espírito do restante da série, aqui está onde o nosso próprio processo de release é fraco.
 
-- **Sem atestados de procedência.** O repositório é privado, então os pacotes levam a assinatura de registro do npm e nenhum atestado de procedência.
+- **Sem atestados de procedência.** O repositório é privado, então os pacotes levam a assinatura do registro do npm e nenhum atestado de procedência.
 - **Ainda sem canal estável.** `latest` continua sendo a versão provisória, e todo comando que publicamos nomeia a tag <RepositoryFact name="cliReleaseChannel" />. A primeira release estável precisa trocar ao mesmo tempo os READMEs, os testes que os verificam e os comandos do site.
 - **Um gate multiplataforma raso.** No macOS e no Windows, a release verifica `--version` e `--help` em cada runtime, e não um `init` completo, e faz o build em cada runner em vez de instalar o tarball que vai entrar em staging.
 - **A aprovação lê o resumo.** O `npm stage download` do npm baixa um tarball em staging “para inspeção local” sem segundo fator, então um aprovador poderia instalar e rodar exatamente esses bytes antes de aprovar. Ainda não fazemos isso.
@@ -455,7 +455,7 @@ No espírito do restante da série, aqui está onde o nosso próprio processo de
 5. Nenhuma release em staging ainda espera aprovação.
 6. Faça o merge do pull request de versão.
 7. Empacote uma vez; rode o programa construído em cada sistema e runtime que você suporta; coloque em staging só se tudo isso passou.
-8. Faça o upload de tudo o que a CLI vai baixar, leia de volta e confira contra o digest fixado, antes do staging.
+8. Faça o upload de tudo o que a CLI vai baixar, leia de volta e confira com o digest fixado, antes do staging.
 9. Aprove cada pacote da release com autenticação de dois fatores, ou rejeite-a.
 10. Crie as tags e as Releases quando o registro do npm servir todos os pacotes da release.
 11. Instale a partir do registro do npm em um diretório limpo e rode a CLI.
@@ -527,7 +527,7 @@ git push origin "v$version"
 gh release create "v$version" --verify-tag --notes-file release-notes.md
 ```
 
-**Um download conferido contra o servidor e contra o digest fixado** antes que qualquer coisa o leia, um exemplo genérico em TypeScript para Node:
+**Um download conferido com o servidor e com o digest fixado** antes que qualquer coisa o leia, um exemplo genérico em TypeScript para Node:
 
 ```ts
 import { createHash } from "node:crypto"
@@ -597,7 +597,7 @@ export const verifiedContent = (archive: Buffer, answer: BundleAnswer, pinned: s
 
 <Callout title="Leia as notas de versão por trás deste artigo">
 
-As [notas de versão](/docs/cli/releases) da CLI listam cada release citada aqui, inclusive a 0.1.0-beta.3, em todos os idiomas, e o [guia da CLI](/docs/cli) mostra como rodar a atual. Para ver o que uma licença inclui, [compare os planos](/#pricing): um pagamento a partir de <TierPrice tier="core" />, e o card de cada plano mostra o que está disponível agora e o que está a caminho.
+As [notas de versão](/docs/cli/releases) da CLI listam cada release citada aqui, inclusive a 0.1.0-beta.3, em todos os idiomas, e o [guia da CLI](/docs/cli) mostra como rodar a atual. Para ver o que uma licença inclui, [compare os pacotes](/#pricing): um pagamento a partir de <TierPrice tier="core" />, e o card de cada pacote mostra o que está disponível agora e o que está a caminho.
 
 </Callout>
 

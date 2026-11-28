@@ -11,6 +11,7 @@ import { ENVIRONMENT, appHostsForMode } from "~/src/modules/_core/constants/api"
 
 import { CHANGELOG_DIRECTORY, ENTRY_KEY, entryItems, pullRequestOf } from "~/src/lib/changelog"
 import { formOfAddressProblems } from "~/src/lib/forms-of-address"
+import { noBreakSpaceProblems } from "~/src/lib/no-break-spaces"
 import { ROUTE_PATHS } from "~/src/lib/route-paths"
 
 import { FAILURE_EXIT_CODE } from "./run-command.ts"
@@ -46,6 +47,9 @@ const ROUTES_PREFIX = /^ROUTES\./u
 const ROUTE_KEY_SEPARATOR = "."
 const ROUTE_WILDCARD = "/*"
 const DOCS_PREFIX = "docs/"
+const BLOG_PREFIX = "blog/"
+const TABLE_DELIMITER_PATTERN = /^\|[ :|-]*\|[ \t]*$/gmu
+const LINE_BREAK_PATTERN = /[ \t]*\n[ \t]*/gu
 
 const frontmatterSchema = zod.record(zod.string(), zod.unknown())
 const packageSchema = zod.object({ scripts: zod.record(zod.string(), zod.string()) })
@@ -307,6 +311,20 @@ const addressProblems = ({ label, locale, target }: Translation): string[] =>
     (problem) => `${label} ${problem}`,
   )
 
+const blogSpaceProblems = ({ label, locale, target }: Translation): string[] => {
+  if (!label.startsWith(BLOG_PREFIX)) {
+    return []
+  }
+
+  const text = target
+    .replaceAll(CODE_BLOCK_PATTERN, "")
+    .replaceAll(INLINE_CODE_PATTERN, "")
+    .replaceAll(TABLE_DELIMITER_PATTERN, "")
+    .replaceAll(LINE_BREAK_PATTERN, " ")
+
+  return noBreakSpaceProblems({ locale, text }).map((problem) => `${label} ${problem}`)
+}
+
 export const mdxProblems = (translation: Translation): string[] => {
   const { label, locale, source, target } = translation
   const isChangelogEntry = label.startsWith(CHANGELOG_PREFIX)
@@ -325,6 +343,7 @@ export const mdxProblems = (translation: Translation): string[] => {
     ...linkProblems(translation),
     ...bareUrlProblems(translation),
     ...addressProblems(translation),
+    ...blogSpaceProblems(translation),
   )
 
   if (locale === I18N.DEFAULT_LOCALE) {

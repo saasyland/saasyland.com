@@ -134,7 +134,7 @@ Prima della 1.0 una versione minor porta nuove funzionalità o una modifica inco
 
 ### Un changeset è una nota di rilascio per i clienti
 
-Ogni pull request che modifica un pacchetto pubblicato aggiunge un changeset, e la CI rifiuta quella che non lo fa: `changeset status --since=origin/<base>` fallisce quando un pacchetto è cambiato senza. La regola che conta di più riguarda il contenuto. Un changeset è la nota di rilascio del cliente: una o due frasi semplici su cosa cambia per lui e cosa deve fare, con i comandi e i flag scritti come li digita. «Corretto un bug nel parser dei flag» non dice niente a un cliente. Questa è la nota della 0.1.0-beta.5, come la stampano le [note di rilascio](/docs/cli/releases) pubbliche:
+Ogni pull request che modifica un pacchetto pubblicato aggiunge un changeset, e la CI rifiuta quella che non lo fa: `changeset status --since=origin/<base>` fallisce quando un pacchetto è cambiato senza. La regola che conta di più riguarda il contenuto. Un changeset è la nota di rilascio per il cliente: una o due frasi semplici su cosa cambia per lui e cosa deve fare, con i comandi e i flag scritti come li digita. «Corretto un bug nel parser dei flag» non dice niente a un cliente. Questa è la nota della 0.1.0-beta.5, come la stampano le [note di rilascio](/docs/cli/releases) pubbliche:
 
 > **Modifica incompatibile:** `--billing lemonsqueezy` è stato rimosso, perché Lemon Squeezy sta chiudendo: non accetta nuove iscrizioni dal 16 novembre 2026 e chiude il 31 marzo 2027. `--billing polar` e `--billing stripe` restano valori che `--billing` conosce, e `init` li rifiuta ancora entrambi con il codice <RepositoryFact name="cliExitNotAvailable" />, perché i progetti generati non hanno ancora la fatturazione. Ora `init --billing lemonsqueezy` esce con il codice <RepositoryFact name="cliExitUsage" />, come qualsiasi altro valore che `--billing` non prevede.
 
@@ -164,7 +164,7 @@ npm sta spingendo tutti in questa direzione. Il suo changelog di settembre 2026 
 
 ### Perché il gate sta su npm e non nella CI
 
-GitHub può far aspettare un job a un revisore tramite gli ambienti, e la guida di Changesets suggerisce di «creare un ambiente con revisori obbligatori che approvino l’esecuzione del job di pubblicazione». Noi abbiamo messo la chiave su npm, per due motivi. Protegge l’azione irreversibile in sé: qualunque cosa faccia un workflow, e qualunque cosa unisca un agente, niente è pubblico finché un maintainer non approva l’esatta versione preparata. E si basa sul secondo fattore npm del maintainer, che nessun workflow, agente o token GitHub può possedere. Un’approvazione nella CI protegge un job, e una volta data, quel job può pubblicare qualunque cosa abbia costruito. GitHub inoltre offre i revisori obbligatori sui repository privati solo nei piani Enterprise, quindi per molti team il registry è l’unico posto in cui un gate del genere è disponibile.
+GitHub può mettere un job in attesa di un revisore tramite gli ambienti, e la guida di Changesets suggerisce di «creare un ambiente con revisori obbligatori che approvino l’esecuzione del job di pubblicazione». Noi abbiamo messo la chiave su npm, per due motivi. Protegge l’azione irreversibile in sé: qualunque cosa faccia un workflow, e qualunque cosa unisca un agente, niente è pubblico finché un maintainer non approva l’esatta versione preparata. E si basa sul secondo fattore npm del maintainer, che nessun workflow, agente o token GitHub può possedere. Un’approvazione nella CI protegge un job, e una volta data, quel job può pubblicare qualunque cosa abbia costruito. GitHub inoltre offre i revisori obbligatori sui repository privati solo nei piani Enterprise, quindi per molti team il registry è l’unico posto in cui un gate del genere è disponibile.
 
 ### Changesets non prepara ancora, quindi prepara a partire dal suo piano
 
@@ -219,7 +219,7 @@ npm error code ENEEDAUTH
 npm error need auth This command requires you to be logged in to https://registry.npmjs.org/
 ```
 
-Il messaggio ti dice di fare il login. La vera ragione era che lo scambio del token OIDC era fallito, e npm scrive questa ragione a livello verbose, in un log di debug sul runner che viene cancellato insieme al job. Abbiamo fatto caricare al job di preparazione `~/.npm/_logs/` come artefatto ogni volta che fallisce, e il log del fallimento successivo ha nominato la causa: npm non aveva trovato alcun trusted publisher corrispondente al repository, al workflow e all’ambiente dell’esecuzione. La documentazione di npm avverte proprio di questo: «npm non verifica la configurazione del tuo trusted publisher quando la salvi», e «Tutti i campi distinguono tra maiuscole e minuscole e devono essere esatti». Appena le impostazioni su npmjs.com hanno corrisposto al workflow, una riesecuzione del job fallito ha preparato la 0.1.0-beta.0 alle 18:24, e il proprietario l’ha approvata quattro minuti dopo.
+Il messaggio ti dice di fare il login. La vera ragione era che lo scambio del token OIDC era fallito, e npm scrive questa ragione a livello verbose, in un log di debug sul runner che viene cancellato insieme al job. Abbiamo fatto caricare al job di preparazione `~/.npm/_logs/` come artefatto ogni volta che fallisce, e il log del fallimento successivo indicava la causa: npm non aveva trovato alcun trusted publisher corrispondente al repository, al workflow e all’ambiente dell’esecuzione. La documentazione di npm avverte proprio di questo: «npm non verifica la configurazione del tuo trusted publisher quando la salvi», e «Tutti i campi distinguono tra maiuscole e minuscole e devono essere esatti». Appena le impostazioni su npmjs.com hanno corrisposto al workflow, una riesecuzione del job fallito ha preparato la 0.1.0-beta.0 alle 18:24, e il proprietario l’ha approvata quattro minuti dopo.
 
 La lezione va oltre npm. Quando un livello di autenticazione fallisce, il suo messaggio di errore di solito descrive l’ultimo ripiego che ha tentato, non il passo che è fallito per primo. Conserva il log di debug dello strumento di ogni job di rilascio fallito, con una retention breve, e leggilo prima di cambiare qualsiasi cosa.
 
@@ -266,7 +266,7 @@ const storedBundle = async (version: string): Promise<StoredBundle> => {
 }
 ```
 
-Un oggetto senza il suo digest non viene servito: l’API risponde `serviceUnavailable`, e il log indica l’oggetto. La CLI poi scarica l’archivio, non legge oltre la dimensione annunciata e lo rifiuta a meno che dimensione e digest corrispondano alla risposta dell’API e il digest corrisponda anche a quello fissato e compilato nella release. Una discrepanza esce con il codice <RepositoryFact name="cliExitProtocol" /> e non scrive niente; anche un download corretto viene scritto nella directory del progetto tutto in una volta, quindi un’esecuzione interrotta non lascia niente dietro di sé.
+Un oggetto senza il suo digest non viene servito: l’API risponde `serviceUnavailable`, e il log indica l’oggetto. La CLI poi scarica l’archivio, non legge oltre la dimensione annunciata e lo rifiuta a meno che dimensione e digest non corrispondano alla risposta dell’API e il digest corrisponda anche a quello fissato e compilato nella release. Una discrepanza esce con il codice <RepositoryFact name="cliExitProtocol" /> e non scrive niente; anche un download corretto viene scritto nella directory del progetto tutto in una volta, quindi un’esecuzione interrotta non lascia niente dietro di sé.
 
 Perché entrambi i controlli? Il digest dell’API protegge il download. Il digest fissato protegge la release dal suo stesso server: qualunque cosa ci sia nello storage sotto la chiave di una versione, una CLI pubblicata esegue solo i template con cui la sua release è stata testata. Ogni fonte controlla l’altra, e nessuna delle due basta da sola. La documentazione del sito descrive per intero l’endpoint e le regole per pubblicare i bundle, in [API delle licenze della CLI](/docs/features/cli-licence-api#publishing-bundles).
 
@@ -284,13 +284,13 @@ Il job dei pacchetti esegue i controlli di formato, lint e tipi, i test con cope
 
 La 0.1.0-beta.1 è arrivata su npm con specificatori `catalog:` nelle `devDependencies` di tutti e tre i pacchetti, sei voci in tutto, come mostra ancora il registry. Un workspace Bun scrive le versioni condivise come `catalog:`. Changesets 3 crea i pacchetti solo con npm, pnpm o Yarn, e in un workspace Bun ripiegava su `npm pack`, che copia quegli specificatori non risolti nel `package.json` del pacchetto. Non è fallito niente, perché nessuno installa le dipendenze di sviluppo di una CLI. La stessa fuga in `dependencies` avrebbe rotto ogni installazione della release.
 
-La correzione alla radice porta una patch di Changesets fatta con `bun patch` che crea i pacchetti con `bun pm pack`, che scrive la versione a cui si risolve ogni specificatore e si rifiuta di impacchettarne uno che non riesce a risolvere. La patch è la parte che riguarda la creazione dei pacchetti di una pull request upstream ancora aperta che aggiunge Bun a Changesets, [changesets/changesets#2334](https://github.com/changesets/changesets/pull/2334), e verrà rimossa quando una release includerà quella modifica. Ciò che la mantiene corretta è un test: gli smoke test creano il pacchetto di ogni pacchetto pubblicato con lo stesso comando della release e falliscono su qualsiasi `catalog:` o `workspace:` rimasto in qualsiasi campo delle dipendenze. Testa il tarball, non il workspace. Le funzionalità di workspace del tuo package manager sono invisibili a un test che parte dal codice sorgente.
+La correzione alla radice porta una patch di Changesets fatta con `bun patch` che crea i pacchetti con `bun pm pack`, che scrive la versione a cui si risolve ogni specificatore e si rifiuta di impacchettarne uno che non riesce a risolvere. La patch è la parte che riguarda la creazione dei pacchetti di una pull request upstream ancora aperta che aggiunge Bun a Changesets, [changesets/changesets#2334](https://github.com/changesets/changesets/pull/2334), e verrà rimossa quando una release includerà quella modifica. Ciò che la mantiene corretta è un test: gli smoke test impacchettano ogni pacchetto pubblicato con lo stesso comando della release e falliscono su qualsiasi `catalog:` o `workspace:` rimasto in qualsiasi campo delle dipendenze. Testa il tarball, non il workspace. Le funzionalità di workspace del tuo package manager sono invisibili a un test che parte dal codice sorgente.
 
 ### Subordina la preparazione a ogni piattaforma
 
 I clienti eseguono la CLI con Node e Bun, su Linux, macOS e Windows. Le pull request eseguono il programma compilato solo su Linux, per risparmiare minuti; l’esecuzione del rilascio controlla ogni piattaforma, sul commit esatto che sta per preparare. Nove job fanno la build dei pacchetti ed eseguono gli eseguibili con Node 22.12.0, 24 e 26 su ogni sistema, e con Bun su ogni runner.
 
-I nove job sono una sola matrice, tre sistemi per tre versioni di Node, a partire dalla versione di Node più vecchia che la CLI supporta. Due impostazioni trasformano quella matrice in un gate. Il job di preparazione elenca sotto `needs` sia il job dei pacchetti sia la matrice e non ha un `if:` proprio, quindi GitHub lo salta a meno che ognuno di essi sia andato a buon fine; una condizione come `if: always()` sul job di preparazione vanificherebbe tutto questo senza dare nell’occhio. E la matrice imposta `fail-fast: false`, così il fallimento di una combinazione non annulla le altre, e l’esecuzione mostra ogni piattaforma che si è rotta invece della sola prima.
+I nove job sono una sola matrice, tre sistemi per tre versioni di Node, a partire dalla versione di Node più vecchia che la CLI supporta. Due impostazioni trasformano quella matrice in un gate. Il job di preparazione elenca sotto `needs` sia il job dei pacchetti sia la matrice e non ha un `if:` proprio, quindi GitHub lo salta a meno che ognuno di essi non sia andato a buon fine; una condizione come `if: always()` sul job di preparazione vanificherebbe tutto questo senza dare nell’occhio. E la matrice imposta `fail-fast: false`, così il fallimento di una combinazione non annulla le altre, e l’esecuzione mostra ogni piattaforma che si è rotta invece della sola prima.
 
 Un gate che non hai mai visto fallire è una speranza, non un gate. Prima di fidarci di questo, abbiamo eseguito il vero workflow di rilascio su un branch temporaneo, da un commit equivalente a una pull request Version Packages unita, con una combinazione fatta fallire di proposito: Windows con Node 26. Tutti gli altri job sono passati, e il job di preparazione è stato saltato appena è finita l’ultima combinazione. Quell’esecuzione di prova non avrebbe potuto pubblicare nemmeno se il gate fosse stato sbagliato, perché l’ambiente di cui ha bisogno il job di preparazione fa deploy solo dai branch di rilascio; dopo, npm elencava le stesse versioni di prima, e non erano comparsi né tag né Release.
 
@@ -333,7 +333,7 @@ I tag e le Release della 0.1.0-beta.3 restano dove sono: eliminarli cancellerebb
 
 ## Il changeset vuoto che ha bloccato un rilascio
 
-[Il primo articolo di questa serie](/blog/ai-coding-agent-guardrails) racconta questa storia in breve, come esempio di un agente che soddisfa un controllo alla lettera. Ecco la sequenza completa, perché mostra una classe di fallimenti facile da non vedere: uno strumento di rilascio che decide, correttamente secondo le proprie regole, che non c’è niente da fare.
+[Il primo articolo di questa serie](/blog/ai-coding-agent-guardrails) racconta questa storia in breve, come esempio di un agente che soddisfa un controllo alla lettera. Ecco la sequenza completa, perché mostra una classe di fallimenti che sfugge facilmente: uno strumento di rilascio che decide, correttamente secondo le proprie regole, che non c’è niente da fare.
 
 ### Tre merge in 81 secondi
 
@@ -360,11 +360,11 @@ if (changesets.length > 0) {
 }
 ```
 
-Se ci sono changeset in sospeso e sono tutti vuoti, la modalità è `none`, e il piano di pubblicazione, che avrebbe scoperto che la 0.1.0-beta.5 mancava da npm, non viene mai calcolato. Nei suoi termini è ragionevole: un changeset vuoto significa «non rilasciare niente». Combinato con una pull request di versione unita prima di essere ricostruita, ha significato un rilascio creato e mai uscito.
+Se ci sono changeset in sospeso e sono tutti vuoti, la modalità è `none`, e il piano di pubblicazione, che avrebbe scoperto che la 0.1.0-beta.5 mancava da npm, non viene mai calcolato. Di per sé è ragionevole: un changeset vuoto significa «non rilasciare niente». Combinato con una pull request di versione unita prima di essere ricostruita, ha significato un rilascio creato e mai uscito.
 
 ### La correzione e le regole
 
-Una pull request successiva ha rimosso il changeset vuoto cinque minuti dopo. L’esecuzione successiva ha selezionato `publish`, ha preparato la 0.1.0-beta.5 alle 11:25, e il proprietario l’ha approvata alle 11:44. La nostra politica ora dice che i changeset vuoti vanno solo su `main`, e che una modifica fatta direttamente su `beta` che i clienti non possono notare, come una correzione del changelog, non ha changeset, e il suo controllo dei changeset fallito è l’unico fallimento ammesso.
+Una pull request successiva ha rimosso il changeset vuoto cinque minuti dopo. L’esecuzione successiva ha selezionato `publish`, ha preparato la 0.1.0-beta.5 alle 11:25, e il proprietario l’ha approvata alle 11:44. La nostra politica ora dice che i changeset vuoti vanno solo su `main`, e che una modifica fatta direttamente su `beta` che i clienti non possono notare, come una correzione del changelog, non ha changeset, e il controllo dei changeset che fallisce è l’unico fallimento ammesso.
 
 Due regole valgono per qualsiasi team:
 
@@ -413,7 +413,7 @@ Gli agenti gestiscono il rilascio; il proprietario tiene ciò che non si può an
 
 Il workflow di rilascio, la configurazione di Changesets e i campi dei pacchetti che decidono cosa arriva su npm sono nell’elenco della revisione umana del repository della CLI, quindi ogni pull request che li modifica, come quella che ha cambiato il modo in cui vengono registrati i rilasci, cita il via libera scritto del proprietario. Lo stesso file di istruzioni dice agli agenti di non pubblicare mai e di non eseguire mai `npm trust`. E nessun agente possiede una credenziale npm, perché non ne esiste nessuna: ogni pacchetto vieta la pubblicazione con token, e l’unica identità automatizzata che può preparare è il workflow di rilascio stesso.
 
-La verifica non finisce con il rilascio. La suite del percorso cliente del sito gira con la pianificazione <RepositoryFact name="journeySchedule" /> in UTC: acquista ogni piano nella sandbox di Polar sul deploy di preview, poi guida la CLI pubblicata, presa direttamente da npm, attraverso l’attivazione, i limiti di macchine, la disattivazione e il rimborso che chiude la licenza:
+La verifica non finisce con il rilascio. La suite del percorso cliente del sito gira con la pianificazione <RepositoryFact name="journeySchedule" /> in UTC: acquista ogni pacchetto nella sandbox di Polar sul deploy di preview, poi guida la CLI pubblicata, presa direttamente da npm, attraverso l’attivazione, i limiti di dispositivi, la disattivazione e il rimborso che chiude la licenza:
 
 ```ts title="e2e/journey/cli.ts"
 const child = spawn("env", ["-i", ...variables, PACKAGE_MANAGER.NPM.exec, "--yes", CLI_PACKAGE_SPEC, ...inputs, "--json"], { cwd: home })
@@ -596,7 +596,7 @@ export const verifiedContent = (archive: Buffer, answer: BundleAnswer, pinned: s
 
 <Callout title="Leggi le note di rilascio dietro questo articolo">
 
-Le [note di rilascio](/docs/cli/releases) della CLI elencano ogni release citata qui, compresa la 0.1.0-beta.3, in ogni lingua, e la [guida alla CLI](/docs/cli) mostra come eseguire quella attuale. Per vedere cosa include una licenza, [confronta i piani](/#pricing): un unico pagamento a partire da <TierPrice tier="core" />, con ogni scheda che indica cosa è disponibile ora e cosa è in arrivo.
+Le [note di rilascio](/docs/cli/releases) della CLI elencano ogni release citata qui, compresa la 0.1.0-beta.3, in ogni lingua, e la [guida alla CLI](/docs/cli) mostra come eseguire quella attuale. Per vedere cosa include una licenza, [confronta i pacchetti](/#pricing): un unico pagamento a partire da <TierPrice tier="core" />, e ogni scheda indica cosa è disponibile ora e cosa è in arrivo.
 
 </Callout>
 
